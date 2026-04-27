@@ -80,7 +80,7 @@ def test_reference_array_history_fails_before_runtime_and_copy_warns():
         {"kind": "VarDeclaration", "name": "b", "span": {"start_line": 4, "start_col": 1}, "initializer": call("array.copy", [arg(ident("a"))])},
     ])
     result = translate_ast(ok, module_name="array_copy")
-    assert "self.rt.array.copy(self.a.current)" in result.code
+    assert "self.a.current.copy()" in result.code
     assert any(d.code == "P2A_REFERENCE_COPY_POLICY" for d in result.diagnostics)
 
 

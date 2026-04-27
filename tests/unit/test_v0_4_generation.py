@@ -51,7 +51,7 @@ def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():
     assert "for i in pine_range(0, 2):" in result.code
     assert "max_loop_iterations" in result.code
     assert "break" in result.code and "continue" in result.code
-    assert result.metadata["generator_milestone"] == "v0.6.0"
+    assert result.metadata["generator_milestone"] == "v0.7.0"
     assert "generation_ratio" in result.coverage
     compile(result.code, "v0_4.py", "exec")
 

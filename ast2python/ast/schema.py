@@ -86,6 +86,8 @@ class ASTNode:
             "else_block": ("else_block", "else"),
             "initializer": ("initializer", "value", "init"),
             "value": ("value", "expression"),
+            "then": ("then", "if_true", "true_expr"),
+            "else": ("else", "if_false", "false_expr"),
             "params": ("params", "parameters"),
         }
         source_key = next((candidate for candidate in aliases.get(key, (key,)) if candidate in self.raw), key)

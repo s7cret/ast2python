@@ -24,8 +24,20 @@ class GeneratedIndicator(GeneratedIndicatorBase):
             raise RuntimeContractError(f"P2A_CONTRACT_VERSION_MISMATCH: requires runtime contract {REQUIRED_RUNTIME_CONTRACT}, got {getattr(self.rt, 'contract_version', None)}")
         self.ctx = None
         self._var_initialized = {}
+        self.alerts = []
+        self.alert_conditions = []
+        self.external_library_calls = []
         self._init_series()
         self._init_inputs()
+
+    def _record_alert(self, kind, *args, source_map=None, **kwargs):
+        payload = {'kind': kind, 'args': args, 'kwargs': kwargs, 'source_map': source_map}
+        (self.alert_conditions if kind == 'alertcondition' else self.alerts).append(payload)
+        return None
+
+    def _external_library_call(self, alias, member, *args, source_map=None, **kwargs):
+        self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})
+        return na
 
     def _init_series(self):
         pass

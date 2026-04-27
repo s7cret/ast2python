@@ -61,7 +61,7 @@ def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     assert input_meta["group"] == "Core"
     assert input_meta["inline"] == "L"
     assert input_meta["tooltip"] == "EMA length"
-    assert result.metadata["generator_milestone"] == "v0.6.0"
+    assert result.metadata["generator_milestone"] == "v0.7.0"
     assert any(item["pine_line"] == 4 for item in result.source_map)
     compile(result.code, "v0_2_foundation.py", "exec")
 
@@ -94,7 +94,7 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"
-    assert result.metadata["generator_milestone"] == "v0.6.0"
+    assert result.metadata["generator_milestone"] == "v0.7.0"
     compile(result.code, "v0_3_inputs_time.py", "exec")
 
 

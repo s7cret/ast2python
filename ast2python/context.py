@@ -53,6 +53,7 @@ class TranslationContext:
     strategy_metadata: dict[str, Any] = field(default_factory=dict)
     unsupported_declaration_args: list[str] = field(default_factory=list)
     type_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
+    import_aliases: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def current_scope(self) -> Scope:

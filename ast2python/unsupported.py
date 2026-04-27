@@ -16,7 +16,11 @@ SUPPORTED_NODE_KINDS = {
     "TypeRef",
     "Parameter",
     "Field",
+    "FieldDeclaration",
     "EnumValue",
+    "EnumMember",
+    "TupleTarget",
+    "ForInTarget",
     "VarDeclaration",
     "TupleDeclaration",
     "Reassignment",
@@ -53,15 +57,17 @@ SUPPORTED_NODE_KINDS = {
     "SubscriptExpr",
     "IndexExpr",
     "TupleExpr",
+    "GenericInstantiationExpr",
+    "ImportDeclaration",
+    "ForInStructure",
+    "ArrayLiteral",
+    "MapLiteral",
+    "AlertCondition",
 }
 
 UNSUPPORTED_DIAGNOSTIC_CATALOG: dict[str, str] = {
-    "ImportStatement": "Pine imports are recorded by Pine2AST but external library lowering is not implemented in v0.6.0.",
-    "ForInStructure": "for-in loops need collection iterator runtime support before deterministic lowering.",
-    "ArrayLiteral": "array literals are not lowered yet; use array.new/copy runtime calls where supported.",
-    "MapLiteral": "map literals are not lowered yet.",
-    "MatrixLiteral": "matrix literals are not lowered yet.",
-    "AlertCondition": "alertcondition integration is not emitted yet.",
+    "ImportStatement": "legacy Pine import node spelling; use ImportDeclaration for v0.7.0 alias recorder lowering.",
+    "MatrixLiteral": "matrix literals need shape-preserving lowering; matrix.new calls are supported.",
 }
 
 
