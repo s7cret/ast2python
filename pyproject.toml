@@ -7,9 +7,12 @@ name = "ast2python"
 version = "1.0.0"
 description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "OpenAI Codex" }]
-dependencies = []
+dependencies = [
+  "pinelib>=1.0.1",
+  "pine2ast>=0.3.9",
+]
 
 [project.scripts]
 ast2python = "ast2python.cli.main:main"
@@ -19,11 +22,11 @@ packages = ["ast2python", "ast2python.ast", "ast2python.cli", "ast2python.emitte
 
 [tool.black]
 line-length = 100
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 exclude = ["dist", "build"]
 
 [tool.ruff.lint]
@@ -34,7 +37,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 packages = ["ast2python"]
 warn_unused_ignores = true
 warn_redundant_casts = true
