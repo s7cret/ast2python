@@ -42,7 +42,7 @@ def program(items, kind="indicator"):
     return {"kind": "Program", "language": "pine", "version": 6, "declaration": decl(kind), "items": items}
 
 
-def test_generated_base_import_and_strategy_phase_contract_no_end_bar_or_fill():
+def test_generated_base_import_and_strategy_phase_contract_full_bar_lifecycle_no_fill():
     p = program([
         {"kind": "ExpressionStatement", "span": {"start_line": 3, "start_col": 1}, "expression": call("strategy.entry", [arg(lit("L", "string")), arg(member("strategy", "long"))])}
     ], kind="strategy")
@@ -50,7 +50,7 @@ def test_generated_base_import_and_strategy_phase_contract_no_end_bar_or_fill():
     assert "GeneratedStrategyBase" in result.code
     assert "class GeneratedStrategy(GeneratedStrategyBase):" in result.code
     assert "self.ctx.attach_runtime(self.rt)" in result.code
-    assert ".end_bar(" not in result.code
+    assert ".end_bar(" in result.code
     assert "fill" not in result.code.lower()
     compile(result.code, "phase.py", "exec")
 
@@ -61,7 +61,7 @@ def test_date_helpers_lower_to_runtime_timefunc():
         {"kind": "VarDeclaration", "name": "m", "span": {"start_line": 4, "start_col": 1}, "initializer": call("minute", [])},
     ])
     result = translate_ast(p, module_name="dates")
-    assert "self.rt.timefunc.year(self.rt.time, runtime=self.rt)" in result.code
+    assert "self.rt.timefunc.year(runtime=self.rt)" in result.code
     assert "self.rt.timefunc.minute(runtime=self.rt)" in result.code
     assert {"year", "minute"}.issubset(set(result.metadata["used_builtins"]))
 

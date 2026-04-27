@@ -286,6 +286,20 @@ class Translator:
         self.ctx.imports.require_from("pinelib.core", "PineRuntime")
         self.ctx.imports.require_from("pinelib.core", "na")
         self.ctx.imports.require_from("pinelib.core", "pine_bool")
+        for name in (
+            "pine_add",
+            "pine_sub",
+            "pine_mul",
+            "pine_div",
+            "pine_eq",
+            "pine_ne",
+            "pine_gt",
+            "pine_gte",
+            "pine_lt",
+            "pine_lte",
+        ):
+            self.ctx.imports.require_from("pinelib.core", name)
+        self.ctx.imports.require_from("pinelib.request", "security", alias="request_security")
         if self.ctx.mode == "strategy":
             self.ctx.imports.require_from("pinelib.strategy", "StrategyContext")
 
@@ -303,7 +317,7 @@ class Translator:
             if node.kind == "MemberAccessExpr":
                 chain = member_chain(node)
                 if chain is not None and chain.startswith("color."):
-                    self.ctx.imports.require_from("pinelib.colors", "color", alias="pine_color")
+                    self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
             if node.kind != "CallExpr":
                 continue
             callee = node.child("callee")
@@ -317,7 +331,7 @@ class Translator:
             elif chain.startswith("math."):
                 self.ctx.imports.require_from("pinelib.math", chain.split(".", 1)[1])
             elif chain.startswith("str."):
-                self.ctx.imports.require_from("pinelib.strings", "str")
+                self.ctx.imports.require_from("pinelib", "string", alias="pine_string")
             elif chain.startswith(("array.", "map.", "matrix.")):
                 self.ctx.imports.require_from("pinelib.reference", {"array": "PineArray", "map": "PineMap", "matrix": "PineMatrix"}[chain.split(".", 1)[0]])
 
@@ -349,6 +363,7 @@ class Translator:
         self.emitter.line("self.alerts = []")
         self.emitter.line("self.alert_conditions = []")
         self.emitter.line("self.external_library_calls = []")
+        self.emitter.line("self.visual_calls = []")
         self.emitter.line("self._init_series()")
         self.emitter.line("self._init_inputs()")
         self.emitter.dedent()
@@ -364,6 +379,32 @@ class Translator:
         self.emitter.indent()
         self.emitter.line("self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})")
         self.emitter.line("return na")
+        self.emitter.dedent()
+        self.emitter.line()
+        self.emitter.line("def _visual_call(self, name, *args, source_map=None, **kwargs):")
+        self.emitter.indent()
+        self.emitter.line("self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})")
+        self.emitter.line("if name.endswith('.new'):")
+        self.emitter.indent()
+        self.emitter.line("kind = name.split('.', 1)[0]")
+        self.emitter.line("positional = {'line': ('x1', 'y1', 'x2', 'y2'), 'label': ('x', 'y', 'text'), 'box': ('left', 'top', 'right', 'bottom'), 'table': ('position', 'columns', 'rows')}.get(kind, ())")
+        self.emitter.line("attrs = dict(kwargs)")
+        self.emitter.line("attrs.update({key: value for key, value in zip(positional, args)})")
+        self.emitter.line("return self.rt.visual.new(kind, **attrs)")
+        self.emitter.dedent()
+        self.emitter.line("if name.split('.', 1)[0] in {'line', 'label', 'box', 'table'} and args:")
+        self.emitter.indent()
+        self.emitter.line("kind, method = name.split('.', 1)")
+        self.emitter.line("if method == 'delete':")
+        self.emitter.indent()
+        self.emitter.line("return self.rt.visual.delete(args[0])")
+        self.emitter.dedent()
+        self.emitter.line("attrs = dict(kwargs)")
+        self.emitter.line("attrs['_method'] = method")
+        self.emitter.line("attrs['_args'] = args[1:]")
+        self.emitter.line("return self.rt.visual.set(args[0], **attrs)")
+        self.emitter.dedent()
+        self.emitter.line("return None")
         self.emitter.dedent()
         self.emitter.line()
         self.emitter.line("def _init_series(self):")
@@ -404,10 +445,20 @@ class Translator:
         self.emitter.line("for bar in bars:")
         self.emitter.indent()
         self.emitter.line("self.rt.begin_bar(bar)")
+        self.emitter.line("try:")
+        self.emitter.indent()
+        if self.ctx.mode == "library":
+            self.emitter.line("pass")
+        else:
+            self.emitter.line("self._process_bar(bar)")
+        self.emitter.dedent()
+        self.emitter.line("finally:")
+        self.emitter.indent()
+        self.emitter.line("self.rt.end_bar()")
+        self.emitter.dedent()
         if self.ctx.mode == "library":
             self.emitter.line("results.append(None)")
         else:
-            self.emitter.line("self._process_bar(bar)")
             self.emitter.line("results.append(self._snapshot())")
         self.emitter.dedent()
         self.emitter.line("return results")
@@ -686,8 +737,9 @@ class Translator:
                 self.emitter.line(f"self.{info.py_name}.set_current({rhs})", loc=node.loc, source=node.source)
             else:
                 operator = str(node.field("op")).replace("=", "")
+                lowered = self._lower_binary_operator(operator, f"self.{info.py_name}.current", rhs, node)
                 self.emitter.line(
-                    f"self.{info.py_name}.set_current(self.{info.py_name}.current {operator} ({rhs}))",
+                    f"self.{info.py_name}.set_current({lowered})",
                     loc=node.loc,
                     source=node.source,
                 )
@@ -696,7 +748,7 @@ class Translator:
             self.emitter.line(f"{info.py_name} = {rhs}", loc=node.loc, source=node.source)
         else:
             operator = str(node.field("op")).replace("=", "")
-            self.emitter.line(f"{info.py_name} = {info.py_name} {operator} ({rhs})", loc=node.loc, source=node.source)
+            self.emitter.line(f"{info.py_name} = {self._lower_binary_operator(operator, info.py_name, rhs, node)}", loc=node.loc, source=node.source)
 
     def _emit_if(self, node: ASTNode) -> None:
         condition = node.child("condition")
@@ -1041,6 +1093,27 @@ class Translator:
             rendered = f"({value} if {cond_text} else {rendered})"
         return rendered
 
+    def _lower_binary_operator(self, op: str, left: str, right: str, node: ASTNode) -> str:
+        pine_ops = {
+            "+": "pine_add",
+            "-": "pine_sub",
+            "*": "pine_mul",
+            "/": "pine_div",
+            "==": "pine_eq",
+            "!=": "pine_ne",
+            ">": "pine_gt",
+            ">=": "pine_gte",
+            "<": "pine_lt",
+            "<=": "pine_lte",
+        }
+        if op in pine_ops:
+            return f"{pine_ops[op]}({left}, {right})"
+        if op == "and":
+            return f"(pine_bool({left}) and pine_bool({right}))"
+        if op == "or":
+            return f"(pine_bool({left}) or pine_bool({right}))"
+        self._unsupported(node, f"Unsupported binary operator: {op}")
+
     def translate_expression(self, node: ASTNode, *, runtime_expr: str = "self.rt") -> str:
         self.ctx.coverage.generated()
         if node.kind == "Literal":
@@ -1056,16 +1129,23 @@ class Translator:
                 raise UnsupportedNodeError("BinaryExpr requires left and right operands")
             self._reject_visual_value(left_node)
             self._reject_visual_value(right_node)
-            left = self._translate_scalar_operand(left_node, runtime_expr=runtime_expr)
-            right = self._translate_scalar_operand(right_node, runtime_expr=runtime_expr)
-            op = node.field("op")
-            return f"({left} {op} {right})"
+            left = self.translate_expression(left_node, runtime_expr=runtime_expr)
+            right = self.translate_expression(right_node, runtime_expr=runtime_expr)
+            op = str(node.field("op"))
+            return self._lower_binary_operator(op, left, right, node)
         if node.kind == "UnaryExpr":
             operand_node = node.child("operand")
             if operand_node is None:
                 raise UnsupportedNodeError("UnaryExpr requires an operand")
             operand = self.translate_expression(operand_node, runtime_expr=runtime_expr)
-            return f"({node.field('op')}{operand})"
+            op = str(node.field("op"))
+            if op == "not":
+                return f"(not pine_bool({operand}))"
+            if op == "-":
+                return f"pine_mul(-1, {operand})"
+            if op == "+":
+                return operand
+            self._unsupported(node, f"Unsupported unary operator: {op}")
         if node.kind in {"HistoryRefExpr", "HistoryReference", "SubscriptExpr", "IndexExpr"}:
             return self._translate_history_reference(node, runtime_expr=runtime_expr)
         if node.kind == "ConditionalExpr":
@@ -1112,19 +1192,19 @@ class Translator:
     def _translate_identifier(self, node: ASTNode, *, runtime_expr: str) -> str:
         name = str(node.field("name"))
         if name in BUILTIN_SERIES:
-            return f"{runtime_expr}.{name}"
+            return f"{runtime_expr}.{name}.current"
         if name == "bar_index":
             return f"{runtime_expr}.bar_index"
         if name == "na":
             return "na"
         if name == "hl2":
-            return f"(({runtime_expr}.high + {runtime_expr}.low) / 2)"
+            return f"pine_div(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), 2)"
         if name == "hlc3":
-            return f"(({runtime_expr}.high + {runtime_expr}.low + {runtime_expr}.close) / 3)"
+            return f"pine_div(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), 3)"
         if name == "ohlc4":
-            return f"(({runtime_expr}.open + {runtime_expr}.high + {runtime_expr}.low + {runtime_expr}.close) / 4)"
+            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open.current, {runtime_expr}.high.current), {runtime_expr}.low.current), {runtime_expr}.close.current), 4)"
         if name == "hlcc4":
-            return f"(({runtime_expr}.high + {runtime_expr}.low + {runtime_expr}.close + {runtime_expr}.close) / 4)"
+            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"
         info = self.ctx.resolve_var(name)
         if info.is_series:
             return f"self.{info.py_name}.current"
@@ -1159,7 +1239,7 @@ class Translator:
         if chain.startswith(("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")):
             return repr(chain)
         if chain.startswith("color."):
-            self.ctx.imports.require_from("pinelib.colors", "color", alias="pine_color")
+            self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
             return f"pine_color.{chain.split('.', 1)[1]}"
         if chain.startswith("array."):
             return f"PineArray.{chain.split('.', 1)[1]}"
@@ -1350,11 +1430,10 @@ class Translator:
             [
                 f"runtime={runtime_expr}",
                 f'state_id="{state_id}"',
-                f'source_map="{node.loc.source_map if node.loc else ""}"',
             ]
         )
         self.ctx.coverage.builtin("request.security")
-        return f"{runtime_expr}.request.security({', '.join(call_args + kwargs)})"
+        return f"request_security({', '.join(call_args + kwargs)})"
 
     def _translate_unsupported_request_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
@@ -1407,8 +1486,13 @@ class Translator:
     def _translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         args = []
         for arg_name, arg in self._call_arguments(node):
+            # Pine calendar helpers accept an optional timestamp, but PineLib v1 derives
+            # calendar fields from the active runtime bar. Preserve supported named
+            # arguments such as timezone and avoid emitting incompatible positionals.
+            if arg_name is None:
+                continue
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-            args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
+            args.append(f"{arg_name}={rendered}")
         args.append(f"runtime={runtime_expr}")
         self.ctx.coverage.builtin(name)
         return f"{runtime_expr}.timefunc.{name}({', '.join(args)})"
@@ -1454,7 +1538,7 @@ class Translator:
         for arg_name, arg in arguments:
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
             args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
-        args.extend([f"runtime={runtime_expr}", f'source_map="{node.loc.source_map if node.loc else ""}"'])
+        args.extend([f"runtime={runtime_expr}"])
         self.ctx.coverage.builtin(name)
         return f"{runtime_expr}.timefunc.{func_name}({', '.join(args)})"
 
@@ -1493,7 +1577,7 @@ class Translator:
                 pieces.append(f"{arg_name}={rendered}")
         pieces.append(f'source_map="{node.loc.source_map if node.loc else ""}"')
         self.ctx.coverage.builtin(name)
-        return f"{runtime_expr}.visual.{name.replace('.', '_')}({', '.join(pieces)})"
+        return f"self._visual_call({name!r}{', ' if pieces else ''}{', '.join(pieces)})"
 
     def _translate_input_runtime_lookup(self, node: ASTNode) -> str:
         arguments = self._call_arguments(node)
@@ -1522,11 +1606,11 @@ class Translator:
         return f"{import_name}({', '.join(arguments)})"
 
     def _translate_str_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
-        self.ctx.imports.require_from("pinelib.strings", "str")
+        self.ctx.imports.require_from("pinelib", "string", alias="pine_string")
         function_name = name.split(".", 1)[1]
         arguments = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
         self.ctx.coverage.builtin(name)
-        return f"pine_str.{function_name}({', '.join(arguments)})"
+        return f"pine_string.{function_name}({', '.join(arguments)})"
 
     def _call_arguments(self, node: ASTNode) -> list[tuple[str | None, ASTNode]]:
         result: list[tuple[str | None, ASTNode]] = []

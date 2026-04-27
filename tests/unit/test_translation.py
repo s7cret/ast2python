@@ -34,7 +34,7 @@ def test_strategy_declaration_metadata_and_context_mapping():
 def test_request_security_callable_generation_and_state_ids():
     result = translate_ast(load_fixture("request_security.ast.json"), module_name="request_security")
     assert "from pinelib.ta import ema" in result.code
-    assert "lambda request_rt: ema(request_rt.close, 200, runtime=request_rt" in result.code
+    assert "lambda request_rt: ema(request_rt.close.current, 200, runtime=request_rt" in result.code
     assert 'state_id="L4_C47_ema_1"' in result.code
     assert 'state_id="L4_C7_security_1"' in result.code
     assert 'lookahead=\'barmerge.lookahead_on\'' in result.code
@@ -50,10 +50,10 @@ def test_nested_request_security_emits_diagnostic():
 
 def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     result = translate_ast(load_fixture("v0_2_foundation_indicator.ast.json"), module_name="v0_2_foundation")
-    assert "from pinelib.colors import color as pine_color" in result.code
+    assert "from pinelib import color as pine_color" in result.code
     assert "from pinelib.ta import bb" in result.code
     assert 'state_id="L4_C25_bb_1"' in result.code
-    assert "_basis, _upper, _lower = bb(self.rt.close, self.len_.current, 2, runtime=self.rt" in result.code
+    assert "_basis, _upper, _lower = bb(self.rt.close.current, self.len_.current, 2, runtime=self.rt" in result.code
     assert "self.prev.set_current(self.basis[1])" in result.code
     assert "pine_color.aqua" in result.code
     input_meta = result.metadata["inputs"][0]
@@ -68,10 +68,10 @@ def test_v0_2_tuple_history_input_metadata_and_color_member_access():
 
 def test_v0_2_strategy_loop_uses_pine_range_history_and_barstate():
     result = translate_ast(load_fixture("v0_2_strategy_loop.ast.json"), module_name="v0_2_strategy_loop")
-    assert "from pinelib.core import PineRuntime, na, pine_bool, pine_range" in result.code
+    assert "pine_range" in result.code
     assert "process_orders_on_close=True" in result.code
     assert "for i in pine_range(0, 2):" in result.code
-    assert "self.sum_.set_current(self.sum_.current + (self.rt.close[i]))" in result.code
+    assert "self.sum_.set_current(pine_add(self.sum_.current, self.rt.close[i]))" in result.code
     assert "if pine_bool(self.rt.barstate.isconfirmed):" in result.code
     assert "self.ctx.entry('L', \"long\"" in result.code
     compile(result.code, "v0_2_strategy_loop.py", "exec")
@@ -90,7 +90,7 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
     result = translate_ast(program, module_name="v0_3_inputs_time")
     assert "self.rt.timefunc.time(self.rt.timeframe.period, self.sess.current, runtime=self.rt" in result.code
     assert "self.rt.timefunc.time_close('60', session=self.sess.current, runtime=self.rt" in result.code
-    assert "self.src.set_current(self.params.get(\"src\", self.rt.close))" in result.code
+    assert "self.src.set_current(self.params.get(\"src\", self.rt.close.current))" in result.code
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"

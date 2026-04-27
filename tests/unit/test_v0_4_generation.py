@@ -44,7 +44,7 @@ def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():
     assert "@dataclass\nclass Pivot:" in result.code
     assert "class Direction(Enum):" in result.code
     assert "def add_one(self, x):" in result.code
-    assert "return (x + 1)" in result.code
+    assert "return pine_add(x, 1)" in result.code
     assert "def price_plus(self, this, n):" in result.code
     assert "(self.p[10]).price" in result.code
     assert "self.price_plus(self.p.current, 2.0)" in result.code
@@ -64,10 +64,10 @@ def test_v0_4_visual_recorder_storage_methods_and_misuse_diagnostic():
         {"kind": "ExpressionStatement", "expression": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "plotshape"}, "arguments": [arg({"kind": "BinaryExpr", "op": ">", "left": ident("close"), "right": ident("open")})]}},
     ])
     result = translate_ast(ok, module_name="visual_ok")
-    assert "self.rt.visual.line_new" in result.code
-    assert "self.ln.set_current(self.rt.visual.line_new" in result.code
-    assert "self.rt.visual.line_set_xy1(self.ln.current" in result.code
-    assert "self.rt.visual.plotshape" in result.code
+    assert "self._visual_call('line.new'" in result.code
+    assert "self.ln.set_current(self._visual_call('line.new'" in result.code
+    assert "self._visual_call('line.set_xy1', self.ln.current" in result.code
+    assert "self._visual_call('plotshape'" in result.code
     compile(result.code, "visual_ok.py", "exec")
 
     bad = program([

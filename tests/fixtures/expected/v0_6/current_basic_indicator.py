@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from ast2python.errors import RuntimeContractError
 from ast2python.runtime_contract.generated_base import GeneratedIndicatorBase
-from pinelib.core import PineRuntime, na, pine_bool
+from pinelib.core import PineRuntime, na, pine_add, pine_bool, pine_div, pine_eq, pine_gt, pine_gte, pine_lt, pine_lte, pine_mul, pine_ne, pine_sub
+from pinelib.request import security as request_security
 
 REQUIRED_RUNTIME_CONTRACT = "1.4"
 
@@ -27,6 +28,7 @@ class GeneratedIndicator(GeneratedIndicatorBase):
         self.alerts = []
         self.alert_conditions = []
         self.external_library_calls = []
+        self.visual_calls = []
         self._init_series()
         self._init_inputs()
 
@@ -38,6 +40,24 @@ class GeneratedIndicator(GeneratedIndicatorBase):
     def _external_library_call(self, alias, member, *args, source_map=None, **kwargs):
         self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})
         return na
+
+    def _visual_call(self, name, *args, source_map=None, **kwargs):
+        self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})
+        if name.endswith('.new'):
+            kind = name.split('.', 1)[0]
+            positional = {'line': ('x1', 'y1', 'x2', 'y2'), 'label': ('x', 'y', 'text'), 'box': ('left', 'top', 'right', 'bottom'), 'table': ('position', 'columns', 'rows')}.get(kind, ())
+            attrs = dict(kwargs)
+            attrs.update({key: value for key, value in zip(positional, args)})
+            return self.rt.visual.new(kind, **attrs)
+        if name.split('.', 1)[0] in {'line', 'label', 'box', 'table'} and args:
+            kind, method = name.split('.', 1)
+            if method == 'delete':
+                return self.rt.visual.delete(args[0])
+            attrs = dict(kwargs)
+            attrs['_method'] = method
+            attrs['_args'] = args[1:]
+            return self.rt.visual.set(args[0], **attrs)
+        return None
 
     def _init_series(self):
         pass
@@ -51,7 +71,10 @@ class GeneratedIndicator(GeneratedIndicatorBase):
         results = []
         for bar in bars:
             self.rt.begin_bar(bar)
-            self._process_bar(bar)
+            try:
+                self._process_bar(bar)
+            finally:
+                self.rt.end_bar()
             results.append(self._snapshot())
         return results
 
@@ -62,4 +85,4 @@ class GeneratedIndicator(GeneratedIndicatorBase):
 
     def _process_bar(self, bar):
         # pine:L3
-        self.rt.visual.plot(self.rt.close, source_map="L3")
+        self._visual_call('plot', self.rt.close.current, source_map="L3")
