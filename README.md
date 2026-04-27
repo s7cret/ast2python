@@ -1,19 +1,19 @@
-# AST2Python v0.2.0
+# AST2Python v0.3.0
 
 AST2Python translates Pine AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
 
-v0.2.0 is the expression/variables/codegen foundation milestone. It keeps the v0.1.0 runtime-contract checks and adds:
+v0.3.0 is the type/declaration/request hardening milestone. It keeps the v0.2.0 expression foundation and adds:
 
-- robust dict/JSON AST adapter fixtures for indicator and strategy snippets
-- variable declaration, reassignment, scoped loop variables, and tuple declaration generation
-- stable stateful TA/request `state_id` generation (`L{line}_C{col}_{func}_{ordinal}` with deterministic hash fallback)
-- generated `request.security(..., lambda request_rt: ...)` expression callbacks
-- history reference generation for built-in and generated series
-- member access coverage for `ta`, `math`, `request`, `strategy`, `syminfo`, `timeframe`, `barstate`, `array`, `str`, and `color`
-- inclusive Pine `for ... to ...` loops via `pine_range`
-- source comments/source-map artifacts for generated statements
-- enriched input metadata (`minval`, `maxval`, `step`, `options`, `group`, `inline`, `tooltip`, `display`, `active`, etc.)
-- compile snapshots/tests for indicator and strategy fixtures
+- `TypeInfo` metadata with Pine qualifier lattice `const < input < simple < series`
+- v6 bool validation for `na()`, `nz()`, and `fixnan()` before generated code can reach runtime
+- explicit `P2A_UNKNOWN_OVERLOAD` diagnostics/failures for unsupported call overloads
+- declaration metadata mapping for `strategy()`, `indicator()`, and `library()` P0/P1 fields with `P2A_UNSUPPORTED_DECLARATION_ARG`
+- broader strategy context mapping for contract v1.4 settings
+- `request.security()` callable generation hardening with request runtime context, capture-safe generated lambdas, stable state IDs, and nested-request diagnostics
+- `time()` / `time_close()` generation through `runtime.timefunc` with named session/timezone argument preservation
+- full input metadata emission, including source/session/timeframe defaults and UI fields
+- generated runtime contract mismatch check against `REQUIRED_RUNTIME_CONTRACT = "1.4"`
+- expanded source-map/coverage and compile tests for strategy declarations, inputs, time/session calls, bool validation, unknown overloads, nested requests, and request lambdas
 
 ## CLI
 
@@ -30,7 +30,7 @@ Generated modules emit:
 
 - `REQUIRED_RUNTIME_CONTRACT = "1.4"`
 - runtime contract version check with `P2A_CONTRACT_VERSION_MISMATCH`
-- explicit diagnostics/failures for unsupported nodes instead of silent placeholder translation
+- explicit diagnostics/failures for unsupported nodes/builtins instead of silent placeholder translation
 - no direct generated calls to `commit_current()`; runtime owns bar commit
 
 ## Release archive
@@ -38,5 +38,5 @@ Generated modules emit:
 Build the reproducible release archive with:
 
 ```bash
-./scripts/release_v0_2_0.sh
+./scripts/release_v0_3_0.sh
 ```

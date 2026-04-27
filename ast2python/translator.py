@@ -10,6 +10,8 @@ from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load
 from ast2python.context import TranslationContext, VariableInfo
 from ast2python.diagnostics import (
     CONTRACT_VERSION_MISMATCH,
+    BOOL_NA_OVERLOAD,
+    NESTED_REQUEST_SECURITY,
     UNKNOWN_OVERLOAD,
     UNSUPPORTED_DECLARATION_ARG,
     VISUAL_OBJECT_USED_AS_VALUE,
@@ -26,9 +28,28 @@ from ast2python.errors import (
     ValidationError,
 )
 from ast2python.state import state_id_for_call
+from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
 STATEFUL_TA_FUNCTIONS = {"ema", "rma", "atr", "rsi", "macd", "supertrend", "bb"}
+DECLARATION_CONTEXT_FIELDS = {
+    "indicator": {
+        "overlay",
+        "format",
+        "precision",
+        "scale",
+        "max_bars_back",
+        "timeframe",
+        "timeframe_gaps",
+        "explicit_plot_zorder",
+        "max_lines_count",
+        "max_labels_count",
+        "max_boxes_count",
+        "max_polylines_count",
+        "dynamic_requests",
+    },
+    "library": {"dynamic_requests"},
+}
 STRATEGY_CONTEXT_FIELDS = {
     "initial_capital",
     "currency",
@@ -42,7 +63,13 @@ STRATEGY_CONTEXT_FIELDS = {
     "calc_on_order_fills",
     "use_bar_magnifier",
     "max_bars_back",
+    "calc_on_every_tick",
+    "margin_long",
+    "margin_short",
+    "fill_orders_on_standard_ohlc",
+    "risk_free_rate",
 }
+DECLARATION_CONTEXT_FIELDS["strategy"] = STRATEGY_CONTEXT_FIELDS | {"overlay"}
 VISUAL_OBJECT_PRODUCERS = {"line.new", "label.new", "box.new", "table.new"}
 VISUAL_STATEMENT_CALLS = {"plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
@@ -123,6 +150,8 @@ class Translator:
         mode = declaration.field("script_type", default="indicator")
         self.ctx.mode = str(mode)
         title = self._extract_declaration_title(declaration)
+        if self.ctx.mode != "strategy":
+            self._collect_declaration_metadata(declaration)
         result_module_name = module_name or self.ctx.naming.reserve(title or "generated")
         self._emit_module(program, declaration, title=title, module_name=result_module_name)
         metadata = self._build_metadata(program, title=title, module_name=result_module_name)
@@ -194,6 +223,8 @@ class Translator:
             chain = None if callee is None else member_chain(callee)
             if chain is None:
                 continue
+            if chain in {"na", "nz", "fixnan"}:
+                self.ctx.imports.require_from("pinelib.core", "is_na" if chain == "na" else chain)
             if chain.startswith("ta."):
                 self.ctx.imports.require_from("pinelib.ta", chain.split(".", 1)[1])
             elif chain.startswith("math."):
@@ -329,6 +360,13 @@ class Translator:
                         loc=item.loc,
                     )
                     meta = self._build_input_metadata(item, initializer, info.py_name)
+                    info.type_info = make_type_info(
+                        meta["type"],
+                        "input",
+                        is_series=True,
+                        can_be_na=meta["type"] != "bool",
+                    )
+                    self.ctx.type_metadata[f"global:{info.pine_name}"] = info.type_info.to_dict()
                     self.input_series.append((info, meta["type"], meta))
                     self.ctx.input_metadata.append(meta["public"])
                 else:
@@ -721,6 +759,8 @@ class Translator:
             return self._translate_request_security(node, runtime_expr=runtime_expr)
         if callee_chain in {"time", "time_close"}:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
+        if callee_chain in {"na", "nz", "fixnan"}:
+            return self._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain.startswith("strategy.") and callee_chain not in {"strategy.long", "strategy.short"}:
             return self._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {
@@ -749,6 +789,29 @@ class Translator:
         )
         raise UnsupportedBuiltinError(callee_chain)
 
+    def _translate_na_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        arguments = self._call_arguments(node)
+        if not arguments:
+            raise UnsupportedBuiltinError(f"{name} requires at least one argument")
+        first_type = self._infer_type_info(arguments[0][1])
+        if first_type.base_type == "bool":
+            self.ctx.add_diagnostic(
+                BOOL_NA_OVERLOAD,
+                f"Pine v6 bool values cannot be passed to {name}()",
+                Severity.ERROR,
+                location=arguments[0][1].loc,
+                details={"builtin": name, "type": first_type.to_dict()},
+            )
+            raise TypeResolutionError(f"{name}() does not accept bool arguments in Pine v6")
+        import_name = "is_na" if name == "na" else name
+        self.ctx.imports.require_from("pinelib.core", import_name)
+        rendered: list[str] = []
+        for arg_name, arg in arguments:
+            value = self.translate_expression(arg, runtime_expr=runtime_expr)
+            rendered.append(value if arg_name is None else f"{arg_name}={value}")
+        self.ctx.coverage.builtin(name)
+        return f"{import_name}({', '.join(rendered)})"
+
     def _translate_request_security(self, node: ASTNode, *, runtime_expr: str) -> str:
         arguments = self._call_arguments(node)
         if len(arguments) < 3:
@@ -759,6 +822,12 @@ class Translator:
             self.ctx.add_diagnostic(
                 WARNING_NESTED_SECURITY,
                 "request.security inside request.security expression may not be supported by PineLib MVP",
+                severity,
+                location=expression.loc,
+            )
+            self.ctx.add_diagnostic(
+                NESTED_REQUEST_SECURITY,
+                "nested request.security expression is diagnosed before runtime",
                 severity,
                 location=expression.loc,
             )
@@ -788,7 +857,10 @@ class Translator:
     def _translate_time_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         arguments = self._call_arguments(node)
         func_name = "time" if name == "time" else "time_close"
-        args = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in arguments]
+        args = []
+        for arg_name, arg in arguments:
+            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+            args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
         args.extend([f"runtime={runtime_expr}", f'source_map="{node.loc.source_map if node.loc else ""}"'])
         self.ctx.coverage.builtin(name)
         return f"{runtime_expr}.timefunc.{func_name}({', '.join(args)})"
@@ -824,7 +896,10 @@ class Translator:
         arguments = self._call_arguments(node)
         if not arguments:
             raise UnsupportedBuiltinError("input.* requires a default value")
-        return repr(literal_value(arguments[0][1]))
+        default_node = arguments[0][1]
+        if default_node.kind == "Literal":
+            return repr(literal_value(default_node))
+        return self.translate_expression(default_node)
 
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         function_name = name.split(".", 1)[1]
@@ -868,6 +943,28 @@ class Translator:
             return str(literal_value(arguments[0][1]))
         return "Generated"
 
+    def _collect_declaration_metadata(self, declaration: ASTNode) -> None:
+        call = declaration.child("call")
+        if call is None:
+            return
+        allowed = DECLARATION_CONTEXT_FIELDS.get(self.ctx.mode, set())
+        metadata: dict[str, Any] = {}
+        for name, value_node in self._call_arguments(call):
+            rendered = self.translate_expression(value_node)
+            key = name or ("title" if not metadata else f"arg_{len(metadata)}")
+            metadata[key] = self._literal_or_rendered(value_node, rendered)
+            if name is not None and name not in allowed:
+                self.ctx.add_diagnostic(
+                    UNSUPPORTED_DECLARATION_ARG,
+                    f"declaration argument {name!r} is not mapped for {self.ctx.mode}",
+                    Severity.ERROR if self.strict else Severity.WARNING,
+                    location=value_node.loc,
+                )
+                self.ctx.unsupported_declaration_args.append(name)
+                if self.strict:
+                    raise UnsupportedBuiltinError(name)
+        self.ctx.strategy_metadata = metadata
+
     def _strategy_context_kwargs(self, declaration: ASTNode) -> list[tuple[str, str]]:
         call = declaration.child("call")
         if call is None:
@@ -880,7 +977,7 @@ class Translator:
             metadata[key] = self._literal_or_rendered(value_node, rendered)
             if name in STRATEGY_CONTEXT_FIELDS:
                 kwargs.append((name, rendered))
-            elif name is not None and name not in {"overlay"}:
+            elif name is not None and name not in DECLARATION_CONTEXT_FIELDS.get("strategy", set()):
                 self.ctx.add_diagnostic(
                     UNSUPPORTED_DECLARATION_ARG,
                     f"declaration argument {name!r} is not mapped to StrategyContext",
@@ -931,7 +1028,8 @@ class Translator:
         info_type = chain.split(".", 1)[1]
         args = self._call_arguments(initializer)
         default_node = args[0][1]
-        default_value = literal_value(default_node)
+        default_rendered = self.translate_expression(default_node)
+        default_value = literal_value(default_node) if default_node.kind == "Literal" else default_rendered
         metadata = {
             "pine_name": declaration.field("name"),
             "py_name": py_name,
@@ -971,26 +1069,74 @@ class Translator:
         public_meta = dict(metadata)
         return {
             "type": metadata["type"],
-            "default_python": repr(default_value),
+            "default_python": (
+                repr(default_value) if default_node.kind == "Literal" else default_rendered
+            ),
             "public": public_meta,
         }
 
     def _infer_dtype(self, node: ASTNode | None) -> str:
+        return self._infer_type_info(node).base_type
+
+    def _infer_type_info(self, node: ASTNode | None) -> TypeInfo:
         if node is None:
-            return "object"
+            return make_type_info("object", "simple")
         if node.kind == "Literal":
             literal_type = node.field("literal_type")
-            return "float" if literal_type == "float" else str(literal_type or "object")
+            base = "float" if literal_type == "float" else str(literal_type or "object")
+            return make_type_info(base, "const", can_be_na=base != "bool")
+        if node.kind == "Identifier":
+            name = str(node.field("name"))
+            if name in BUILTIN_SERIES:
+                return make_type_info({"time": "int", "time_close": "int"}.get(name, "float"), "series", is_series=True)
+            if name == "bar_index":
+                return make_type_info("int", "series", is_series=True, can_be_na=False)
+            if name == "na":
+                return make_type_info("object", "const")
+            try:
+                info = self.ctx.resolve_var(name)
+                if info.type_info is not None:
+                    return info.type_info
+                return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
+            except ScopeResolutionError:
+                return make_type_info("object", "simple")
         if self._is_input_call(node):
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
             if chain is None:
-                return "object"
+                return make_type_info("object", "input")
             info_type = chain.split(".", 1)[1]
-            return {"timeframe": "string", "session": "string"}.get(info_type, info_type)
+            base = {"timeframe": "string", "session": "string"}.get(info_type, info_type)
+            return make_type_info(base, "input", can_be_na=base != "bool")
         if node.kind == "BinaryExpr":
-            return "float"
-        return "object"
+            left = self._infer_type_info(node.child("left"))
+            right = self._infer_type_info(node.child("right"))
+            op = node.field("op")
+            if op in {"and", "or", "==", "!=", ">", ">=", "<", "<="}:
+                return make_type_info("bool", join_qualifiers(left.qualifier, right.qualifier), can_be_na=False)
+            base = "float" if "float" in {left.base_type, right.base_type} else left.base_type
+            return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
+        if node.kind == "UnaryExpr":
+            return self._infer_type_info(node.child("operand"))
+        if node.kind in {"HistoryRefExpr", "HistoryReference", "SubscriptExpr", "IndexExpr"}:
+            base_info = self._infer_type_info(node.child("base") or node.child("object") or node.child("target") or node.child("expression"))
+            return make_type_info(base_info.base_type, "series", is_series=True, can_be_na=base_info.base_type != "bool")
+        if node.kind == "CallExpr":
+            callee = node.child("callee")
+            chain = None if callee is None else member_chain(callee)
+            if chain in {"input.bool"}:
+                return make_type_info("bool", "input", can_be_na=False)
+            if chain in {"input.int"}:
+                return make_type_info("int", "input", can_be_na=False)
+            if chain in {"input.float", "ta.ema", "ta.rma", "ta.atr", "ta.rsi"}:
+                return make_type_info("float", "series", is_series=chain.startswith("ta."))
+            if chain in {"input.string", "input.timeframe", "input.session"}:
+                return make_type_info("string", "input", can_be_na=False)
+            if chain == "input.source":
+                return make_type_info("float", "input")
+            if chain in {"na"}:
+                return make_type_info("bool", "simple", can_be_na=False)
+        return make_type_info("object", "simple")
 
     def _type_ref_name(self, node: ASTNode) -> str | None:
         type_ref = node.child("type_ref")
@@ -1003,16 +1149,17 @@ class Translator:
         declaration = {
             "kind": self.ctx.mode,
             "title": title,
-            "arguments": self.ctx.strategy_metadata if self.ctx.mode == "strategy" else {},
+            "arguments": self.ctx.strategy_metadata,
         }
         return {
             "ast2python_version": __version__,
-            "generator_milestone": "v0.2.0",
+            "generator_milestone": "v0.3.0",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",
             "declaration": declaration,
             "inputs": self.ctx.input_metadata,
+            "types": self.ctx.type_metadata,
             "used_builtins": sorted(self.ctx.coverage.builtins),
             "unsupported_nodes": [],
             "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),

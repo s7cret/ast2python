@@ -61,7 +61,7 @@ def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     assert input_meta["group"] == "Core"
     assert input_meta["inline"] == "L"
     assert input_meta["tooltip"] == "EMA length"
-    assert result.metadata["generator_milestone"] == "v0.2.0"
+    assert result.metadata["generator_milestone"] == "v0.3.0"
     assert any(item["pine_line"] == 4 for item in result.source_map)
     compile(result.code, "v0_2_foundation.py", "exec")
 
@@ -75,3 +75,42 @@ def test_v0_2_strategy_loop_uses_pine_range_history_and_barstate():
     assert "if pine_bool(self.rt.barstate.isconfirmed):" in result.code
     assert "self.ctx.entry('L', \"long\"" in result.code
     compile(result.code, "v0_2_strategy_loop.py", "exec")
+
+def test_v0_3_input_metadata_time_calls_and_typeinfo():
+    program = {
+        "kind": "Program", "language": "pine", "version": 6,
+        "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "Inputs"}}, {"kind": "Argument", "name": "max_lines_count", "value": {"kind": "Literal", "literal_type": "int", "value": 10}}]}},
+        "items": [
+            {"kind": "VarDeclaration", "name": "sess", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "member": "session", "object": {"kind": "Identifier", "name": "input"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "0930-1600"}}, {"kind": "Argument", "name": "title", "value": {"kind": "Literal", "literal_type": "string", "value": "Session"}}, {"kind": "Argument", "name": "confirm", "value": {"kind": "Literal", "literal_type": "bool", "value": True}}]}},
+            {"kind": "VarDeclaration", "name": "src", "span": {"start_line": 4, "start_col": 1}, "initializer": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "member": "source", "object": {"kind": "Identifier", "name": "input"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}]}},
+            {"kind": "VarDeclaration", "name": "t", "span": {"start_line": 5, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 5, "start_col": 5}, "callee": {"kind": "Identifier", "name": "time"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "MemberAccessExpr", "member": "period", "object": {"kind": "Identifier", "name": "timeframe"}}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "sess"}}]}},
+            {"kind": "VarDeclaration", "name": "tc", "span": {"start_line": 6, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 6, "start_col": 6}, "callee": {"kind": "Identifier", "name": "time_close"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "60"}}, {"kind": "Argument", "name": "session", "value": {"kind": "Identifier", "name": "sess"}}]}}
+        ],
+    }
+    result = translate_ast(program, module_name="v0_3_inputs_time")
+    assert "self.rt.timefunc.time(self.rt.timeframe.period, self.sess.current, runtime=self.rt" in result.code
+    assert "self.rt.timefunc.time_close('60', session=self.sess.current, runtime=self.rt" in result.code
+    assert "self.src.set_current(self.params.get(\"src\", self.rt.close))" in result.code
+    assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
+    assert result.metadata["inputs"][0]["confirm"] is True
+    assert result.metadata["types"]["global:sess"]["qualifier"] == "series"
+    assert result.metadata["generator_milestone"] == "v0.3.0"
+    compile(result.code, "v0_3_inputs_time.py", "exec")
+
+
+def test_v0_3_bool_na_validation_and_unknown_overload():
+    bool_na = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "Bool"}}]}}, "items": [{"kind": "VarDeclaration", "name": "bad", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "na"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "bool", "value": True}}]}}]}
+    import pytest
+    from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError
+    with pytest.raises(TypeResolutionError):
+        translate_ast(bool_na, module_name="bool_na")
+    unknown = {"kind": "Program", "language": "pine", "version": 6, "declaration": bool_na["declaration"], "items": [{"kind": "ExpressionStatement", "expression": {"kind": "CallExpr", "span": {"start_line": 4, "start_col": 1}, "callee": {"kind": "Identifier", "name": "mystery"}, "arguments": []}}]}
+    with pytest.raises(UnsupportedBuiltinError):
+        translate_ast(unknown, module_name="unknown_call")
+
+
+def test_v0_3_nested_request_strict_fails():
+    import pytest
+    from ast2python.errors import UnsupportedBuiltinError
+    with pytest.raises(UnsupportedBuiltinError):
+        translate_ast(load_fixture("nested_request_security.ast.json"), strict=True, module_name="nested_strict")

@@ -9,6 +9,7 @@ from ast2python.errors import ScopeResolutionError, UnsupportedNodeError
 from ast2python.imports import ImportManager
 from ast2python.naming import NamingRegistry
 from ast2python.source_map import SourceMapBuilder
+from ast2python.types import TypeInfo, make_type_info
 
 
 @dataclass
@@ -22,6 +23,7 @@ class VariableInfo:
     is_mutable: bool
     scope_id: str
     first_decl_loc: SourceLocation | None = None
+    type_info: TypeInfo | None = None
 
 
 @dataclass
@@ -50,6 +52,7 @@ class TranslationContext:
     input_metadata: list[dict[str, Any]] = field(default_factory=list)
     strategy_metadata: dict[str, Any] = field(default_factory=dict)
     unsupported_declaration_args: list[str] = field(default_factory=list)
+    type_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def current_scope(self) -> Scope:
@@ -80,6 +83,13 @@ class TranslationContext:
         if existing is not None:
             return existing
         py_name = self.naming.reserve(name, prefer=prefer_py_name)
+        type_info = make_type_info(
+            type_ref,
+            qualifier,
+            is_series=is_series,
+            pine_type_source=type_ref,
+            can_be_na=type_ref != "bool",
+        )
         info = VariableInfo(
             pine_name=name,
             py_name=py_name,
@@ -90,7 +100,9 @@ class TranslationContext:
             is_mutable=is_mutable,
             scope_id=self.current_scope.id,
             first_decl_loc=loc,
+            type_info=type_info,
         )
+        self.type_metadata[f"{self.current_scope.id}:{name}"] = type_info.to_dict()
         self.current_scope.variables[name] = info
         self.variables[f"{self.current_scope.id}:{name}"] = info
         return info
