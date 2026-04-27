@@ -35,10 +35,12 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = [".", "../pinelib", "../pine2ast"]
 
 [tool.mypy]
 python_version = "3.11"
 packages = ["ast2python"]
+mypy_path = [".", "../pinelib", "../pine2ast"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_return_any = true

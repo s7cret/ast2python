@@ -74,7 +74,12 @@ STRATEGY_CONTEXT_FIELDS = {
     "process_orders_on_close",
     "calc_on_order_fills",
     "use_bar_magnifier",
+    "backtest_fill_limits_assumption",
+    "close_entries_rule",
     "max_bars_back",
+    "max_lines_count",
+    "max_labels_count",
+    "max_boxes_count",
     "calc_on_every_tick",
     "margin_long",
     "margin_short",
@@ -307,6 +312,9 @@ class Translator:
         self.ctx.imports.require_from("pinelib.request", "security", alias="request_security")
         if self.ctx.mode == "strategy":
             self.ctx.imports.require_from("pinelib.strategy", "StrategyContext")
+            self.ctx.imports.require_from("pinelib.backtest", "run_generated_strategy")
+        self.ctx.imports.require_from("pinelib.errors", "PineRuntimeError")
+        self.ctx.imports.require_from("pinelib.errors", "PL_INPUT_VALIDATION_ERROR")
 
     def _declare_dynamic_imports(self, program: ASTProgram) -> None:
         """Predeclare imports needed by generated statements before rendering the header."""
@@ -431,8 +439,58 @@ class Translator:
             self.emitter.line("pass")
         for info, dtype, meta in self.input_series:
             default = meta["default_python"]
+            schema = repr(meta["public"])
             self.emitter.line(f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")')
-            self.emitter.line(f'self.{info.py_name}.set_current(self.params.get("{info.pine_name}", {default}))')
+            self.emitter.line(
+                f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'
+            )
+        self.emitter.dedent()
+        self.emitter.line()
+        self.emitter.line("def _input_value(self, name, default, schema):")
+        self.emitter.indent()
+        self.emitter.line("value = self.params.get(name, default)")
+        self.emitter.line("kind = schema.get('type')")
+        self.emitter.line("def fail(message):")
+        self.emitter.indent()
+        self.emitter.line("diagnostics = getattr(getattr(self.rt, 'config', None), 'diagnostics', None)")
+        self.emitter.line("if isinstance(diagnostics, list):")
+        self.emitter.indent()
+        self.emitter.line("diagnostics.append({'code': PL_INPUT_VALIDATION_ERROR, 'message': message, 'input': name})")
+        self.emitter.dedent()
+        self.emitter.line("raise PineRuntimeError(message, code=PL_INPUT_VALIDATION_ERROR)")
+        self.emitter.dedent()
+        self.emitter.line("if kind == 'int' and (not isinstance(value, int) or isinstance(value, bool)):")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be int')")
+        self.emitter.dedent()
+        self.emitter.line("if kind == 'float' and (not isinstance(value, (int, float)) or isinstance(value, bool)):")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be float')")
+        self.emitter.dedent()
+        self.emitter.line("if kind == 'bool' and not isinstance(value, bool):")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be bool')")
+        self.emitter.dedent()
+        self.emitter.line("if kind in {'string', 'session', 'timeframe'} and not isinstance(value, str):")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be string')")
+        self.emitter.dedent()
+        self.emitter.line("options = schema.get('options')")
+        self.emitter.line("if options is not None and value not in options:")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be one of {options!r}')")
+        self.emitter.dedent()
+        self.emitter.line("minval = schema.get('minval')")
+        self.emitter.line("if minval is not None and value < minval:")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be >= {minval!r}')")
+        self.emitter.dedent()
+        self.emitter.line("maxval = schema.get('maxval')")
+        self.emitter.line("if maxval is not None and value > maxval:")
+        self.emitter.indent()
+        self.emitter.line("fail(f'Input {name} must be <= {maxval!r}')")
+        self.emitter.dedent()
+        self.emitter.line("return value")
         self.emitter.dedent()
 
     def _emit_strategy_context(self, declaration: ASTNode) -> None:
@@ -448,6 +506,23 @@ class Translator:
             self.emitter.line("self.ctx = StrategyContext()")
 
     def _emit_run(self) -> None:
+        if self.ctx.mode == "strategy":
+            self.emitter.line("def on_bar(self, runtime, strategy):")
+            self.emitter.indent()
+            self.emitter.line("bar = runtime.current_bar")
+            self.emitter.line("if bar is None:")
+            self.emitter.indent()
+            self.emitter.line('raise RuntimeContractError("strategy callback requires an active bar")')
+            self.emitter.dedent()
+            self.emitter.line("self._process_bar(bar)")
+            self.emitter.dedent()
+            self.emitter.line()
+            self.emitter.line("def run(self, bars):")
+            self.emitter.indent()
+            self.emitter.line("result = run_generated_strategy(self, self.rt, self.ctx, bars)")
+            self.emitter.line("return result.report.snapshots")
+            self.emitter.dedent()
+            return
         self.emitter.line("def run(self, bars):")
         self.emitter.indent()
         self.emitter.line("results = []")

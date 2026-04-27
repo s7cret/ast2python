@@ -7,6 +7,7 @@ from __future__ import annotations
 from ast2python.errors import RuntimeContractError
 from ast2python.runtime_contract.generated_base import GeneratedIndicatorBase
 from pinelib.core import PineRuntime, na, pine_add, pine_bool, pine_div, pine_eq, pine_gt, pine_gte, pine_lt, pine_lte, pine_mul, pine_ne, pine_sub
+from pinelib.errors import PL_INPUT_VALIDATION_ERROR, PineRuntimeError
 from pinelib.request import security as request_security
 
 REQUIRED_RUNTIME_CONTRACT = "1.4"
@@ -64,6 +65,33 @@ class GeneratedIndicator(GeneratedIndicatorBase):
 
     def _init_inputs(self):
         pass
+
+    def _input_value(self, name, default, schema):
+        value = self.params.get(name, default)
+        kind = schema.get('type')
+        def fail(message):
+            diagnostics = getattr(getattr(self.rt, 'config', None), 'diagnostics', None)
+            if isinstance(diagnostics, list):
+                diagnostics.append({'code': PL_INPUT_VALIDATION_ERROR, 'message': message, 'input': name})
+            raise PineRuntimeError(message, code=PL_INPUT_VALIDATION_ERROR)
+        if kind == 'int' and (not isinstance(value, int) or isinstance(value, bool)):
+            fail(f'Input {name} must be int')
+        if kind == 'float' and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            fail(f'Input {name} must be float')
+        if kind == 'bool' and not isinstance(value, bool):
+            fail(f'Input {name} must be bool')
+        if kind in {'string', 'session', 'timeframe'} and not isinstance(value, str):
+            fail(f'Input {name} must be string')
+        options = schema.get('options')
+        if options is not None and value not in options:
+            fail(f'Input {name} must be one of {options!r}')
+        minval = schema.get('minval')
+        if minval is not None and value < minval:
+            fail(f'Input {name} must be >= {minval!r}')
+        maxval = schema.get('maxval')
+        if maxval is not None and value > maxval:
+            fail(f'Input {name} must be <= {maxval!r}')
+        return value
 
     # no user functions
 

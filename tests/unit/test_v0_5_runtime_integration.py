@@ -50,8 +50,8 @@ def test_generated_base_import_and_strategy_phase_contract_full_bar_lifecycle_no
     assert "GeneratedStrategyBase" in result.code
     assert "class GeneratedStrategy(GeneratedStrategyBase):" in result.code
     assert "self.ctx.attach_runtime(self.rt)" in result.code
-    assert ".end_bar(" in result.code
-    assert "fill" not in result.code.lower()
+    assert "run_generated_strategy(self, self.rt, self.ctx, bars)" in result.code
+    assert "process_orders_for_bar" not in result.code
     compile(result.code, "phase.py", "exec")
 
 

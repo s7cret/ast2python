@@ -89,7 +89,7 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
     result = translate_ast(program, module_name="v0_3_inputs_time")
     assert "self.rt.timefunc.time(self.rt.timeframe.period, self.sess.current, runtime=self.rt" in result.code
     assert "self.rt.timefunc.time_close('60', session=self.sess.current, runtime=self.rt" in result.code
-    assert "self.src.set_current(self.params.get(\"src\", self.rt.close.current))" in result.code
+    assert "self.src.set_current(self._input_value(\"src\", self.rt.close.current" in result.code
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"
