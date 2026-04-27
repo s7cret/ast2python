@@ -27,6 +27,7 @@ from ast2python.errors import (
     UnsupportedNodeError,
     ValidationError,
 )
+from ast2python.naming import snake_case
 from ast2python.state import state_id_for_call
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
@@ -71,7 +72,12 @@ STRATEGY_CONTEXT_FIELDS = {
 }
 DECLARATION_CONTEXT_FIELDS["strategy"] = STRATEGY_CONTEXT_FIELDS | {"overlay"}
 VISUAL_OBJECT_PRODUCERS = {"line.new", "label.new", "box.new", "table.new"}
+VISUAL_OBJECT_METHOD_PREFIXES = ("line.", "label.", "box.", "table.")
 VISUAL_STATEMENT_CALLS = {"plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor"}
+FUNCTION_DECLARATIONS = {"FunctionDeclaration", "FunctionDecl", "FunctionDefinition"}
+METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
+UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
+ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
 
 
@@ -132,6 +138,8 @@ class Translator:
         self.global_series: list[tuple[VariableInfo, str]] = []
         self.input_series: list[tuple[VariableInfo, str, dict[str, Any]]] = []
         self.var_flags: list[VariableInfo] = []
+        self.functions: set[str] = set()
+        self.methods: set[str] = set()
 
     def translate_file(self, path: str | Path, *, module_name: str | None = None) -> TranslationResult:
         return self.translate_program(load_ast(path), module_name=module_name or Path(path).stem)
@@ -179,6 +187,7 @@ class Translator:
         self.emitter.line()
         self.emitter.line(f'REQUIRED_RUNTIME_CONTRACT = "{RUNTIME_CONTRACT_VERSION}"')
         self.emitter.line()
+        self._emit_type_declarations(program)
         class_name = {
             "strategy": "GeneratedStrategy",
             "indicator": "GeneratedIndicator",
@@ -191,6 +200,8 @@ class Translator:
         self.emitter.line('"""')
         self.emitter.line()
         self._emit_init(declaration)
+        self.emitter.line()
+        self._emit_function_declarations(program)
         self.emitter.line()
         self._emit_run()
         self.emitter.line()
@@ -211,8 +222,12 @@ class Translator:
     def _declare_dynamic_imports(self, program: ASTProgram) -> None:
         """Predeclare imports needed by generated statements before rendering the header."""
         for node in program.descendants():
-            if node.kind == "ForRangeStructure":
+            if node.kind in {"ForRangeStructure", "ForStructure"}:
                 self.ctx.imports.require_from("pinelib.core", "pine_range")
+            if node.kind in UDT_DECLARATIONS:
+                self.ctx.imports.require_from("dataclasses", "dataclass")
+            if node.kind in ENUM_DECLARATIONS:
+                self.ctx.imports.require_from("enum", "Enum")
             if node.kind == "MemberAccessExpr":
                 chain = member_chain(node)
                 if chain is not None and chain.startswith("color."):
@@ -326,11 +341,25 @@ class Translator:
         if not program.items:
             self.emitter.line("pass")
         for item in program.items:
+            if item.kind in FUNCTION_DECLARATIONS | METHOD_DECLARATIONS | UDT_DECLARATIONS | ENUM_DECLARATIONS:
+                continue
             self._emit_statement(item)
         self.emitter.dedent()
 
     def _collect_globals(self, program: ASTProgram) -> None:
         for item in program.items:
+            if item.kind in FUNCTION_DECLARATIONS:
+                name = item.field("name")
+                if name is not None:
+                    self.functions.add(str(name))
+                continue
+            if item.kind in METHOD_DECLARATIONS:
+                name = item.field("name")
+                if name is not None:
+                    self.methods.add(str(name))
+                continue
+            if item.kind in UDT_DECLARATIONS | ENUM_DECLARATIONS:
+                continue
             if item.kind == "TupleDeclaration":
                 initializer = item.child("initializer") or item.child("value")
                 for name in self._tuple_targets(item):
@@ -345,6 +374,12 @@ class Translator:
                         is_mutable=True,
                         loc=item.loc,
                     )
+                    if initializer is not None:
+                        info.type_info = self._infer_type_info(initializer)
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                    elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
+                        info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
                     self.global_series.append((info, self._infer_dtype(initializer)))
                 continue
             if item.kind == "VarDeclaration":
@@ -379,6 +414,12 @@ class Translator:
                         is_mutable=True,
                         loc=item.loc,
                     )
+                    if initializer is not None:
+                        info.type_info = self._infer_type_info(initializer)
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                    elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
+                        info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
                     self.global_series.append((info, self._infer_dtype(initializer)))
 
     def _emit_statement(self, node: ASTNode) -> None:
@@ -402,8 +443,20 @@ class Translator:
         if node.kind == "IfStructure":
             self._emit_if(node)
             return
-        if node.kind == "ForRangeStructure":
+        if node.kind in {"SwitchStructure", "SwitchStatement"}:
+            self._emit_switch(node)
+            return
+        if node.kind in {"ForRangeStructure", "ForStructure"}:
             self._emit_for_range(node)
+            return
+        if node.kind in {"WhileStructure", "WhileStatement"}:
+            self._emit_while(node)
+            return
+        if node.kind == "BreakStatement":
+            self.emitter.line("break", loc=node.loc, source=node.source)
+            return
+        if node.kind == "ContinueStatement":
+            self.emitter.line("continue", loc=node.loc, source=node.source)
             return
         if node.kind == "Block":
             for statement in node.children("statements"):
@@ -430,6 +483,12 @@ class Translator:
                 is_mutable=True,
                 loc=node.loc,
             )
+            if initializer is not None:
+                info.type_info = self._infer_type_info(initializer)
+                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+            elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
+                info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
+                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
             if is_global:
                 self.global_series.append((info, self._infer_dtype(initializer)))
             return info
@@ -537,6 +596,7 @@ class Translator:
         else_block = node.child("else_block")
         if condition is None or then_block is None:
             raise UnsupportedNodeError("IfStructure missing condition or then_block")
+        self._reject_visual_value(condition)
         self.emitter.line(f"if pine_bool({self.translate_expression(condition)}):", loc=node.loc, source=node.source)
         self.emitter.indent()
         self.ctx.enter_scope("block")
@@ -552,6 +612,7 @@ class Translator:
             branch_block = branch.child("block") or branch.child("then_block")
             if branch_condition is None or branch_block is None:
                 raise UnsupportedNodeError("Else-if branch missing condition or block")
+            self._reject_visual_value(branch_condition)
             self.emitter.line(f"elif pine_bool({self.translate_expression(branch_condition)}):")
             self.emitter.indent()
             self.ctx.enter_scope("block")
@@ -608,6 +669,201 @@ class Translator:
         self.emitter.dedent()
         self.ctx.exit_scope()
 
+    def _emit_while(self, node: ASTNode) -> None:
+        condition = node.child("condition")
+        body = node.child("body") or node.child("block")
+        if condition is None:
+            raise UnsupportedNodeError("WhileStructure requires condition")
+        guard = self.ctx.naming.reserve("while_guard", prefer="_guard")
+        self.emitter.line(f"{guard} = 0", loc=node.loc, source=node.source)
+        self._reject_visual_value(condition)
+        self.emitter.line(f"while pine_bool({self.translate_expression(condition)}):", loc=node.loc, source=node.source)
+        self.emitter.indent()
+        self.ctx.enter_scope("loop")
+        self.emitter.line(f"{guard} += 1")
+        self.emitter.line(f"if {guard} > getattr(getattr(self.rt, 'config', None), 'max_loop_iterations', 100000):")
+        self.emitter.indent()
+        self.emitter.line('raise RuntimeContractError("max_loop_iterations exceeded")')
+        self.emitter.dedent()
+        if body is None or not body.children("statements"):
+            self.emitter.line("pass")
+        else:
+            for statement in body.children("statements"):
+                self._emit_statement(statement)
+        self.ctx.exit_scope()
+        self.emitter.dedent()
+
+    def _switch_cases(self, node: ASTNode) -> list[ASTNode]:
+        return node.children("cases", "branches", "arms")
+
+    def _case_condition(self, case: ASTNode) -> ASTNode | None:
+        return case.child("condition") or case.child("match") or case.child("value") or case.child("test")
+
+    def _case_body(self, case: ASTNode) -> ASTNode | None:
+        return case.child("body") or case.child("block") or case.child("then")
+
+    def _emit_switch(self, node: ASTNode) -> None:
+        subject = node.child("expression") or node.child("subject") or node.child("target")
+        emitted = False
+        for case in self._switch_cases(node):
+            cond = self._case_condition(case)
+            body = self._case_body(case)
+            is_default = cond is None or bool(case.field("default", default=False))
+            if is_default:
+                self.emitter.line("else:" if emitted else "if True:", loc=case.loc or node.loc, source=case.source or node.source)
+            else:
+                if subject is not None:
+                    assert cond is not None
+                    rendered = f"{self.translate_expression(subject)} == {self.translate_expression(cond)}"
+                    prefix = "elif" if emitted else "if"
+                    self.emitter.line(f"{prefix} {rendered}:", loc=case.loc or node.loc, source=case.source or node.source)
+                else:
+                    assert cond is not None
+                    self._reject_visual_value(cond)
+                    prefix = "elif" if emitted else "if"
+                    self.emitter.line(f"{prefix} pine_bool({self.translate_expression(cond)}):", loc=case.loc or node.loc, source=case.source or node.source)
+            emitted = True
+            self.emitter.indent()
+            statements = [] if body is None else body.children("statements")
+            if statements:
+                self.ctx.enter_scope("block")
+                for statement in statements:
+                    self._emit_statement(statement)
+                self.ctx.exit_scope()
+            else:
+                expr = case.child("expression") or case.child("result")
+                if expr is not None:
+                    self.emitter.line(self.translate_expression(expr))
+                else:
+                    self.emitter.line("pass")
+            self.emitter.dedent()
+        if not emitted:
+            self.emitter.line("pass", loc=node.loc, source=node.source)
+
+    def _emit_type_declarations(self, program: ASTProgram) -> None:
+        emitted = False
+        for item in program.items:
+            if item.kind in UDT_DECLARATIONS:
+                self._emit_udt_declaration(item)
+                emitted = True
+            elif item.kind in ENUM_DECLARATIONS:
+                self._emit_enum_declaration(item)
+                emitted = True
+        if emitted:
+            self.emitter.line()
+
+    def _emit_udt_declaration(self, node: ASTNode) -> None:
+        name = str(node.field("name"))
+        self.emitter.line("@dataclass", loc=node.loc, source=node.source)
+        self.emitter.line(f"class {name}:")
+        self.emitter.indent()
+        fields = node.children("fields", "members")
+        if not fields:
+            self.emitter.line("pass")
+        for field_node in fields:
+            field_name = str(field_node.field("name"))
+            type_name = self._type_ref_name(field_node) or str(field_node.field("type") or "object")
+            default_node = field_node.child("default") or field_node.child("initializer")
+            default = self.translate_expression(default_node) if default_node is not None else self._default_for_type(type_name)
+            self.emitter.line(f"{snake_case(field_name)}: {self._python_type_name(type_name)} = {default}")
+        self.emitter.dedent()
+        self.emitter.line()
+
+    def _emit_enum_declaration(self, node: ASTNode) -> None:
+        name = str(node.field("name"))
+        self.emitter.line(f"class {name}(Enum):", loc=node.loc, source=node.source)
+        self.emitter.indent()
+        values = node.children("values", "members", "fields")
+        if not values:
+            self.emitter.line("pass")
+        for value in values:
+            raw = str(value.field("name") or value.field("value"))
+            self.emitter.line(f"{snake_case(raw).upper()} = {raw!r}")
+        self.emitter.dedent()
+        self.emitter.line()
+
+    def _emit_function_declarations(self, program: ASTProgram) -> None:
+        emitted = False
+        for item in program.items:
+            if item.kind in FUNCTION_DECLARATIONS | METHOD_DECLARATIONS:
+                self._emit_function_declaration(item)
+                self.emitter.line()
+                emitted = True
+        if not emitted:
+            self.emitter.line("# no user functions")
+
+    def _param_name(self, node: ASTNode) -> str:
+        return snake_case(str(node.field("name") or node.field("identifier") or "arg"))
+
+    def _emit_function_declaration(self, node: ASTNode) -> None:
+        name = snake_case(str(node.field("name")))
+        params = node.children("params", "parameters", "arguments")
+        py_params = [self._param_name(param) for param in params]
+        self.emitter.line(f"def {name}(self{', ' if py_params else ''}{', '.join(py_params)}):", loc=node.loc, source=node.source)
+        self.emitter.indent()
+        self.ctx.enter_scope("function")
+        for param, py_name in zip(params, py_params):
+            info = self.ctx.declare_var(str(param.field("name") or py_name), type_ref=self._type_ref_name(param), qualifier=None, declaration_kind="param", is_series=False, is_mutable=True, loc=param.loc, prefer_py_name=py_name)
+            info.py_name = py_name
+        body = node.child("body") or node.child("block")
+        statements = [] if body is None else body.children("statements")
+        if not statements:
+            expr = node.child("expression") or node.child("result")
+            self.emitter.line(f"return {self.translate_expression(expr)}" if expr is not None else "return None")
+        else:
+            for index, statement in enumerate(statements):
+                if index == len(statements) - 1 and statement.kind == "ExpressionStatement":
+                    expr = statement.child("expression")
+                    self.emitter.source_comment(statement.loc, statement.source)
+                    self.emitter.line(f"return {self.translate_expression(expr)}" if expr is not None else "return None", loc=statement.loc, source=statement.source)
+                else:
+                    self._emit_statement(statement)
+        self.ctx.exit_scope()
+        self.emitter.dedent()
+
+    def _python_type_name(self, pine_type: str | None) -> str:
+        return {"int": "int", "float": "float", "bool": "bool", "string": "str", "str": "str"}.get(str(pine_type), "object")
+
+    def _default_for_type(self, pine_type: str | None) -> str:
+        return {"int": "0", "float": "na", "bool": "False", "string": "''", "str": "''"}.get(str(pine_type), "na")
+
+    def _is_visual_method_call(self, name: str) -> bool:
+        if not name.startswith(VISUAL_OBJECT_METHOD_PREFIXES):
+            return False
+        suffix = name.split(".", 1)[1]
+        return suffix.startswith("set_") or suffix in {"delete", "copy"}
+
+    def _reject_visual_value(self, node: ASTNode | None) -> None:
+        if node is None:
+            return
+        info = self._infer_type_info(node)
+        if info.base_type == "PineObjectId":
+            self.ctx.add_diagnostic(VISUAL_OBJECT_USED_AS_VALUE, "visual object id used as arithmetic/bool value is not supported", Severity.ERROR, location=node.loc)
+            raise TypeResolutionError("Visual object id cannot be used as a value")
+
+    def _translate_switch_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
+        subject = node.child("expression") or node.child("subject") or node.child("target")
+        default = "na"
+        clauses: list[tuple[str, str]] = []
+        for case in self._switch_cases(node):
+            cond = self._case_condition(case)
+            expr = case.child("expression") or case.child("result")
+            body_expr = self._block_expression(self._case_body(case), runtime_expr=runtime_expr)
+            value = self.translate_expression(expr, runtime_expr=runtime_expr) if expr is not None else (body_expr or "na")
+            if cond is None or bool(case.field("default", default=False)):
+                default = value
+            elif subject is not None:
+                assert cond is not None
+                clauses.append((f"{self.translate_expression(subject, runtime_expr=runtime_expr)} == {self.translate_expression(cond, runtime_expr=runtime_expr)}", value))
+            else:
+                assert cond is not None
+                self._reject_visual_value(cond)
+                clauses.append((f"pine_bool({self.translate_expression(cond, runtime_expr=runtime_expr)})", value))
+        rendered = default
+        for cond_text, value in reversed(clauses):
+            rendered = f"({value} if {cond_text} else {rendered})"
+        return rendered
+
     def translate_expression(self, node: ASTNode, *, runtime_expr: str = "self.rt") -> str:
         self.ctx.coverage.generated()
         if node.kind == "Literal":
@@ -621,6 +877,8 @@ class Translator:
             right_node = node.child("right")
             if left_node is None or right_node is None:
                 raise UnsupportedNodeError("BinaryExpr requires left and right operands")
+            self._reject_visual_value(left_node)
+            self._reject_visual_value(right_node)
             left = self.translate_expression(left_node, runtime_expr=runtime_expr)
             right = self.translate_expression(right_node, runtime_expr=runtime_expr)
             op = node.field("op")
@@ -639,12 +897,15 @@ class Translator:
             false_node = node.child("else")
             if condition_node is None or true_node is None or false_node is None:
                 raise UnsupportedNodeError("ConditionalExpr requires condition/then/else")
+            self._reject_visual_value(condition_node)
             condition = self.translate_expression(condition_node, runtime_expr=runtime_expr)
             when_true = self.translate_expression(true_node, runtime_expr=runtime_expr)
             when_false = self.translate_expression(false_node, runtime_expr=runtime_expr)
             return f"({when_true} if pine_bool({condition}) else {when_false})"
         if node.kind == "IfStructure":
             return self._translate_if_expression(node, runtime_expr=runtime_expr)
+        if node.kind in {"SwitchStructure", "SwitchExpr", "SwitchExpression"}:
+            return self._translate_switch_expression(node, runtime_expr=runtime_expr)
         if node.kind == "CallExpr":
             return self._translate_call(node, runtime_expr=runtime_expr)
         raise UnsupportedNodeError(f"Unsupported expression node: {node.kind}")
@@ -672,7 +933,11 @@ class Translator:
 
     def _translate_member_access(self, node: ASTNode, *, runtime_expr: str) -> str:
         chain = member_chain(node)
+        obj = node.child("object")
+        member = node.field("member")
         if chain is None:
+            if obj is not None and isinstance(member, str):
+                return f"({self.translate_expression(obj, runtime_expr=runtime_expr)}).{member}"
             raise UnsupportedNodeError("Invalid MemberAccessExpr")
         if chain.startswith("syminfo."):
             return f"{runtime_expr}.syminfo.{chain.split('.', 1)[1]}"
@@ -699,14 +964,10 @@ class Translator:
             return f"{runtime_expr}.request.{chain.split('.', 1)[1]}"
         if chain.startswith("math.") or chain.startswith("ta.") or chain.startswith("str."):
             return chain
-        if chain.startswith(("line.", "label.", "box.", "table.")):
-            self.ctx.add_diagnostic(
-                VISUAL_OBJECT_USED_AS_VALUE,
-                "visual object id used as a value is not supported",
-                Severity.ERROR,
-                location=node.loc,
-            )
-            raise TypeResolutionError("Visual object member access cannot be used as a value")
+        if chain.startswith(VISUAL_OBJECT_METHOD_PREFIXES):
+            return chain
+        if obj is not None and isinstance(member, str):
+            return f"({self.translate_expression(obj, runtime_expr=runtime_expr)}).{member}"
         return chain
 
     def _translate_history_reference(self, node: ASTNode, *, runtime_expr: str) -> str:
@@ -779,8 +1040,27 @@ class Translator:
             return self._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain.startswith("str."):
             return self._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain in {"plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor"}:
+        if callee.kind == "MemberAccessExpr":
+            obj = callee.child("object")
+            member = callee.field("member")
+            if obj is not None and isinstance(member, str) and member in self.methods:
+                pieces = [self.translate_expression(obj, runtime_expr=runtime_expr)]
+                pieces.extend(self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node))
+                return f"self.{snake_case(member)}({', '.join(pieces)})"
+        if callee_chain in VISUAL_STATEMENT_CALLS or callee_chain in VISUAL_OBJECT_PRODUCERS or self._is_visual_method_call(callee_chain):
             return self._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
+        if callee_chain in self.functions:
+            pieces = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        if callee_chain in self.methods:
+            pieces = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        if callee_chain and callee_chain[:1].isupper():
+            pieces = []
+            for arg_name, arg in self._call_arguments(node):
+                rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+                pieces.append(rendered if arg_name is None else f"{arg_name}={rendered}")
+            return f"{callee_chain}({', '.join(pieces)})"
         self.ctx.add_diagnostic(
             UNKNOWN_OVERLOAD,
             f"unknown or unsupported call overload: {callee_chain}",
@@ -890,7 +1170,7 @@ class Translator:
                 pieces.append(f"{arg_name}={rendered}")
         pieces.append(f'source_map="{node.loc.source_map if node.loc else ""}"')
         self.ctx.coverage.builtin(name)
-        return f"{runtime_expr}.visual.{name}({', '.join(pieces)})"
+        return f"{runtime_expr}.visual.{name.replace('.', '_')}({', '.join(pieces)})"
 
     def _translate_input_runtime_lookup(self, node: ASTNode) -> str:
         arguments = self._call_arguments(node)
@@ -1097,6 +1377,8 @@ class Translator:
                 info = self.ctx.resolve_var(name)
                 if info.type_info is not None:
                     return info.type_info
+                if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
+                    return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
                 return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
             except ScopeResolutionError:
                 return make_type_info("object", "simple")
@@ -1136,6 +1418,8 @@ class Translator:
                 return make_type_info("float", "input")
             if chain in {"na"}:
                 return make_type_info("bool", "simple", can_be_na=False)
+            if chain in VISUAL_OBJECT_PRODUCERS:
+                return make_type_info("PineObjectId", "series")
         return make_type_info("object", "simple")
 
     def _type_ref_name(self, node: ASTNode) -> str | None:
@@ -1153,7 +1437,7 @@ class Translator:
         }
         return {
             "ast2python_version": __version__,
-            "generator_milestone": "v0.3.0",
+            "generator_milestone": "v0.4.0",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",

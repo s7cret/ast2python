@@ -11,6 +11,8 @@ class SourceMapEntry:
     python_line: int
     pine_line: int | None
     pine_column: int | None
+    pine_end_line: int | None
+    pine_end_column: int | None
     pine_source: str | None
 
     def to_dict(self) -> dict[str, Any]:
@@ -18,6 +20,8 @@ class SourceMapEntry:
             "python_line": self.python_line,
             "pine_line": self.pine_line,
             "pine_column": self.pine_column,
+            "pine_end_line": self.pine_end_line,
+            "pine_end_column": self.pine_end_column,
             "pine_source": self.pine_source,
         }
 
@@ -32,6 +36,8 @@ class SourceMapBuilder:
                 python_line=python_line,
                 pine_line=None if location is None else location.line,
                 pine_column=None if location is None else location.column,
+                pine_end_line=None if location is None else location.end_line,
+                pine_end_column=None if location is None else location.end_column,
                 pine_source=pine_source,
             )
         )

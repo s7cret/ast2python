@@ -10,5 +10,12 @@ def test_code_emitter_tracks_source_map():
     emitter.line("y = 2")
     assert emitter.render() == "x = 1\ny = 2\n"
     assert source_map.to_list() == [
-        {"python_line": 1, "pine_line": 10, "pine_column": 4, "pine_source": "x = 1"}
+        {
+            "python_line": 1,
+            "pine_line": 10,
+            "pine_column": 4,
+            "pine_end_line": None,
+            "pine_end_column": None,
+            "pine_source": "x = 1",
+        }
     ]

@@ -1,19 +1,18 @@
-# AST2Python v0.3.0
+# AST2Python v0.4.0
 
 AST2Python translates Pine AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
 
-v0.3.0 is the type/declaration/request hardening milestone. It keeps the v0.2.0 expression foundation and adds:
+v0.4.0 is the control-flow/functions/reference/visual foundation milestone. It keeps the v0.3.0 type/declaration/request hardening and adds:
 
-- `TypeInfo` metadata with Pine qualifier lattice `const < input < simple < series`
-- v6 bool validation for `na()`, `nz()`, and `fixnan()` before generated code can reach runtime
-- explicit `P2A_UNKNOWN_OVERLOAD` diagnostics/failures for unsupported call overloads
-- declaration metadata mapping for `strategy()`, `indicator()`, and `library()` P0/P1 fields with `P2A_UNSUPPORTED_DECLARATION_ARG`
-- broader strategy context mapping for contract v1.4 settings
-- `request.security()` callable generation hardening with request runtime context, capture-safe generated lambdas, stable state IDs, and nested-request diagnostics
-- `time()` / `time_close()` generation through `runtime.timefunc` with named session/timezone argument preservation
-- full input metadata emission, including source/session/timeframe defaults and UI fields
-- generated runtime contract mismatch check against `REQUIRED_RUNTIME_CONTRACT = "1.4"`
-- expanded source-map/coverage and compile tests for strategy declarations, inputs, time/session calls, bool validation, unknown overloads, nested requests, and request lambdas
+- statement and expression lowering for `if`/`switch`
+- `for`/`while`/`break`/`continue`, with `while` max-iteration guard generation
+- user function and method declarations with local scopes and Pine last-expression returns
+- UDT dataclass and enum generation, including stable UDT history-member form `(obj[10]).field`
+- visual recorder generation for `plot`, `plotshape`, object constructors (`label.new`, `line.new`, `box.new`, `table.new`) and visual `set_*`/`delete` methods
+- visual object id storage in series/`var` fields and compile-time `P2A_VISUAL_OBJECT_USED_AS_VALUE` failures for arithmetic/bool misuse
+- deterministic tuple discard names across scopes
+- enriched source-map end-span fields and coverage generation ratio metadata
+- v0.4 compile/snapshot tests for switch, loops, functions, methods, UDT history, enum, visual storage, and visual misuse diagnostics
 
 ## CLI
 
@@ -32,11 +31,12 @@ Generated modules emit:
 - runtime contract version check with `P2A_CONTRACT_VERSION_MISMATCH`
 - explicit diagnostics/failures for unsupported nodes/builtins instead of silent placeholder translation
 - no direct generated calls to `commit_current()`; runtime owns bar commit
+- generated visual calls routed through `runtime.visual` recorder methods
 
 ## Release archive
 
 Build the reproducible release archive with:
 
 ```bash
-./scripts/release_v0_3_0.sh
+./scripts/release_v0_4_0.sh
 ```
