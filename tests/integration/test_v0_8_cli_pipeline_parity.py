@@ -38,7 +38,7 @@ def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path
 def test_v0_8_runtime_contract_metadata_shape_is_pipeline_stable() -> None:
     result = translate_ast(load_ast(FIXTURES / "13_input_source_strategy_state.ast.json"), module_name="state_strategy")
     metadata = result.metadata
-    assert metadata["generator_milestone"] == "v0.9.0"
+    assert metadata["generator_milestone"] == "v1.0.0"
     assert metadata["target_runtime_contract"] == "1.4"
     assert metadata["class_name"] == "GeneratedStrategy"
     assert "strategy.entry" in metadata["used_builtins"]

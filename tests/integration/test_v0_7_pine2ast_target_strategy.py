@@ -34,7 +34,7 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(relative: str, expect
 
     assert result.coverage["source_map_executable_line_ratio"] >= 0.95
     assert expected <= set(result.coverage["builtins"])
-    assert result.metadata["generator_milestone"] == "v0.9.0"
+    assert result.metadata["generator_milestone"] == "v1.0.0"
 
 
 def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash() -> None:

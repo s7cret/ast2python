@@ -15,7 +15,7 @@ def test_current_pine2ast_program_fixture_matches_generated_snapshot():
     fixture = PINE2AST_FIXTURES / "current_basic_indicator.ast.json"
     result = translate_ast(json.loads(fixture.read_text(encoding="utf-8")), module_name="current_basic_indicator")
     assert result.code == (EXPECTED / "current_basic_indicator.py").read_text(encoding="utf-8")
-    assert result.metadata["generator_milestone"] == "v0.9.0"
+    assert result.metadata["generator_milestone"] == "v1.0.0"
     assert result.metadata["unsupported_nodes"] == []
     assert result.coverage["source_map_executable_line_ratio"] >= 0.95
 

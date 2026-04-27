@@ -20,7 +20,7 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
         "__version__",
         "translate_ast",
     ]
-    assert ast2python.__version__ == __version__ == "0.9.0"
+    assert ast2python.__version__ == __version__ == "1.0.0"
     assert ast2python.Translator is Translator
     assert ast2python.TranslationResult is TranslationResult
     assert ast2python.translate_ast is translate_ast
@@ -28,7 +28,7 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
 
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(load_ast(FIXTURE), module_name="audit_ma")
-    assert result.metadata["generator_milestone"] == "v0.9.0"
+    assert result.metadata["generator_milestone"] == "v1.0.0"
     assert result.metadata["source_map_file"] == "audit_ma.sourcemap.json"
     assert result.metadata["module_name"] == "audit_ma"
     assert result.metadata["class_name"] == "GeneratedIndicator"
@@ -50,8 +50,8 @@ def test_v0_9_translation_performance_smoke() -> None:
 
 
 def test_v0_9_release_manifest_has_current_archive_and_docs() -> None:
-    manifest = json.loads(Path("RELEASE_MANIFEST_v0.9.0.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.9.0"
-    assert manifest["archive"] == "dist/ast2python_v0_9_0.zip"
-    assert "docs/LIMITATIONS_v0.9.0.md" in manifest["include"]
-    assert "docs/SOURCE_MAP_AUDIT_v0.9.0.md" in manifest["include"]
+    manifest = json.loads(Path("RELEASE_MANIFEST_v1.0.0.json").read_text(encoding="utf-8"))
+    assert manifest["version"] == "1.0.0"
+    assert manifest["archive"] == "dist/ast2python_v1_0_0.zip"
+    assert "docs/LIMITATIONS_v1.0.0.md" in manifest["include"]
+    assert "docs/SOURCE_MAP_AUDIT_v1.0.0.md" in manifest["include"]

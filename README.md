@@ -1,15 +1,14 @@
-# AST2Python v0.9.0
+# AST2Python v1.0.0
 
 AST2Python translates Pine2AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
 
-v0.9.0 is the release-candidate hardening milestone. It keeps v0.8.0 pipeline parity and adds:
+v1.0.0 is the finalized runtime-contract `1.4` release. It keeps v0.9.0 release-candidate hardening and finalizes:
 
-- explicit public API stability checks for `Translator`, `TranslationResult`, `translate_ast`, `__version__` and contract version
-- semver and limitations documentation for final 1.0 readiness
-- source-map/report audit tests covering metadata shape and coverage thresholds
-- translation performance smoke for real Pine2AST fixtures
-- release manifest validation for current archive/docs inputs
-- mypy-clean type hints across package, tests and release builder
+- final audit documentation and release notes
+- explicit v1.0 limitations carried forward without hidden feature expansion
+- validated reproducible archive manifest for `dist/ast2python_v1_0_0.zip`
+- deterministic generated code, source-map and coverage artifact checks
+- successful compileall, pytest, mypy and release-script gates
 
 ## CLI
 
@@ -37,5 +36,5 @@ Generated modules emit:
 Build the reproducible release archive with:
 
 ```bash
-./scripts/release_v0_9_0.sh
+./scripts/release_v1_0_0.sh
 ```
