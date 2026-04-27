@@ -144,3 +144,10 @@ def test_iteration_c_security_lower_tf_lowers_to_runtime_array_call():
     assert "security_lower_tf as request_security_lower_tf" in result.code
     assert "request_security_lower_tf('TEST:AAA', '1', lambda request_rt: request_rt.close.current" in result.code
     compile(result.code, "security_lower_tf.py", "exec")
+
+
+def test_iteration_c_security_lower_tf_allows_input_scalar_and_pure_math_capture():
+    program = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "LTF"}}]}}, "items": [{"kind": "VarDeclaration", "name": "mult", "initializer": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "member": "float", "object": {"kind": "Identifier", "name": "input"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "float", "value": 2.0}}]}}, {"kind": "VarDeclaration", "name": "a", "initializer": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "member": "security_lower_tf", "object": {"kind": "Identifier", "name": "request"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "TEST:AAA"}}, {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "1"}}, {"kind": "Argument", "name": None, "value": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "member": "max", "object": {"kind": "Identifier", "name": "math"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "mult"}}]}}]}}]}
+    result = translate_ast(program, module_name="security_lower_tf_input_capture")
+    assert "lambda request_rt: pine_max(request_rt.close.current, self.mult.current)" in result.code
+    compile(result.code, "security_lower_tf_input_capture.py", "exec")

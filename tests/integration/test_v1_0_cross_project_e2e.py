@@ -193,6 +193,31 @@ def test_cross_project_request_security_lower_tf_array_path(tmp_path: Path) -> N
     assert inspect_payload["request_calls"][0]["name"] == "request.security_lower_tf"
 
 
+def test_cross_project_request_security_lower_tf_negative_cli_fixtures(tmp_path: Path) -> None:
+    fixtures = {
+        "nested_ltf": """
+            //@version=6
+            indicator("nested ltf")
+            a = request.security_lower_tf("AAPL", "15S", request.security("AAPL", "1", close))
+        """,
+        "unsafe_ltf_capture": """
+            //@version=6
+            indicator("unsafe ltf")
+            basis = close
+            a = request.security_lower_tf("AAPL", "15S", basis)
+        """,
+    }
+    for name, source in fixtures.items():
+        pine = tmp_path / f"{name}.pine"
+        ast_json = tmp_path / f"{name}.ast.json"
+        pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
+        parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
+        assert parse.returncode == 0, parse.stderr + parse.stdout
+        translate = _run([sys.executable, "-m", "ast2python.cli.main", "translate", str(ast_json), "-o", str(tmp_path / f"out_{name}"), "--module-name", name])
+        assert translate.returncode != 0
+        assert "request.security_lower_tf" in translate.stderr or "P2A_REQUEST_SECURITY_CAPTURE_UNSAFE" in translate.stderr or "P2A_NESTED_REQUEST_SECURITY" in translate.stderr
+
+
 def test_cross_project_strategy_order_path(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,

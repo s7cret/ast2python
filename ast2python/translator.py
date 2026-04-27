@@ -90,6 +90,8 @@ METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
 UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
 ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
+LOWER_TF_PURE_CALL_PREFIXES = ("math.",)
+LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {"int", "float", "bool", "string", "color", "timeframe", "session", "time"}
 DATE_HELPERS = {"year", "month", "weekofyear", "dayofmonth", "dayofweek", "hour", "minute", "second"}
 REFERENCE_TYPES = {"array", "map", "matrix", "PineArray", "PineMap", "PineMatrix"}
 INPUT_CALLS = {
@@ -1823,6 +1825,8 @@ class Translator:
 
     def _diagnose_request_security_lower_tf_safety(self, expression: ASTNode) -> None:
         captured: list[str] = []
+        unsafe_calls: list[str] = []
+        nodes = [expression, *expression.descendants()]
         if self._contains_any_request_call(expression):
             self.ctx.add_diagnostic(
                 NESTED_REQUEST_SECURITY,
@@ -1831,7 +1835,24 @@ class Translator:
                 location=expression.loc,
             )
             raise UnsupportedBuiltinError("nested request.security_lower_tf expression")
-        for descendant in expression.descendants():
+        for descendant in nodes:
+            if descendant.kind != "CallExpr":
+                continue
+            callee = descendant.child("callee")
+            chain = member_chain(callee) if callee is not None else None
+            if chain is not None and chain.startswith(LOWER_TF_PURE_CALL_PREFIXES):
+                continue
+            unsafe_calls.append(chain or "<dynamic-call>")
+        if unsafe_calls:
+            self.ctx.add_diagnostic(
+                REQUEST_SECURITY_CAPTURE_UNSAFE,
+                "request.security_lower_tf expression calls unsupported functions; only reviewed pure math.* calls are allowed in first-slice lowering",
+                Severity.ERROR,
+                location=expression.loc,
+                details={"calls": sorted(set(unsafe_calls))},
+            )
+            raise UnsupportedBuiltinError("unsafe request.security_lower_tf call")
+        for descendant in nodes:
             if descendant.kind != "Identifier":
                 continue
             name = str(descendant.field("name"))
@@ -1841,17 +1862,27 @@ class Translator:
                 info = self.ctx.resolve_var(name)
             except ScopeResolutionError:
                 continue
-            if info.is_series or info.is_mutable or (info.type_info is not None and info.type_info.is_reference_type):
+            if not self._is_lower_tf_safe_immutable_scalar_capture(info):
                 captured.append(name)
         if captured:
             self.ctx.add_diagnostic(
                 REQUEST_SECURITY_CAPTURE_UNSAFE,
-                "request.security_lower_tf expression captures series, mutable, or reference state; first-slice lowering only supports builtin series and immutable scalar captures",
+                "request.security_lower_tf expression captures unsafe state; first-slice lowering only supports builtin series plus immutable scalar input captures and reviewed pure math expressions",
                 Severity.ERROR,
                 location=expression.loc,
                 details={"captured": sorted(set(captured))},
             )
             raise UnsupportedBuiltinError("unsafe request.security_lower_tf capture")
+
+    def _is_lower_tf_safe_immutable_scalar_capture(self, info: VariableInfo) -> bool:
+        type_info = info.type_info
+        if info.is_mutable or (type_info is not None and type_info.is_reference_type):
+            return False
+        if info.qualifier != "input" and (type_info is None or type_info.qualifier != "input"):
+            return not info.is_series
+        if type_info is None:
+            return False
+        return type_info.base_type in LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES
 
     def _diagnose_request_security_captures(self, expression: ASTNode) -> None:
         captured: list[str] = []
