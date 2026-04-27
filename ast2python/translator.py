@@ -43,7 +43,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "supertrend", "bb"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -1320,6 +1320,7 @@ class Translator:
         if callee_chain == "request.security":
             return self._translate_request_security(node, runtime_expr=runtime_expr)
         if callee_chain == "request.security_lower_tf":
+            self._bind_or_raise(callee_chain, node)
             return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr, force_error=True)
         if callee_chain.startswith("request."):
             return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
@@ -1399,7 +1400,8 @@ class Translator:
         return f"{import_name}({', '.join(rendered)})"
 
     def _translate_request_security(self, node: ASTNode, *, runtime_expr: str) -> str:
-        arguments = self._call_arguments(node)
+        self._bind_or_raise("request.security", node)
+        arguments = self._ordered_call_arguments("request.security", node)
         if len(arguments) < 3:
             raise UnsupportedBuiltinError("request.security requires at least 3 arguments")
         expression = arguments[2][1]
@@ -1505,6 +1507,7 @@ class Translator:
 
     def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
+        self._bind_or_raise(name, node)
         namespace, method = name.split(".", 1)
         class_name = {"array": "PineArray", "map": "PineMap", "matrix": "PineMatrix"}[namespace]
         self.ctx.imports.require_from("pinelib.reference", class_name)
@@ -1517,7 +1520,7 @@ class Translator:
                 details={"namespace": namespace, "method": method},
             )
         args = []
-        for arg_name, arg in self._call_arguments(node):
+        for arg_name, arg in self._ordered_call_arguments(name, node):
             rendered = self.translate_expression(arg)
             args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
         self.ctx.coverage.builtin(name)
@@ -1559,8 +1562,9 @@ class Translator:
             )
             if self.strict:
                 raise UnsupportedBuiltinError(name)
+        self._bind_or_raise(name, node)
         method = name.split(".", 1)[1]
-        arguments = self._call_arguments(node)
+        arguments = self._ordered_call_arguments(name, node)
         pieces = []
         for arg_name, arg in arguments:
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
@@ -1573,7 +1577,8 @@ class Translator:
         return f"self.ctx.{method}({', '.join(pieces)})"
 
     def _translate_visual_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
-        arguments = self._call_arguments(node)
+        self._bind_or_raise(name, node)
+        arguments = self._ordered_call_arguments(name, node)
         pieces = []
         for arg_name, arg in arguments:
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
@@ -1619,13 +1624,45 @@ class Translator:
                 "arg_types": [info.to_dict() | {"name": arg_name} for arg_name, info in arg_types],
             },
         )
+        if name in BUILTIN_SIGNATURES and not BUILTIN_SIGNATURES[name].codegen_supported:
+            raise UnsupportedBuiltinError(name)
         raise TypeResolutionError(f"{name} semantic binding failed")
+
+    def _ordered_call_arguments(self, name: str, node: ASTNode) -> list[tuple[str | None, ASTNode]]:
+        spec = BUILTIN_SIGNATURES[name]
+        raw = self._call_arguments(node)
+        if spec.vararg is not None:
+            return raw
+        ordered: list[tuple[str | None, ASTNode] | None] = [None] * len(spec.parameters)
+        extras: list[tuple[str | None, ASTNode]] = []
+        name_to_index = {param.name: index for index, param in enumerate(spec.parameters)}
+        seen_named = False
+        for index, (arg_name, arg) in enumerate(raw):
+            if arg_name is None and not seen_named:
+                if index < len(ordered):
+                    ordered[index] = (None, arg)
+                continue
+            if arg_name is None:
+                extras.append((None, arg))
+                continue
+            seen_named = True
+            if arg_name in name_to_index:
+                ordered[name_to_index[arg_name]] = (arg_name, arg)
+            else:
+                extras.append((arg_name, arg))
+        return [item for item in ordered if item is not None] + extras
 
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
         function_name = name.split(".", 1)[1]
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
-        arguments = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+        parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
+        arguments = [
+            self.translate_expression(arg, runtime_expr=runtime_expr)
+            if arg_name is None or arg_name in parameter_names
+            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            for arg_name, arg in self._ordered_call_arguments(name, node)
+        ]
         if function_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, function_name)
             arguments.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
@@ -1633,16 +1670,30 @@ class Translator:
         return f"{import_name}({', '.join(arguments)})"
 
     def _translate_math_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        self._bind_or_raise(name, node)
         function_name = name.split(".", 1)[1]
         import_name = self.ctx.imports.require_from("pinelib.math", function_name)
-        arguments = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+        parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
+        arguments = [
+            self.translate_expression(arg, runtime_expr=runtime_expr)
+            if arg_name is None or arg_name in parameter_names
+            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            for arg_name, arg in self._ordered_call_arguments(name, node)
+        ]
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(arguments)})"
 
     def _translate_str_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        self._bind_or_raise(name, node)
         self.ctx.imports.require_from("pinelib", "string", alias="pine_string")
         function_name = name.split(".", 1)[1]
-        arguments = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+        parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
+        arguments = [
+            self.translate_expression(arg, runtime_expr=runtime_expr)
+            if arg_name is None or arg_name in parameter_names
+            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            for arg_name, arg in self._ordered_call_arguments(name, node)
+        ]
         self.ctx.coverage.builtin(name)
         return f"pine_string.{function_name}({', '.join(arguments)})"
 
@@ -1848,6 +1899,16 @@ class Translator:
                 return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
             except ScopeResolutionError:
                 return make_type_info("object", "simple")
+        if node.kind == "MemberAccessExpr":
+            chain = member_chain(node)
+            if chain in {"strategy.long", "strategy.short", "strategy.oca.cancel", "strategy.oca.reduce"}:
+                return make_type_info("string", "const", can_be_na=False)
+            if chain is not None and chain.startswith("syminfo."):
+                return make_type_info("string", "simple", can_be_na=False)
+            if chain is not None and chain.startswith(("barmerge.", "display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")):
+                return make_type_info("string", "const", can_be_na=False)
+            if chain is not None and chain.startswith("color."):
+                return make_type_info("color", "const", can_be_na=False)
         if self._is_input_call(node):
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
@@ -1886,8 +1947,14 @@ class Translator:
                 return make_type_info("bool", "input", can_be_na=False)
             if chain in {"input.int"}:
                 return make_type_info("int", "input", can_be_na=False)
-            if chain in {"input.float", "ta.ema", "ta.rma", "ta.atr", "ta.rsi"}:
+            if chain in {"input.float", "ta.ema", "ta.rma", "ta.atr", "ta.rsi", "ta.sma", "ta.highest", "ta.lowest", "ta.change", "ta.stdev", "ta.variance", "ta.dev", "ta.wma", "ta.vwma", "ta.swma", "ta.alma", "ta.bbw", "ta.stoch", "ta.valuewhen", "ta.linreg", "ta.percentrank", "ta.percentile_nearest_rank", "ta.percentile_linear_interpolation", "ta.mom", "ta.roc", "ta.correlation", "ta.vwap"}:
                 return make_type_info("float", "series", is_series=chain.startswith("ta."))
+            if chain in {"ta.crossover", "ta.crossunder", "ta.cross", "ta.rising", "ta.falling"}:
+                return make_type_info("bool", "series", is_series=True, can_be_na=False)
+            if chain == "ta.barssince":
+                return make_type_info("int", "series", is_series=True)
+            if chain in {"ta.bb", "ta.macd"}:
+                return make_type_info("tuple", "series", is_series=True)
             if chain in {"input.string", "input.timeframe", "input.session"}:
                 return make_type_info("string", "input", can_be_na=False)
             if chain == "input.time":

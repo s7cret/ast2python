@@ -111,6 +111,38 @@ def test_cross_project_minimal_indicator_history_operator_na_and_plot(tmp_path: 
     assert inspect_payload["plots"][0]["name"] == "plot"
 
 
+def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path) -> None:
+    pine = tmp_path / "bad_overload.pine"
+    ast_json = tmp_path / "bad_overload.ast.json"
+    out = tmp_path / "generated_bad"
+    pine.write_text(
+        textwrap.dedent(
+            """
+            //@version=6
+            indicator("bad")
+            plot(close, definitely_not_a_plot_arg=1)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
+    assert parse.returncode == 0, parse.stderr + parse.stdout
+    translate = _run([
+        sys.executable,
+        "-m",
+        "ast2python.cli.main",
+        "translate",
+        str(ast_json),
+        "-o",
+        str(out),
+        "--module-name",
+        "bad_overload",
+    ])
+    assert translate.returncode != 0
+    assert "semantic binding failed" in translate.stderr
+
+
 def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,
