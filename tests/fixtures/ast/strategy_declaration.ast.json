@@ -1,0 +1,85 @@
+{
+  "kind": "Program",
+  "schema_version": "1.0",
+  "language": "pine",
+  "language_version": 6,
+  "version": 6,
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "span": { "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 140 },
+    "script_type": "strategy",
+    "call": {
+      "kind": "CallExpr",
+      "span": { "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 140 },
+      "callee": { "kind": "Identifier", "name": "strategy", "span": { "start_line": 2, "start_col": 1 } },
+      "arguments": [
+        {
+          "kind": "Argument",
+          "name": null,
+          "value": { "kind": "Literal", "literal_type": "string", "value": "Enterprise Strategy", "span": { "start_line": 2, "start_col": 10 } }
+        },
+        {
+          "kind": "Argument",
+          "name": "initial_capital",
+          "value": { "kind": "Literal", "literal_type": "int", "value": 100000, "span": { "start_line": 2, "start_col": 45 } }
+        },
+        {
+          "kind": "Argument",
+          "name": "commission_type",
+          "value": {
+            "kind": "MemberAccessExpr",
+            "member": "percent",
+            "span": { "start_line": 2, "start_col": 73 },
+            "object": {
+              "kind": "MemberAccessExpr",
+              "member": "commission",
+              "object": { "kind": "Identifier", "name": "strategy", "span": { "start_line": 2, "start_col": 73 } }
+            }
+          }
+        },
+        {
+          "kind": "Argument",
+          "name": "commission_value",
+          "value": { "kind": "Literal", "literal_type": "float", "value": 0.055, "span": { "start_line": 2, "start_col": 110 } }
+        },
+        {
+          "kind": "Argument",
+          "name": "pyramiding",
+          "value": { "kind": "Literal", "literal_type": "int", "value": 2, "span": { "start_line": 2, "start_col": 132 } }
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "kind": "ExpressionStatement",
+      "source": "strategy.entry(\"L\", strategy.long)",
+      "span": { "start_line": 3, "start_col": 1, "end_line": 3, "end_col": 34 },
+      "expression": {
+        "kind": "CallExpr",
+        "span": { "start_line": 3, "start_col": 1, "end_line": 3, "end_col": 34 },
+        "callee": {
+          "kind": "MemberAccessExpr",
+          "member": "entry",
+          "object": { "kind": "Identifier", "name": "strategy", "span": { "start_line": 3, "start_col": 1 } }
+        },
+        "arguments": [
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": { "kind": "Literal", "literal_type": "string", "value": "L", "span": { "start_line": 3, "start_col": 16 } }
+          },
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": {
+              "kind": "MemberAccessExpr",
+              "member": "long",
+              "object": { "kind": "Identifier", "name": "strategy", "span": { "start_line": 3, "start_col": 21 } }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

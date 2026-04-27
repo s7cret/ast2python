@@ -1,0 +1,57 @@
+{
+  "kind": "Program",
+  "schema_version": "1.0",
+  "language": "pine",
+  "language_version": 6,
+  "version": 6,
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "span": { "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 29 },
+    "script_type": "indicator",
+    "call": {
+      "kind": "CallExpr",
+      "span": { "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 29 },
+      "callee": { "kind": "Identifier", "name": "indicator", "span": { "start_line": 2, "start_col": 1 } },
+      "arguments": [
+        {
+          "kind": "Argument",
+          "name": null,
+          "value": { "kind": "Literal", "literal_type": "string", "value": "Minimal Indicator", "span": { "start_line": 2, "start_col": 11 } }
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "kind": "VarDeclaration",
+      "source": "basis = close + open",
+      "span": { "start_line": 3, "start_col": 1, "end_line": 3, "end_col": 21 },
+      "name": "basis",
+      "mode": null,
+      "initializer": {
+        "kind": "BinaryExpr",
+        "span": { "start_line": 3, "start_col": 9, "end_line": 3, "end_col": 21 },
+        "op": "+",
+        "left": { "kind": "Identifier", "name": "close", "span": { "start_line": 3, "start_col": 9 } },
+        "right": { "kind": "Identifier", "name": "open", "span": { "start_line": 3, "start_col": 17 } }
+      }
+    },
+    {
+      "kind": "ExpressionStatement",
+      "source": "plot(basis)",
+      "span": { "start_line": 4, "start_col": 1, "end_line": 4, "end_col": 12 },
+      "expression": {
+        "kind": "CallExpr",
+        "span": { "start_line": 4, "start_col": 1, "end_line": 4, "end_col": 12 },
+        "callee": { "kind": "Identifier", "name": "plot", "span": { "start_line": 4, "start_col": 1 } },
+        "arguments": [
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": { "kind": "Identifier", "name": "basis", "span": { "start_line": 4, "start_col": 6 } }
+          }
+        ]
+      }
+    }
+  ]
+}

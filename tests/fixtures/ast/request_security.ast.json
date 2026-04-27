@@ -1,0 +1,117 @@
+{
+  "kind": "Program",
+  "schema_version": "1.0",
+  "language": "pine",
+  "language_version": 6,
+  "version": 6,
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "span": { "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 24 },
+    "script_type": "indicator",
+    "call": {
+      "kind": "CallExpr",
+      "callee": { "kind": "Identifier", "name": "indicator", "span": { "start_line": 2, "start_col": 1 } },
+      "arguments": [
+        {
+          "kind": "Argument",
+          "name": null,
+          "value": { "kind": "Literal", "literal_type": "string", "value": "MTF EMA", "span": { "start_line": 2, "start_col": 11 } }
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "kind": "VarDeclaration",
+      "source": "htf = input.timeframe(\"D\", title=\"HTF\")",
+      "span": { "start_line": 3, "start_col": 1, "end_line": 3, "end_col": 40 },
+      "name": "htf",
+      "initializer": {
+        "kind": "CallExpr",
+        "span": { "start_line": 3, "start_col": 7, "end_line": 3, "end_col": 40 },
+        "callee": {
+          "kind": "MemberAccessExpr",
+          "member": "timeframe",
+          "object": { "kind": "Identifier", "name": "input", "span": { "start_line": 3, "start_col": 7 } }
+        },
+        "arguments": [
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": { "kind": "Literal", "literal_type": "string", "value": "D", "span": { "start_line": 3, "start_col": 23 } }
+          },
+          {
+            "kind": "Argument",
+            "name": "title",
+            "value": { "kind": "Literal", "literal_type": "string", "value": "HTF", "span": { "start_line": 3, "start_col": 35 } }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "VarDeclaration",
+      "source": "mtf = request.security(syminfo.tickerid, htf, ta.ema(close, 200), lookahead=barmerge.lookahead_on)",
+      "span": { "start_line": 4, "start_col": 1, "end_line": 4, "end_col": 100 },
+      "name": "mtf",
+      "initializer": {
+        "kind": "CallExpr",
+        "span": { "start_line": 4, "start_col": 7, "end_line": 4, "end_col": 100 },
+        "callee": {
+          "kind": "MemberAccessExpr",
+          "member": "security",
+          "object": { "kind": "Identifier", "name": "request", "span": { "start_line": 4, "start_col": 7 } }
+        },
+        "arguments": [
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": {
+              "kind": "MemberAccessExpr",
+              "member": "tickerid",
+              "object": { "kind": "Identifier", "name": "syminfo", "span": { "start_line": 4, "start_col": 24 } }
+            }
+          },
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": { "kind": "Identifier", "name": "htf", "span": { "start_line": 4, "start_col": 42 } }
+          },
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": {
+              "kind": "CallExpr",
+              "span": { "start_line": 4, "start_col": 47, "end_line": 4, "end_col": 65 },
+              "callee": {
+                "kind": "MemberAccessExpr",
+                "member": "ema",
+                "object": { "kind": "Identifier", "name": "ta", "span": { "start_line": 4, "start_col": 47 } }
+              },
+              "arguments": [
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": { "kind": "Identifier", "name": "close", "span": { "start_line": 4, "start_col": 54 } }
+                },
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": { "kind": "Literal", "literal_type": "int", "value": 200, "span": { "start_line": 4, "start_col": 61 } }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "Argument",
+            "name": "lookahead",
+            "value": {
+              "kind": "MemberAccessExpr",
+              "member": "lookahead_on",
+              "object": { "kind": "Identifier", "name": "barmerge", "span": { "start_line": 4, "start_col": 77 } }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

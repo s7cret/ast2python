@@ -1,0 +1,87 @@
+{
+  "kind": "Program",
+  "schema_version": "1.0",
+  "language": "pine",
+  "language_version": 6,
+  "version": 6,
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "script_type": "indicator",
+    "call": {
+      "kind": "CallExpr",
+      "callee": { "kind": "Identifier", "name": "indicator" },
+      "arguments": [
+        {
+          "kind": "Argument",
+          "name": null,
+          "value": { "kind": "Literal", "literal_type": "string", "value": "Nested Security" }
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "kind": "VarDeclaration",
+      "name": "x",
+      "initializer": {
+        "kind": "CallExpr",
+        "span": { "start_line": 3, "start_col": 5 },
+        "callee": {
+          "kind": "MemberAccessExpr",
+          "member": "security",
+          "object": { "kind": "Identifier", "name": "request" }
+        },
+        "arguments": [
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": {
+              "kind": "MemberAccessExpr",
+              "member": "tickerid",
+              "object": { "kind": "Identifier", "name": "syminfo" }
+            }
+          },
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": { "kind": "Literal", "literal_type": "string", "value": "D" }
+          },
+          {
+            "kind": "Argument",
+            "name": null,
+            "value": {
+              "kind": "CallExpr",
+              "span": { "start_line": 3, "start_col": 36 },
+              "callee": {
+                "kind": "MemberAccessExpr",
+                "member": "security",
+                "object": { "kind": "Identifier", "name": "request" }
+              },
+              "arguments": [
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": {
+                    "kind": "MemberAccessExpr",
+                    "member": "tickerid",
+                    "object": { "kind": "Identifier", "name": "syminfo" }
+                  }
+                },
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": { "kind": "Literal", "literal_type": "string", "value": "60" }
+                },
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": { "kind": "Identifier", "name": "close" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

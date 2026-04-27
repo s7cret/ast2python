@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ast2python"
+version = "0.1.0"
+description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "OpenAI Codex" }]
+dependencies = []
+
+[project.scripts]
+ast2python = "ast2python.cli.main:main"
+
+[tool.setuptools]
+packages = ["ast2python", "ast2python.ast", "ast2python.cli"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["dist", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["ast2python"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+strict_optional = true
+exclude = ["dist", "build"]
