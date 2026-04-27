@@ -460,6 +460,18 @@ class Translator:
             self.emitter.line("pass")
         else:
             self.emitter.line("self._process_bar(bar)")
+            if self.ctx.mode == "strategy":
+                self.emitter.line("self.ctx.process_orders_for_bar(runtime=self.rt, bar=bar)")
+                if self.ctx.strategy_metadata.get("calc_on_order_fills") is True:
+                    self.emitter.line("_recalc_count = 0")
+                    self.emitter.line("while self.ctx.calc_on_order_fills and self.ctx.has_fill_recalc_pending():")
+                    self.emitter.indent()
+                    self.emitter.line("_recalc_count += 1")
+                    self.emitter.line("self.rt.guard_recalc_count(_recalc_count)")
+                    self.emitter.line("self.ctx.update_position_equity_trades_after_fill()")
+                    self.emitter.line("self._process_bar(bar)")
+                    self.emitter.line("self.ctx.process_orders_for_bar(runtime=self.rt, bar=bar, recalc_phase=True)")
+                    self.emitter.dedent()
         self.emitter.dedent()
         self.emitter.line("finally:")
         self.emitter.indent()
