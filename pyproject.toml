@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ast2python"
-version = "0.4.0"
+version = "0.5.0"
 description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,7 +15,7 @@ dependencies = []
 ast2python = "ast2python.cli.main:main"
 
 [tool.setuptools]
-packages = ["ast2python", "ast2python.ast", "ast2python.cli"]
+packages = ["ast2python", "ast2python.ast", "ast2python.cli", "ast2python.emitters", "ast2python.runtime_contract", "ast2python.templates"]
 
 [tool.black]
 line-length = 100

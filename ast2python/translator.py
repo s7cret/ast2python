@@ -12,6 +12,9 @@ from ast2python.diagnostics import (
     CONTRACT_VERSION_MISMATCH,
     BOOL_NA_OVERLOAD,
     NESTED_REQUEST_SECURITY,
+    REFERENCE_COPY_POLICY,
+    REFERENCE_HISTORY_UNSUPPORTED,
+    REQUEST_SECURITY_CAPTURE_UNSAFE,
     UNKNOWN_OVERLOAD,
     UNSUPPORTED_DECLARATION_ARG,
     VISUAL_OBJECT_USED_AS_VALUE,
@@ -29,6 +32,7 @@ from ast2python.errors import (
 )
 from ast2python.naming import snake_case
 from ast2python.state import state_id_for_call
+from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
@@ -79,6 +83,8 @@ METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
 UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
 ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
+DATE_HELPERS = {"year", "month", "weekofyear", "dayofmonth", "dayofweek", "hour", "minute", "second"}
+REFERENCE_TYPES = {"array", "map", "matrix", "PineArray", "PineMap", "PineMatrix"}
 
 
 def member_chain(node: ASTNode) -> str | None:
@@ -163,14 +169,58 @@ class Translator:
         result_module_name = module_name or self.ctx.naming.reserve(title or "generated")
         self._emit_module(program, declaration, title=title, module_name=result_module_name)
         metadata = self._build_metadata(program, title=title, module_name=result_module_name)
+        coverage = self.ctx.coverage.to_dict()
+        coverage.update(self._source_map_line_coverage(program))
         return TranslationResult(
             code=self.emitter.render(),
             metadata=metadata,
             source_map=self.ctx.source_map.to_list(),
-            coverage=self.ctx.coverage.to_dict(),
+            coverage=coverage,
             diagnostics=self.ctx.diagnostics,
             module_name=result_module_name,
         )
+
+    def _source_map_line_coverage(self, program: ASTProgram) -> dict[str, Any]:
+        executable_kinds = {
+            "VarDeclaration",
+            "TupleDeclaration",
+            "Reassignment",
+            "ExpressionStatement",
+            "IfStructure",
+            "SwitchStructure",
+            "SwitchStatement",
+            "ForRangeStructure",
+            "ForStructure",
+            "WhileStructure",
+            "WhileStatement",
+            "BreakStatement",
+            "ContinueStatement",
+            "FunctionDeclaration",
+            "FunctionDecl",
+            "FunctionDefinition",
+            "MethodDeclaration",
+            "MethodDecl",
+            "TypeDeclaration",
+            "UserTypeDeclaration",
+            "UDTDeclaration",
+            "EnumDeclaration",
+            "EnumDecl",
+        }
+        executable_lines: set[int] = set()
+        for node in program.descendants():
+            if node.kind not in executable_kinds or node.loc is None or node.loc.line is None:
+                continue
+            if node.kind == "VarDeclaration" and self._is_input_call(node.child("initializer") or ASTNode({})):
+                continue
+            executable_lines.add(node.loc.line)
+        mapped_lines = {entry.pine_line for entry in self.ctx.source_map.entries if entry.pine_line is not None}
+        covered = executable_lines & mapped_lines
+        ratio = 1.0 if not executable_lines else len(covered) / len(executable_lines)
+        return {
+            "executable_pine_lines": len(executable_lines),
+            "source_mapped_executable_lines": len(covered),
+            "source_map_executable_line_ratio": ratio,
+        }
 
     def _emit_module(self, program: ASTProgram, declaration: ASTNode, *, title: str, module_name: str) -> None:
         self._collect_globals(program)
@@ -188,12 +238,9 @@ class Translator:
         self.emitter.line(f'REQUIRED_RUNTIME_CONTRACT = "{RUNTIME_CONTRACT_VERSION}"')
         self.emitter.line()
         self._emit_type_declarations(program)
-        class_name = {
-            "strategy": "GeneratedStrategy",
-            "indicator": "GeneratedIndicator",
-            "library": "GeneratedLibrary",
-        }.get(self.ctx.mode, "GeneratedScript")
-        self.emitter.line(f"class {class_name}:")
+        class_name = class_name_for_mode(self.ctx.mode)
+        base_class = base_class_for_mode(self.ctx.mode)
+        self.emitter.line(f"class {class_name}({base_class}):")
         self.emitter.indent()
         self.emitter.line('"""')
         self.emitter.line(f"Generated from Pine declaration: {title}")
@@ -213,6 +260,7 @@ class Translator:
 
     def _declare_base_imports(self) -> None:
         self.ctx.imports.require_from("ast2python.errors", "RuntimeContractError")
+        self.ctx.imports.require_from("ast2python.runtime_contract.generated_base", base_class_for_mode(self.ctx.mode))
         self.ctx.imports.require_from("pinelib.core", "PineRuntime")
         self.ctx.imports.require_from("pinelib.core", "na")
         self.ctx.imports.require_from("pinelib.core", "pine_bool")
@@ -268,6 +316,7 @@ class Translator:
         self.emitter.dedent()
         if self.ctx.mode == "strategy":
             self._emit_strategy_context(declaration)
+            self.emitter.line("self.ctx.attach_runtime(self.rt)")
         else:
             self.emitter.line("self.ctx = None")
         self.emitter.line("self._var_initialized = {}")
@@ -317,7 +366,6 @@ class Translator:
             self.emitter.line("results.append(None)")
         else:
             self.emitter.line("self._process_bar(bar)")
-            self.emitter.line("self.rt.end_bar()")
             self.emitter.line("results.append(self._snapshot())")
         self.emitter.dedent()
         self.emitter.line("return results")
@@ -879,8 +927,8 @@ class Translator:
                 raise UnsupportedNodeError("BinaryExpr requires left and right operands")
             self._reject_visual_value(left_node)
             self._reject_visual_value(right_node)
-            left = self.translate_expression(left_node, runtime_expr=runtime_expr)
-            right = self.translate_expression(right_node, runtime_expr=runtime_expr)
+            left = self._translate_scalar_operand(left_node, runtime_expr=runtime_expr)
+            right = self._translate_scalar_operand(right_node, runtime_expr=runtime_expr)
             op = node.field("op")
             return f"({left} {op} {right})"
         if node.kind == "UnaryExpr":
@@ -909,6 +957,11 @@ class Translator:
         if node.kind == "CallExpr":
             return self._translate_call(node, runtime_expr=runtime_expr)
         raise UnsupportedNodeError(f"Unsupported expression node: {node.kind}")
+
+    def _translate_scalar_operand(self, node: ASTNode, *, runtime_expr: str) -> str:
+        if node.kind == "Identifier" and str(node.field("name")) in BUILTIN_SERIES:
+            return f"{runtime_expr}.{node.field('name')}.current"
+        return self.translate_expression(node, runtime_expr=runtime_expr)
 
     def _translate_identifier(self, node: ASTNode, *, runtime_expr: str) -> str:
         name = str(node.field("name"))
@@ -983,6 +1036,15 @@ class Translator:
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}[{offset}]"
             info = self.ctx.resolve_var(name)
+            if info.type_info is not None and info.type_info.base_type in {"array", "map", "matrix"}:
+                self.ctx.add_diagnostic(
+                    REFERENCE_HISTORY_UNSUPPORTED,
+                    "reference type history is unsupported by AST2Python v0.5.0 generation policy",
+                    Severity.ERROR,
+                    location=node.loc,
+                    details={"name": name, "type": info.type_info.to_dict()},
+                )
+                raise TypeResolutionError("reference type history is unsupported")
             if info.is_series:
                 return f"self.{info.py_name}[{offset}]"
         rendered = self.translate_expression(base, runtime_expr=runtime_expr)
@@ -1018,6 +1080,8 @@ class Translator:
             raise UnsupportedBuiltinError("Unsupported call target")
         if callee_chain == "request.security":
             return self._translate_request_security(node, runtime_expr=runtime_expr)
+        if callee_chain in DATE_HELPERS:
+            return self._translate_date_helper_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"time", "time_close"}:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"na", "nz", "fixnan"}:
@@ -1040,6 +1104,8 @@ class Translator:
             return self._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain.startswith("str."):
             return self._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
+        if callee_chain.startswith(("array.", "map.", "matrix.")):
+            return self._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee.kind == "MemberAccessExpr":
             obj = callee.child("object")
             member = callee.field("member")
@@ -1097,6 +1163,7 @@ class Translator:
         if len(arguments) < 3:
             raise UnsupportedBuiltinError("request.security requires at least 3 arguments")
         expression = arguments[2][1]
+        self._diagnose_request_security_captures(expression)
         if self._contains_request_call(expression):
             severity = Severity.ERROR if self.strict else Severity.WARNING
             self.ctx.add_diagnostic(
@@ -1133,6 +1200,32 @@ class Translator:
         )
         self.ctx.coverage.builtin("request.security")
         return f"{runtime_expr}.request.security({', '.join(call_args + kwargs)})"
+
+    def _translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        args = []
+        for arg_name, arg in self._call_arguments(node):
+            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+            args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
+        args.append(f"runtime={runtime_expr}")
+        self.ctx.coverage.builtin(name)
+        return f"{runtime_expr}.timefunc.{name}({', '.join(args)})"
+
+    def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        namespace, method = name.split(".", 1)
+        if method == "copy":
+            self.ctx.add_diagnostic(
+                REFERENCE_COPY_POLICY,
+                f"{name} uses explicit copy semantics; assignment otherwise preserves identity",
+                Severity.WARNING,
+                location=node.loc,
+                details={"namespace": namespace, "method": method},
+            )
+        args = []
+        for arg_name, arg in self._call_arguments(node):
+            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+            args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
+        self.ctx.coverage.builtin(name)
+        return f"{runtime_expr}.{namespace}.{method}({', '.join(args)})"
 
     def _translate_time_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         arguments = self._call_arguments(node)
@@ -1288,6 +1381,34 @@ class Translator:
                     return True
         return False
 
+
+    def _diagnose_request_security_captures(self, expression: ASTNode) -> None:
+        captured: list[str] = []
+        for descendant in expression.descendants():
+            if descendant.kind != "Identifier":
+                continue
+            name = str(descendant.field("name"))
+            if name in BUILTIN_SERIES or name in {"bar_index", "na"}:
+                continue
+            try:
+                info = self.ctx.resolve_var(name)
+            except ScopeResolutionError:
+                continue
+            if info.is_mutable or (info.type_info is not None and info.type_info.is_reference_type):
+                captured.append(name)
+        if not captured:
+            return
+        severity = Severity.ERROR if self.strict else Severity.WARNING
+        self.ctx.add_diagnostic(
+            REQUEST_SECURITY_CAPTURE_UNSAFE,
+            "request.security expression captures mutable or reference state; capture safety must be reviewed",
+            severity,
+            location=expression.loc,
+            details={"captured": sorted(set(captured))},
+        )
+        if self.strict:
+            raise UnsupportedBuiltinError("unsafe request.security capture")
+
     def _is_input_call(self, node: ASTNode) -> bool:
         callee = node.child("callee")
         return node.kind == "CallExpr" and callee is not None and member_chain(callee) in {
@@ -1420,6 +1541,11 @@ class Translator:
                 return make_type_info("bool", "simple", can_be_na=False)
             if chain in VISUAL_OBJECT_PRODUCERS:
                 return make_type_info("PineObjectId", "series")
+            if isinstance(chain, str) and chain.startswith(("array.", "map.", "matrix.")):
+                return make_type_info(chain.split(".", 1)[0], "series", is_series=True, is_history_allowed=False)
+        explicit = self._type_ref_name(node)
+        if explicit in REFERENCE_TYPES:
+            return make_type_info(str(explicit), "series", is_series=True, is_history_allowed=False)
         return make_type_info("object", "simple")
 
     def _type_ref_name(self, node: ASTNode) -> str | None:
@@ -1437,7 +1563,7 @@ class Translator:
         }
         return {
             "ast2python_version": __version__,
-            "generator_milestone": "v0.4.0",
+            "generator_milestone": "v0.5.0",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",

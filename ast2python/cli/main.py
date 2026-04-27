@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import importlib.util
 import json
 import py_compile
 import sys
 from pathlib import Path
+from typing import Any
 
 from ast2python.ast.schema import load_ast, validate_ast
 from ast2python.errors import AST2PythonError
@@ -31,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     smoke_parser = subparsers.add_parser("smoke")
     smoke_parser.add_argument("python_path")
-    smoke_parser.add_argument("--bars")
+    smoke_parser.add_argument("--bars", help="JSON or CSV bars file; defaults to two deterministic sample bars")
 
     return parser
 
@@ -53,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "coverage":
             return command_coverage(args.ast_path, strict=args.strict)
         if args.command == "smoke":
-            return command_smoke(args.python_path)
+            return command_smoke(args.python_path, bars_path=args.bars)
     except AST2PythonError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -104,9 +107,81 @@ def command_coverage(ast_path: str, *, strict: bool) -> int:
     return 0
 
 
-def command_smoke(python_path: str) -> int:
-    py_compile.compile(str(Path(python_path)), doraise=True)
-    print(json.dumps({"ok": True, "python_path": str(Path(python_path))}, indent=2, sort_keys=True))
+def _ensure_local_pinelib_importable() -> bool:
+    try:
+        import pinelib  # noqa: F401
+        return True
+    except ModuleNotFoundError:
+        local = Path("[local-home]/pinelib")
+        if local.exists():
+            sys.path.insert(0, str(local))
+            try:
+                import pinelib  # type: ignore[import-not-found]  # noqa: F401
+                return True
+            except ModuleNotFoundError:
+                return False
+        return False
+
+
+def _load_bars(path: str | None) -> list[Any]:
+    from pinelib.core import Bar  # type: ignore[import-not-found]
+
+    if path is None:
+        return [
+            Bar(time=1704067200000, open=100.0, high=101.0, low=99.0, close=100.5, volume=10.0, time_close=1704067259999),
+            Bar(time=1704067260000, open=100.5, high=102.0, low=100.0, close=101.5, volume=12.0, time_close=1704067319999),
+        ]
+    bars_path = Path(path)
+    if bars_path.suffix.lower() == ".json":
+        raw = json.loads(bars_path.read_text(encoding="utf-8"))
+        return [Bar(**item) for item in raw]
+    with bars_path.open(newline="", encoding="utf-8") as fh:
+        rows = csv.DictReader(fh)
+        return [
+            Bar(
+                time=int(row["time"]),
+                open=float(row["open"]),
+                high=float(row["high"]),
+                low=float(row["low"]),
+                close=float(row["close"]),
+                volume=float(row.get("volume") or 0.0),
+                time_close=int(row["time_close"]) if row.get("time_close") else None,
+            )
+            for row in rows
+        ]
+
+
+def _load_generated_class(python_path: Path) -> type[Any]:
+    spec = importlib.util.spec_from_file_location(python_path.stem, python_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot import generated module {python_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[python_path.stem] = module
+    spec.loader.exec_module(module)
+    for name in ("GeneratedStrategy", "GeneratedIndicator", "GeneratedLibrary", "GeneratedScript"):
+        klass = getattr(module, name, None)
+        if isinstance(klass, type):
+            return klass
+    raise RuntimeError("generated module does not expose a Generated* class")
+
+
+def command_smoke(python_path: str, *, bars_path: str | None = None) -> int:
+    path = Path(python_path)
+    py_compile.compile(str(path), doraise=True)
+    if not _ensure_local_pinelib_importable():
+        print(json.dumps({"ok": True, "python_path": str(path), "runtime": "skipped", "reason": "pinelib not importable"}, indent=2, sort_keys=True))
+        return 0
+    from pinelib.core import PineRuntime, SymbolInfo, TimeframeInfo
+
+    bars = _load_bars(bars_path)
+    klass = _load_generated_class(path)
+    runtime = PineRuntime(symbol_info=SymbolInfo(tickerid="TEST", timezone="UTC"), timeframe=TimeframeInfo.from_string("1"))
+    for name in ("plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor"):
+        if not hasattr(runtime.visual, name):
+            setattr(runtime.visual, name, lambda *args, **kwargs: None)
+    instance = klass(params={}, runtime=runtime)
+    snapshots = instance.run(bars)
+    print(json.dumps({"ok": True, "python_path": str(path), "runtime": "executed", "bars": len(bars), "snapshots": len(snapshots)}, indent=2, sort_keys=True))
     return 0
 
 
