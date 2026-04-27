@@ -114,3 +114,26 @@ def test_v0_3_nested_request_strict_fails():
     from ast2python.errors import UnsupportedBuiltinError
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(load_fixture("nested_request_security.ast.json"), strict=True, module_name="nested_strict")
+
+
+def test_iteration_a_semantic_binder_rejects_series_ema_length_and_unknown_ta():
+    import pytest
+    from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError
+
+    declaration = {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "Binder"}}]}}
+    bad_length = {"kind": "Program", "language": "pine", "version": 6, "declaration": declaration, "items": [{"kind": "VarDeclaration", "name": "x", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 3, "start_col": 5}, "callee": {"kind": "MemberAccessExpr", "member": "ema", "object": {"kind": "Identifier", "name": "ta"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "bar_index"}}]}}]}
+    with pytest.raises(TypeResolutionError):
+        translate_ast(bad_length, module_name="bad_ema_length")
+
+    unknown_ta = {"kind": "Program", "language": "pine", "version": 6, "declaration": declaration, "items": [{"kind": "ExpressionStatement", "expression": {"kind": "CallExpr", "span": {"start_line": 4, "start_col": 1}, "callee": {"kind": "MemberAccessExpr", "member": "mystery", "object": {"kind": "Identifier", "name": "ta"}}, "arguments": []}}]}
+    with pytest.raises(UnsupportedBuiltinError):
+        translate_ast(unknown_ta, module_name="unknown_ta")
+
+
+def test_iteration_a_security_lower_tf_is_explicit_compile_error():
+    import pytest
+    from ast2python.errors import UnsupportedBuiltinError
+
+    program = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "LTF"}}]}}, "items": [{"kind": "VarDeclaration", "name": "a", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 3, "start_col": 5}, "callee": {"kind": "MemberAccessExpr", "member": "security_lower_tf", "object": {"kind": "Identifier", "name": "request"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "TEST:AAA"}}, {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "1"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}]}}]}
+    with pytest.raises(UnsupportedBuiltinError):
+        translate_ast(program, module_name="security_lower_tf")

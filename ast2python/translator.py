@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
+from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
 from ast2python.context import TranslationContext, VariableInfo
 from ast2python.diagnostics import (
     CONTRACT_VERSION_MISMATCH,
     BOOL_NA_OVERLOAD,
+    BINDER_SIGNATURE_MISMATCH,
+    BINDER_UNSUPPORTED_BUILTIN,
     NESTED_REQUEST_SECURITY,
     REFERENCE_COPY_POLICY,
     REFERENCE_HISTORY_UNSUPPORTED,
@@ -1316,6 +1319,8 @@ class Translator:
             raise UnsupportedBuiltinError("Unsupported call target")
         if callee_chain == "request.security":
             return self._translate_request_security(node, runtime_expr=runtime_expr)
+        if callee_chain == "request.security_lower_tf":
+            return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr, force_error=True)
         if callee_chain.startswith("request."):
             return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in DATE_HELPERS:
@@ -1435,16 +1440,17 @@ class Translator:
         self.ctx.coverage.builtin("request.security")
         return f"request_security({', '.join(call_args + kwargs)})"
 
-    def _translate_unsupported_request_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+    def _translate_unsupported_request_call(self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False) -> str:
         del runtime_expr
+        severity = Severity.ERROR if (self.strict or force_error) else Severity.WARNING
         self.ctx.add_diagnostic(
             UNSUPPORTED_REQUEST,
             f"{name} is recorded as unsupported by PineLib runtime_contract_v1.4/TZ_02 lowering",
-            Severity.ERROR if self.strict else Severity.WARNING,
+            severity,
             location=node.loc,
-            details={"builtin": name},
+            details={"builtin": name, "forced_error": force_error},
         )
-        if self.strict:
+        if self.strict or force_error:
             raise UnsupportedBuiltinError(name)
         self.ctx.coverage.builtin(name)
         return "na"
@@ -1588,7 +1594,35 @@ class Translator:
             return repr(literal_value(default_node))
         return self.translate_expression(default_node)
 
+    def _bind_or_raise(self, name: str, node: ASTNode) -> None:
+        arg_nodes = self._call_arguments(node)
+        arg_types = [(arg_name, self._infer_type_info(arg)) for arg_name, arg in arg_nodes]
+        if name not in BUILTIN_SIGNATURES:
+            self.ctx.add_diagnostic(
+                BINDER_UNSUPPORTED_BUILTIN,
+                f"{name} has no AST2Python semantic binder signature",
+                Severity.ERROR,
+                location=node.loc,
+                details={"builtin": name, "arg_types": [info.to_dict() for _, info in arg_types]},
+            )
+            raise UnsupportedBuiltinError(name)
+        errors = bind_builtin_call(name, arg_types)
+        if not errors:
+            return
+        self.ctx.add_diagnostic(
+            BINDER_SIGNATURE_MISMATCH,
+            "; ".join(errors),
+            Severity.ERROR,
+            location=node.loc,
+            details={
+                "builtin": name,
+                "arg_types": [info.to_dict() | {"name": arg_name} for arg_name, info in arg_types],
+            },
+        )
+        raise TypeResolutionError(f"{name} semantic binding failed")
+
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        self._bind_or_raise(name, node)
         function_name = name.split(".", 1)[1]
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         arguments = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
@@ -1806,6 +1840,8 @@ class Translator:
             try:
                 info = self.ctx.resolve_var(name)
                 if info.type_info is not None:
+                    if info.declaration_kind == "input":
+                        return make_type_info(info.type_info.base_type, "input", can_be_na=info.type_info.can_be_na)
                     return info.type_info
                 if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
                     return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
@@ -1830,6 +1866,16 @@ class Translator:
             return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
         if node.kind == "UnaryExpr":
             return self._infer_type_info(node.child("operand"))
+        if node.kind == "ConditionalExpr":
+            condition = self._infer_type_info(node.child("condition"))
+            if_true = self._infer_type_info(node.child("then") or node.child("if_true"))
+            if_false = self._infer_type_info(node.child("else") or node.child("if_false"))
+            base = "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
+            return make_type_info(base, join_qualifiers(condition.qualifier, if_true.qualifier, if_false.qualifier), can_be_na=base != "bool")
+        if node.kind == "TupleExpr":
+            items = [self._infer_type_info(item) for item in node.children("elements", "items")]
+            qualifier = join_qualifiers(*(item.qualifier for item in items)) if items else "const"
+            return make_type_info("tuple", qualifier)
         if node.kind in {"HistoryRefExpr", "HistoryReference", "SubscriptExpr", "IndexExpr"}:
             base_info = self._infer_type_info(node.child("base") or node.child("object") or node.child("target") or node.child("expression"))
             return make_type_info(base_info.base_type, "series", is_series=True, can_be_na=base_info.base_type != "bool")
