@@ -129,10 +129,18 @@ def test_iteration_a_semantic_binder_rejects_series_ema_length_and_unknown_ta():
         translate_ast(unknown_ta, module_name="unknown_ta")
 
 
-def test_iteration_a_security_lower_tf_is_explicit_compile_error():
+def test_iteration_c_security_lower_tf_rejects_unsafe_series_capture():
     import pytest
     from ast2python.errors import UnsupportedBuiltinError
 
-    program = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "LTF"}}]}}, "items": [{"kind": "VarDeclaration", "name": "a", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 3, "start_col": 5}, "callee": {"kind": "MemberAccessExpr", "member": "security_lower_tf", "object": {"kind": "Identifier", "name": "request"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "TEST:AAA"}}, {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "1"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}]}}]}
+    program = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "LTF"}}]}}, "items": [{"kind": "VarDeclaration", "name": "basis", "initializer": {"kind": "Identifier", "name": "close"}}, {"kind": "VarDeclaration", "name": "a", "span": {"start_line": 4, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 4, "start_col": 5}, "callee": {"kind": "MemberAccessExpr", "member": "security_lower_tf", "object": {"kind": "Identifier", "name": "request"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "TEST:AAA"}}, {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "1"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "basis"}}]}}]}
     with pytest.raises(UnsupportedBuiltinError):
-        translate_ast(program, module_name="security_lower_tf")
+        translate_ast(program, module_name="security_lower_tf_capture")
+
+
+def test_iteration_c_security_lower_tf_lowers_to_runtime_array_call():
+    program = {"kind": "Program", "language": "pine", "version": 6, "declaration": {"kind": "DeclarationStatement", "script_type": "indicator", "call": {"kind": "CallExpr", "callee": {"kind": "Identifier", "name": "indicator"}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "LTF"}}]}}, "items": [{"kind": "VarDeclaration", "name": "a", "span": {"start_line": 3, "start_col": 1}, "initializer": {"kind": "CallExpr", "span": {"start_line": 3, "start_col": 5}, "callee": {"kind": "MemberAccessExpr", "member": "security_lower_tf", "object": {"kind": "Identifier", "name": "request"}}, "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "TEST:AAA"}}, {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "1"}}, {"kind": "Argument", "name": None, "value": {"kind": "Identifier", "name": "close"}}]}}]}
+    result = translate_ast(program, module_name="security_lower_tf")
+    assert "security_lower_tf as request_security_lower_tf" in result.code
+    assert "request_security_lower_tf('TEST:AAA', '1', lambda request_rt: request_rt.close.current" in result.code
+    compile(result.code, "security_lower_tf.py", "exec")

@@ -309,6 +309,10 @@ class Translator:
     def _declare_dynamic_imports(self, program: ASTProgram) -> None:
         """Predeclare imports needed by generated statements before rendering the header."""
         for node in program.descendants():
+            if node.kind == "CallExpr":
+                callee = node.child("callee")
+                if callee is not None and member_chain(callee) == "request.security_lower_tf":
+                    self.ctx.imports.require_from("pinelib.request", "security_lower_tf", alias="request_security_lower_tf")
             if node.kind in {"ForRangeStructure", "ForStructure"}:
                 self.ctx.imports.require_from("pinelib.core", "pine_range")
             if node.kind == "ForInStructure":
@@ -1320,8 +1324,7 @@ class Translator:
         if callee_chain == "request.security":
             return self._translate_request_security(node, runtime_expr=runtime_expr)
         if callee_chain == "request.security_lower_tf":
-            self._bind_or_raise(callee_chain, node)
-            return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr, force_error=True)
+            return self._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
         if callee_chain.startswith("request."):
             return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in DATE_HELPERS:
@@ -1441,6 +1444,34 @@ class Translator:
         )
         self.ctx.coverage.builtin("request.security")
         return f"request_security({', '.join(call_args + kwargs)})"
+
+    def _translate_request_security_lower_tf(self, node: ASTNode, *, runtime_expr: str) -> str:
+        self.ctx.imports.require_from("pinelib.request", "security_lower_tf", alias="request_security_lower_tf")
+        self._bind_or_raise("request.security_lower_tf", node)
+        arguments = self._ordered_call_arguments("request.security_lower_tf", node)
+        if len(arguments) < 3:
+            raise UnsupportedBuiltinError("request.security_lower_tf requires at least 3 arguments")
+        expression = arguments[2][1]
+        self._diagnose_request_security_lower_tf_safety(expression)
+        state_id = state_id_for_call(self.ctx, node, "security_lower_tf")
+        call_args = [
+            self.translate_expression(arguments[0][1], runtime_expr=runtime_expr),
+            self.translate_expression(arguments[1][1], runtime_expr=runtime_expr),
+            f"lambda request_rt: {self.translate_expression(expression, runtime_expr='request_rt')}",
+        ]
+        kwargs: list[str] = []
+        for name, arg in arguments[3:]:
+            if name is None:
+                continue
+            kwargs.append(f"{name}={self.translate_expression(arg, runtime_expr=runtime_expr)}")
+        kwargs.extend(
+            [
+                f"runtime={runtime_expr}",
+                f'state_id="{state_id}"',
+            ]
+        )
+        self.ctx.coverage.builtin("request.security_lower_tf")
+        return f"request_security_lower_tf({', '.join(call_args + kwargs)})"
 
     def _translate_unsupported_request_call(self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False) -> str:
         del runtime_expr
@@ -1780,6 +1811,47 @@ class Translator:
                     return True
         return False
 
+    def _contains_any_request_call(self, node: ASTNode) -> bool:
+        nodes = [node, *node.descendants()]
+        for descendant in nodes:
+            if descendant.kind == "CallExpr":
+                callee = descendant.child("callee")
+                chain = member_chain(callee) if callee is not None else None
+                if chain is not None and chain.startswith("request."):
+                    return True
+        return False
+
+    def _diagnose_request_security_lower_tf_safety(self, expression: ASTNode) -> None:
+        captured: list[str] = []
+        if self._contains_any_request_call(expression):
+            self.ctx.add_diagnostic(
+                NESTED_REQUEST_SECURITY,
+                "nested request.* inside request.security_lower_tf expression is unsupported",
+                Severity.ERROR,
+                location=expression.loc,
+            )
+            raise UnsupportedBuiltinError("nested request.security_lower_tf expression")
+        for descendant in expression.descendants():
+            if descendant.kind != "Identifier":
+                continue
+            name = str(descendant.field("name"))
+            if name in BUILTIN_SERIES or name in {"bar_index", "na"}:
+                continue
+            try:
+                info = self.ctx.resolve_var(name)
+            except ScopeResolutionError:
+                continue
+            if info.is_series or info.is_mutable or (info.type_info is not None and info.type_info.is_reference_type):
+                captured.append(name)
+        if captured:
+            self.ctx.add_diagnostic(
+                REQUEST_SECURITY_CAPTURE_UNSAFE,
+                "request.security_lower_tf expression captures series, mutable, or reference state; first-slice lowering only supports builtin series and immutable scalar captures",
+                Severity.ERROR,
+                location=expression.loc,
+                details={"captured": sorted(set(captured))},
+            )
+            raise UnsupportedBuiltinError("unsafe request.security_lower_tf capture")
 
     def _diagnose_request_security_captures(self, expression: ASTNode) -> None:
         captured: list[str] = []
@@ -1955,6 +2027,8 @@ class Translator:
                 return make_type_info("int", "series", is_series=True)
             if chain in {"ta.bb", "ta.macd"}:
                 return make_type_info("tuple", "series", is_series=True)
+            if chain == "request.security_lower_tf":
+                return make_type_info("array", "series", is_series=True, is_history_allowed=False)
             if chain in {"input.string", "input.timeframe", "input.session"}:
                 return make_type_info("string", "input", can_be_na=False)
             if chain == "input.time":

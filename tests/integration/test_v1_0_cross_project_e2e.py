@@ -7,7 +7,7 @@ import sys
 import textwrap
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na
 from pinelib.request.providers import InMemoryDataProvider
@@ -161,6 +161,36 @@ def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
     mod.GeneratedIndicator(runtime=rt).run(_bars())
     assert rt.series_registry["htf"]._history == [na, 100]
     assert inspect_payload["request_calls"][0]["name"] == "request.security"
+
+
+def test_cross_project_request_security_lower_tf_array_path(tmp_path: Path) -> None:
+    mod, _, inspect_payload = _pine_to_module(
+        tmp_path,
+        "e2e_lower_tf",
+        """
+        //@version=6
+        indicator("E2E lower tf")
+        a = request.security_lower_tf("AAPL", "15S", close)
+        n = array.size(a)
+        plot(n)
+        """,
+    )
+    chart = [
+        Bar(time=0, time_close=59_999, open=10, high=11, low=9, close=10, volume=100),
+        Bar(time=60_000, time_close=119_999, open=20, high=21, low=19, close=20, volume=200),
+    ]
+    provider = InMemoryDataProvider({
+        ("AAPL", "15S"): [
+            Bar(time=0, time_close=14_999, open=1, high=1, low=1, close=1, volume=1),
+            Bar(time=15_000, time_close=29_999, open=2, high=2, low=2, close=2, volume=1),
+            Bar(time=60_000, time_close=74_999, open=3, high=3, low=3, close=3, volume=1),
+        ],
+    })
+    rt = _runtime(provider)
+    mod.GeneratedIndicator(runtime=rt).run(chart)
+    assert rt.series_registry["n"]._history == [2, 1]
+    assert [list(cast(Any, arr)) for arr in rt.series_registry["a"]._history] == [[1, 2], [3]]
+    assert inspect_payload["request_calls"][0]["name"] == "request.security_lower_tf"
 
 
 def test_cross_project_strategy_order_path(tmp_path: Path) -> None:
