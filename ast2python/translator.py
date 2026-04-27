@@ -1194,7 +1194,7 @@ class Translator:
         if name in BUILTIN_SERIES:
             return f"{runtime_expr}.{name}.current"
         if name == "bar_index":
-            return f"{runtime_expr}.bar_index"
+            return f"{runtime_expr}.bar_index_series.current"
         if name == "na":
             return "na"
         if name == "hl2":
