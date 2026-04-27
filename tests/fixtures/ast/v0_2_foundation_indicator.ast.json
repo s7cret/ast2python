@@ -1,0 +1,25 @@
+{
+  "kind": "Program",
+  "schema_version": "1.0",
+  "language": "pine",
+  "language_version": 6,
+  "version": 6,
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "script_type": "indicator",
+    "call": {
+      "kind": "CallExpr",
+      "callee": { "kind": "Identifier", "name": "indicator" },
+      "arguments": [
+        { "kind": "Argument", "name": null, "value": { "kind": "Literal", "literal_type": "string", "value": "v0.2 Foundation" } },
+        { "kind": "Argument", "name": "overlay", "value": { "kind": "Literal", "literal_type": "bool", "value": true } }
+      ]
+    }
+  },
+  "items": [
+    {"kind":"VarDeclaration","source":"len = input.int(20, \"Length\", minval=1, maxval=200, step=1, group=\"Core\", inline=\"L\", tooltip=\"EMA length\")","span":{"start_line":3,"start_col":1,"end_line":3,"end_col":118},"name":"len","initializer":{"kind":"CallExpr","callee":{"kind":"MemberAccessExpr","member":"int","object":{"kind":"Identifier","name":"input"}},"arguments":[{"kind":"Argument","name":null,"value":{"kind":"Literal","literal_type":"int","value":20}},{"kind":"Argument","name":null,"value":{"kind":"Literal","literal_type":"string","value":"Length"}},{"kind":"Argument","name":"minval","value":{"kind":"Literal","literal_type":"int","value":1}},{"kind":"Argument","name":"maxval","value":{"kind":"Literal","literal_type":"int","value":200}},{"kind":"Argument","name":"step","value":{"kind":"Literal","literal_type":"int","value":1}},{"kind":"Argument","name":"group","value":{"kind":"Literal","literal_type":"string","value":"Core"}},{"kind":"Argument","name":"inline","value":{"kind":"Literal","literal_type":"string","value":"L"}},{"kind":"Argument","name":"tooltip","value":{"kind":"Literal","literal_type":"string","value":"EMA length"}}]}},
+    {"kind":"TupleDeclaration","source":"[basis, upper, lower] = ta.bb(close, len, 2)","span":{"start_line":4,"start_col":1,"end_line":4,"end_col":44},"targets":["basis","upper","lower"],"initializer":{"kind":"CallExpr","span":{"start_line":4,"start_col":25,"end_line":4,"end_col":44},"callee":{"kind":"MemberAccessExpr","member":"bb","object":{"kind":"Identifier","name":"ta"}},"arguments":[{"kind":"Argument","name":null,"value":{"kind":"Identifier","name":"close"}},{"kind":"Argument","name":null,"value":{"kind":"Identifier","name":"len"}},{"kind":"Argument","name":null,"value":{"kind":"Literal","literal_type":"int","value":2}}]}},
+    {"kind":"VarDeclaration","source":"prev = basis[1]","span":{"start_line":5,"start_col":1,"end_line":5,"end_col":16},"name":"prev","initializer":{"kind":"HistoryRefExpr","base":{"kind":"Identifier","name":"basis"},"offset":{"kind":"Literal","literal_type":"int","value":1}}},
+    {"kind":"ExpressionStatement","source":"plot(upper, color=color.aqua)","span":{"start_line":6,"start_col":1,"end_line":6,"end_col":29},"expression":{"kind":"CallExpr","callee":{"kind":"Identifier","name":"plot"},"arguments":[{"kind":"Argument","name":null,"value":{"kind":"Identifier","name":"upper"}},{"kind":"Argument","name":"color","value":{"kind":"MemberAccessExpr","member":"aqua","object":{"kind":"Identifier","name":"color"}}}]}}
+  ]
+}

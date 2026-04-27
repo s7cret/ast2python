@@ -46,3 +46,32 @@ def test_nested_request_security_emits_diagnostic():
     result = translate_ast(load_fixture("nested_request_security.ast.json"), module_name="nested_request")
     codes = [item.code for item in result.diagnostics]
     assert WARNING_NESTED_SECURITY in codes
+
+
+def test_v0_2_tuple_history_input_metadata_and_color_member_access():
+    result = translate_ast(load_fixture("v0_2_foundation_indicator.ast.json"), module_name="v0_2_foundation")
+    assert "from pinelib.colors import color as pine_color" in result.code
+    assert "from pinelib.ta import bb" in result.code
+    assert 'state_id="L4_C25_bb_1"' in result.code
+    assert "_basis, _upper, _lower = bb(self.rt.close, self.len_.current, 2, runtime=self.rt" in result.code
+    assert "self.prev.set_current(self.basis[1])" in result.code
+    assert "pine_color.aqua" in result.code
+    input_meta = result.metadata["inputs"][0]
+    assert input_meta["title"] == "Length"
+    assert input_meta["group"] == "Core"
+    assert input_meta["inline"] == "L"
+    assert input_meta["tooltip"] == "EMA length"
+    assert result.metadata["generator_milestone"] == "v0.2.0"
+    assert any(item["pine_line"] == 4 for item in result.source_map)
+    compile(result.code, "v0_2_foundation.py", "exec")
+
+
+def test_v0_2_strategy_loop_uses_pine_range_history_and_barstate():
+    result = translate_ast(load_fixture("v0_2_strategy_loop.ast.json"), module_name="v0_2_strategy_loop")
+    assert "from pinelib.core import PineRuntime, na, pine_bool, pine_range" in result.code
+    assert "process_orders_on_close=True" in result.code
+    assert "for i in pine_range(0, 2):" in result.code
+    assert "self.sum_.set_current(self.sum_.current + (self.rt.close[i]))" in result.code
+    assert "if pine_bool(self.rt.barstate.isconfirmed):" in result.code
+    assert "self.ctx.entry('L', \"long\"" in result.code
+    compile(result.code, "v0_2_strategy_loop.py", "exec")

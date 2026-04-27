@@ -18,7 +18,13 @@ from ast2python.diagnostics import (
     Severity,
 )
 from ast2python.emitter import CodeEmitter
-from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError, UnsupportedNodeError, ValidationError
+from ast2python.errors import (
+    ScopeResolutionError,
+    TypeResolutionError,
+    UnsupportedBuiltinError,
+    UnsupportedNodeError,
+    ValidationError,
+)
 from ast2python.state import state_id_for_call
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
@@ -294,6 +300,22 @@ class Translator:
 
     def _collect_globals(self, program: ASTProgram) -> None:
         for item in program.items:
+            if item.kind == "TupleDeclaration":
+                initializer = item.child("initializer") or item.child("value")
+                for name in self._tuple_targets(item):
+                    if name == "_":
+                        continue
+                    info = self.ctx.declare_var(
+                        name,
+                        type_ref=None,
+                        qualifier=item.field("explicit_qualifier"),
+                        declaration_kind=str(item.field("mode") or "normal"),
+                        is_series=True,
+                        is_mutable=True,
+                        loc=item.loc,
+                    )
+                    self.global_series.append((info, self._infer_dtype(initializer)))
+                continue
             if item.kind == "VarDeclaration":
                 initializer = item.child("initializer")
                 if initializer is not None and self._is_input_call(initializer):
@@ -327,6 +349,9 @@ class Translator:
         if node.kind == "VarDeclaration":
             self._emit_var_declaration(node)
             return
+        if node.kind == "TupleDeclaration":
+            self._emit_tuple_declaration(node)
+            return
         if node.kind == "Reassignment":
             self._emit_reassignment(node)
             return
@@ -348,14 +373,37 @@ class Translator:
             return
         raise UnsupportedNodeError(f"Unsupported statement node: {node.kind}")
 
+    def _resolve_or_declare_var(
+        self,
+        node: ASTNode,
+        name: str,
+        initializer: ASTNode | None = None,
+    ) -> VariableInfo:
+        try:
+            return self.ctx.resolve_var(name)
+        except ScopeResolutionError:
+            is_global = self.ctx.current_scope.kind == "global"
+            info = self.ctx.declare_var(
+                name,
+                type_ref=self._type_ref_name(node),
+                qualifier=node.field("explicit_qualifier"),
+                declaration_kind=str(node.field("mode") or "normal"),
+                is_series=is_global,
+                is_mutable=True,
+                loc=node.loc,
+            )
+            if is_global:
+                self.global_series.append((info, self._infer_dtype(initializer)))
+            return info
+
     def _emit_var_declaration(self, node: ASTNode) -> None:
-        name = node.field("name")
+        name = str(node.field("name"))
         initializer = node.child("initializer")
         if initializer is None:
             raise UnsupportedNodeError(f"VarDeclaration {name} missing initializer")
         if self._is_input_call(initializer):
             return
-        info = self.ctx.resolve_var(name)
+        info = self._resolve_or_declare_var(node, name, initializer)
         if self.ctx.current_scope.kind == "global":
             expr = self.translate_expression(initializer)
             if info.declaration_kind == "var":
@@ -369,6 +417,55 @@ class Translator:
             return
         expr = self.translate_expression(initializer)
         self.emitter.line(f"{info.py_name} = {expr}", loc=node.loc, source=node.source)
+
+    def _tuple_targets(self, node: ASTNode) -> list[str]:
+        raw_targets = node.raw.get("targets") or node.raw.get("names") or node.raw.get("elements") or []
+        targets: list[str] = []
+        if not isinstance(raw_targets, list):
+            raise UnsupportedNodeError("TupleDeclaration targets must be a list")
+        for item in raw_targets:
+            if isinstance(item, str):
+                targets.append(item)
+            elif isinstance(item, dict):
+                target = ASTNode(item)
+                if target.kind == "Identifier":
+                    targets.append(str(target.field("name")))
+                elif target.kind in {"Discard", "TupleDiscard"}:
+                    targets.append("_")
+                else:
+                    raise UnsupportedNodeError(f"Unsupported tuple target: {target.kind}")
+        return targets
+
+    def _emit_tuple_declaration(self, node: ASTNode) -> None:
+        initializer = node.child("initializer") or node.child("value")
+        if initializer is None:
+            raise UnsupportedNodeError("TupleDeclaration missing initializer")
+        targets = self._tuple_targets(node)
+        if not targets:
+            raise UnsupportedNodeError("TupleDeclaration has no targets")
+        temp_names: list[str] = []
+        assignments: list[tuple[VariableInfo | None, str]] = []
+        for index, name in enumerate(targets, start=1):
+            if name == "_":
+                temp_names.append(f"_discard_{index}")
+                assignments.append((None, temp_names[-1]))
+                continue
+            info = self._resolve_or_declare_var(node, name, initializer)
+            temp = f"_{info.py_name}"
+            temp_names.append(temp)
+            assignments.append((info, temp))
+        self.emitter.line(
+            f"{', '.join(temp_names)} = {self.translate_expression(initializer)}",
+            loc=node.loc,
+            source=node.source,
+        )
+        for target_info, temp in assignments:
+            if target_info is None:
+                continue
+            if target_info.is_series:
+                self.emitter.line(f"self.{target_info.py_name}.set_current({temp})")
+            else:
+                self.emitter.line(f"{target_info.py_name} = {temp}")
 
     def _emit_reassignment(self, node: ASTNode) -> None:
         target = node.child("target")
@@ -496,6 +593,8 @@ class Translator:
                 raise UnsupportedNodeError("UnaryExpr requires an operand")
             operand = self.translate_expression(operand_node, runtime_expr=runtime_expr)
             return f"({node.field('op')}{operand})"
+        if node.kind in {"HistoryRefExpr", "HistoryReference", "SubscriptExpr", "IndexExpr"}:
+            return self._translate_history_reference(node, runtime_expr=runtime_expr)
         if node.kind == "ConditionalExpr":
             condition_node = node.child("condition")
             true_node = node.child("then")
@@ -537,10 +636,12 @@ class Translator:
         chain = member_chain(node)
         if chain is None:
             raise UnsupportedNodeError("Invalid MemberAccessExpr")
-        if chain == "syminfo.tickerid":
-            return f"{runtime_expr}.syminfo.tickerid"
-        if chain == "timeframe.period":
-            return f"{runtime_expr}.timeframe.period"
+        if chain.startswith("syminfo."):
+            return f"{runtime_expr}.syminfo.{chain.split('.', 1)[1]}"
+        if chain.startswith("timeframe."):
+            return f"{runtime_expr}.timeframe.{chain.split('.', 1)[1]}"
+        if chain.startswith("barstate."):
+            return f"{runtime_expr}.barstate.{chain.split('.', 1)[1]}"
         if chain == "strategy.long":
             return '"long"'
         if chain == "strategy.short":
@@ -554,7 +655,13 @@ class Translator:
         if chain.startswith("color."):
             self.ctx.imports.require_from("pinelib.colors", "color", alias="pine_color")
             return f"pine_color.{chain.split('.', 1)[1]}"
-        if chain.startswith("line.") or chain.startswith("label.") or chain.startswith("box.") or chain.startswith("table."):
+        if chain.startswith("array."):
+            return f"{runtime_expr}.array.{chain.split('.', 1)[1]}"
+        if chain.startswith("request."):
+            return f"{runtime_expr}.request.{chain.split('.', 1)[1]}"
+        if chain.startswith("math.") or chain.startswith("ta.") or chain.startswith("str."):
+            return chain
+        if chain.startswith(("line.", "label.", "box.", "table.")):
             self.ctx.add_diagnostic(
                 VISUAL_OBJECT_USED_AS_VALUE,
                 "visual object id used as a value is not supported",
@@ -563,6 +670,24 @@ class Translator:
             )
             raise TypeResolutionError("Visual object member access cannot be used as a value")
         return chain
+
+    def _translate_history_reference(self, node: ASTNode, *, runtime_expr: str) -> str:
+        base = node.child("base") or node.child("object") or node.child("target") or node.child("expression")
+        offset_node = node.child("offset") or node.child("index")
+        if base is None or offset_node is None:
+            raise UnsupportedNodeError("History reference requires base and offset")
+        if base.kind == "Literal":
+            raise TypeResolutionError("History reference on literal is invalid")
+        offset = self.translate_expression(offset_node, runtime_expr=runtime_expr)
+        if base.kind == "Identifier":
+            name = str(base.field("name"))
+            if name in BUILTIN_SERIES:
+                return f"{runtime_expr}.{name}[{offset}]"
+            info = self.ctx.resolve_var(name)
+            if info.is_series:
+                return f"self.{info.py_name}[{offset}]"
+        rendered = self.translate_expression(base, runtime_expr=runtime_expr)
+        return f"{runtime_expr}.history({rendered}, {offset})"
 
     def _translate_if_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
         condition = node.child("condition")
@@ -598,7 +723,15 @@ class Translator:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain.startswith("strategy.") and callee_chain not in {"strategy.long", "strategy.short"}:
             return self._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain in {"input.int", "input.float", "input.bool", "input.string", "input.timeframe", "input.session"}:
+        if callee_chain in {
+            "input.int",
+            "input.float",
+            "input.bool",
+            "input.string",
+            "input.timeframe",
+            "input.session",
+            "input.source",
+        }:
             return self._translate_input_runtime_lookup(node)
         if callee_chain.startswith("ta."):
             return self._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
@@ -787,6 +920,7 @@ class Translator:
             "input.string",
             "input.timeframe",
             "input.session",
+            "input.source",
         }
 
     def _build_input_metadata(self, declaration: ASTNode, initializer: ASTNode, py_name: str) -> dict[str, Any]:
@@ -817,15 +951,23 @@ class Translator:
             "active": True,
             "source_map": declaration.loc.source_map if declaration.loc else None,
         }
-        for name, value in args[1:]:
-            if name == "title" and value.kind == "Literal":
-                metadata["title"] = literal_value(value)
-            elif name == "minval" and value.kind == "Literal":
-                metadata["minval"] = literal_value(value)
-            elif name == "maxval" and value.kind == "Literal":
-                metadata["maxval"] = literal_value(value)
-            elif name == "step" and value.kind == "Literal":
-                metadata["step"] = literal_value(value)
+        positional_meta = ["title"]
+        for index, (name, value) in enumerate(args[1:]):
+            key = name or (positional_meta[index] if index < len(positional_meta) else None)
+            if key in {
+                "title",
+                "minval",
+                "maxval",
+                "step",
+                "options",
+                "group",
+                "inline",
+                "tooltip",
+                "confirm",
+                "display",
+                "active",
+            }:
+                metadata[key] = self._literal_or_rendered(value, self.translate_expression(value))
         public_meta = dict(metadata)
         return {
             "type": metadata["type"],
@@ -865,6 +1007,7 @@ class Translator:
         }
         return {
             "ast2python_version": __version__,
+            "generator_milestone": "v0.2.0",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",

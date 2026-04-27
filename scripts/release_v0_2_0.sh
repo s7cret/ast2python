@@ -21,4 +21,4 @@ if command -v mypy >/dev/null 2>&1; then
 else
   echo "mypy unavailable in environment; skipped"
 fi
-RELEASE_MANIFEST=RELEASE_MANIFEST_v0.1.0.json python scripts/build_release.py
+RELEASE_MANIFEST=RELEASE_MANIFEST_v0.2.0.json python scripts/build_release.py
