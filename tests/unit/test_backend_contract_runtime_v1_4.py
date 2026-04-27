@@ -12,8 +12,8 @@ import pytest
 
 from ast2python.errors import TypeResolutionError
 from ast2python.translator import translate_ast
-from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na  # type: ignore[import-not-found]
-from pinelib.request.providers import InMemoryDataProvider  # type: ignore[import-not-found]
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na
+from pinelib.request.providers import InMemoryDataProvider
 
 
 def decl(kind: str = "indicator") -> dict:

@@ -169,7 +169,7 @@ def _ensure_local_pinelib_importable() -> bool:
         if local.exists():
             sys.path.insert(0, str(local))
             try:
-                import pinelib  # type: ignore[import-not-found]  # noqa: F401
+                import pinelib  # noqa: F401
                 return True
             except ModuleNotFoundError:
                 return False
@@ -177,7 +177,7 @@ def _ensure_local_pinelib_importable() -> bool:
 
 
 def _load_bars(path: str | None) -> list[Any]:
-    from pinelib.core import Bar  # type: ignore[import-not-found]
+    from pinelib.core import Bar
 
     if path is None:
         return [

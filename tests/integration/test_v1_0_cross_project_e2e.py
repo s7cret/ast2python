@@ -9,8 +9,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na  # type: ignore[import-not-found]
-from pinelib.request.providers import InMemoryDataProvider  # type: ignore[import-not-found]
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na
+from pinelib.request.providers import InMemoryDataProvider
 
 ROOT = Path(__file__).resolve().parents[2]
 PINE2AST_ROOT = ROOT.parent / "pine2ast"
