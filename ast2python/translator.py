@@ -1790,10 +1790,12 @@ class Translator:
         }
         return {
             "ast2python_version": __version__,
-            "generator_milestone": "v0.7.0",
+            "generator_milestone": f"v{__version__}",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",
+            "module_name": module_name,
+            "class_name": class_name_for_mode(self.ctx.mode),
             "declaration": declaration,
             "inputs": self.ctx.input_metadata,
             "types": self.ctx.type_metadata,

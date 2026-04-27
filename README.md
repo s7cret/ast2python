@@ -1,15 +1,15 @@
-# AST2Python v0.7.0
+# AST2Python v0.8.0
 
 AST2Python translates Pine2AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
 
-v0.7.0 is the target-strategy readiness/recovery milestone. It keeps v0.6.0 pipeline compatibility and adds:
+v0.8.0 is the pipeline parity and runtime-integration hardening milestone. It keeps v0.7.0 target-strategy readiness and adds:
 
-- broader Pine2AST golden-fixture coverage for arrays, maps, matrices, imports, strategy exits, input.source and real-world strategy state
-- deterministic lowering for array/map/matrix constructor APIs where PineLib supports reference objects
-- import alias metadata plus external library call recorder diagnostics instead of silent runtime crashes
-- P0 `strategy.*` order API lowering with diagnostics for non-P0 strategy APIs
-- `alert`/`alertcondition` recorder generation and extended input metadata for source/time/session edges
-- generated source-map/coverage thresholds enforced by integration tests
+- multi-fixture `translate-many` CLI pipeline with deterministic per-module artifacts
+- API/CLI snapshot parity checks against Pine2AST real-world fixtures
+- PineLib v1.0 runtime import fallback and smoke execution compatibility
+- stable metadata envelope checks for strategy/indicator/library generated modules
+- explicit diagnostics surface for remaining unsupported runtime/schema nodes
+- coverage docs for source-map, builtin and schema-threshold audit
 
 ## CLI
 
@@ -37,5 +37,5 @@ Generated modules emit:
 Build the reproducible release archive with:
 
 ```bash
-./scripts/release_v0_7_0.sh
+./scripts/release_v0_8_0.sh
 ```
