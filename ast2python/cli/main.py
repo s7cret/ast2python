@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from ast2python.ast.schema import load_ast, validate_ast
-from ast2python.errors import AST2PythonError
+from ast2python.coverage import static_coverage_report
+from ast2python.errors import AST2PythonError, UnsupportedNodeError
 from ast2python.translator import Translator
 
 
@@ -66,10 +67,12 @@ def main(argv: list[str] | None = None) -> int:
 def command_validate(ast_path: str) -> int:
     program = load_ast(ast_path)
     problems = validate_ast(program)
+    static = static_coverage_report(program)
     payload = {
         "ok": not problems,
         "problems": problems,
-        "nodes_total": sum(1 for _ in program.descendants()),
+        "nodes_total": static["nodes_total"],
+        "unsupported_nodes": static["unsupported_nodes"],
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if not problems else 1
@@ -101,10 +104,18 @@ def command_translate(
 
 
 def command_coverage(ast_path: str, *, strict: bool) -> int:
-    translator = Translator(strict=strict)
-    result = translator.translate_file(ast_path)
-    print(json.dumps(result.coverage, indent=2, sort_keys=True))
-    return 0
+    program = load_ast(ast_path)
+    static = static_coverage_report(program)
+    try:
+        translator = Translator(strict=strict)
+        result = translator.translate_program(program, module_name=Path(ast_path).stem)
+        payload = {**static, **result.coverage, "diagnostics": [item.to_dict() for item in result.diagnostics]}
+        status = 0
+    except UnsupportedNodeError as exc:
+        payload = {**static, "ok": False, "error": str(exc)}
+        status = 1 if strict else 0
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return status
 
 
 def _ensure_local_pinelib_importable() -> bool:

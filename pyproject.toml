@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ast2python"
-version = "0.5.0"
+version = "0.6.0"
 description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,4 +40,4 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 warn_return_any = true
 strict_optional = true
-exclude = ["dist", "build"]
+exclude = ["dist", "build", "tests/fixtures"]

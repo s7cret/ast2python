@@ -26,14 +26,14 @@ def iter_files() -> list[Path]:
             files.extend(sorted(item for item in path.rglob("*") if item.is_file() and _is_releasable(item)))
         elif path.is_file() and _is_releasable(path):
             files.append(path)
-    archive = ROOT / manifest["archive"]
+    archive = ROOT / str(manifest["archive"])
     archive.parent.mkdir(parents=True, exist_ok=True)
     return sorted(set(files))
 
 
 def write_archive() -> Path:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    archive = ROOT / manifest["archive"]
+    archive = ROOT / str(manifest["archive"])
     with ZipFile(archive, "w", compression=ZIP_DEFLATED) as zf:
         for path in iter_files():
             relative = path.relative_to(ROOT).as_posix()

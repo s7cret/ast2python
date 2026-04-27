@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+import copy
 
 from ast2python.diagnostics import SourceLocation
 from ast2python.errors import ValidationError
@@ -12,6 +13,30 @@ from ast2python.errors import ValidationError
 def _as_mapping(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValidationError(f"AST node must be a mapping, got {type(value).__name__}")
+    return value
+
+
+def _unwrap_pine2ast_payload(value: dict[str, Any]) -> dict[str, Any]:
+    """Return a Program mapping from common Pine2AST JSON payload shapes.
+
+    Pine2AST golden fixtures serialize the Program directly, while CLI/API
+    integration payloads may wrap it under ``ast`` or ``program`` and include
+    inspect-contract fields beside it.  AST2Python lowers only the Program tree,
+    but preserving this unwrapping here keeps every caller (CLI, tests, API)
+    compatible with current Pine2AST output without changing translator code.
+    """
+    if value.get("kind") == "Program":
+        return value
+    for key in ("ast", "program"):
+        nested = value.get(key)
+        if isinstance(nested, dict) and nested.get("kind") == "Program":
+            return nested
+    result = value.get("result")
+    if isinstance(result, dict):
+        for key in ("ast", "program"):
+            nested = result.get(key)
+            if isinstance(nested, dict) and nested.get("kind") == "Program":
+                return nested
     return value
 
 
@@ -56,7 +81,15 @@ class ASTNode:
         return None
 
     def child(self, key: str) -> ASTNode | None:
-        value = self.raw.get(key)
+        aliases = {
+            "then_block": ("then_block", "then", "body"),
+            "else_block": ("else_block", "else"),
+            "initializer": ("initializer", "value", "init"),
+            "value": ("value", "expression"),
+            "params": ("params", "parameters"),
+        }
+        source_key = next((candidate for candidate in aliases.get(key, (key,)) if candidate in self.raw), key)
+        value = self.raw.get(source_key)
         if isinstance(value, dict):
             return ASTNode(value)
         if isinstance(value, list) and value and isinstance(value[0], dict):
@@ -89,10 +122,11 @@ class ASTNode:
             yield node
             for value in node.raw.values():
                 if isinstance(value, dict):
-                    stack.append(ASTNode(value))
+                    if "kind" in value:
+                        stack.append(ASTNode(value))
                 elif isinstance(value, list):
                     for item in reversed(value):
-                        if isinstance(item, dict):
+                        if isinstance(item, dict) and "kind" in item:
                             stack.append(ASTNode(item))
 
 
@@ -108,7 +142,7 @@ class ASTProgram(ASTNode):
 
 
 def ensure_program_node(value: dict[str, Any]) -> ASTProgram:
-    node = ASTProgram(_as_mapping(value))
+    node = ASTProgram(_unwrap_pine2ast_payload(_as_mapping(value)))
     if node.kind != "Program":
         raise ValidationError(f"Expected Program node, got {node.kind}")
     return node
@@ -130,3 +164,8 @@ def validate_ast(program: ASTProgram) -> list[str]:
 def load_ast(path: str | Path) -> ASTProgram:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     return ensure_program_node(_as_mapping(data))
+
+
+def normalized_program_dict(value: dict[str, Any]) -> dict[str, Any]:
+    """Deep-copy a Program dict after Pine2AST payload unwrapping."""
+    return copy.deepcopy(ensure_program_node(value).raw)

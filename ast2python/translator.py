@@ -34,6 +34,7 @@ from ast2python.naming import snake_case
 from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
+from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
 STATEFUL_TA_FUNCTIONS = {"ema", "rma", "atr", "rsi", "macd", "supertrend", "bb"}
@@ -1563,7 +1564,7 @@ class Translator:
         }
         return {
             "ast2python_version": __version__,
-            "generator_milestone": "v0.5.0",
+            "generator_milestone": "v0.6.0",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",
@@ -1571,7 +1572,8 @@ class Translator:
             "inputs": self.ctx.input_metadata,
             "types": self.ctx.type_metadata,
             "used_builtins": sorted(self.ctx.coverage.builtins),
-            "unsupported_nodes": [],
+            "node_kind_counts": node_kind_counts(program),
+            "unsupported_nodes": unsupported_node_catalog(program),
             "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),
             "diagnostics": [item.to_dict() for item in self.ctx.diagnostics],
             "source_map_file": f"{module_name}.sourcemap.json",

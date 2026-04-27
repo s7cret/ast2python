@@ -4,6 +4,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
+from ast2python.ast.schema import ASTProgram
+from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
+
 
 @dataclass
 class CoverageTracker:
@@ -32,3 +35,17 @@ class CoverageTracker:
             "generation_ratio": 0.0 if self.nodes_total == 0 else self.nodes_generated / self.nodes_total,
             "builtins": dict(sorted(self.builtins.items())),
         }
+
+
+def static_coverage_report(program: ASTProgram) -> dict[str, Any]:
+    """Schema-level coverage information that does not require successful lowering."""
+    unsupported = unsupported_node_catalog(program)
+    total = sum(1 for _ in program.descendants())
+    unsupported_count = sum(item["count"] for item in unsupported)
+    return {
+        "nodes_total": total,
+        "node_kind_counts": node_kind_counts(program),
+        "unsupported_nodes": unsupported,
+        "unsupported_node_count": unsupported_count,
+        "schema_supported_ratio": 1.0 if total == 0 else (total - unsupported_count) / total,
+    }
