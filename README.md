@@ -50,3 +50,7 @@ Build the reproducible release archive with:
 ```bash
 ./scripts/release_v1_0_0.sh
 ```
+
+## Acknowledgements
+
+This project was developed with AI-assisted engineering workflows. The license and release obligations are defined only by `LICENSE` and the repository documentation above.
