@@ -12,6 +12,13 @@ from typing import Any
 from ast2python.ast.schema import load_ast, validate_ast
 from ast2python.coverage import static_coverage_report
 from ast2python.errors import AST2PythonError, UnsupportedNodeError
+from ast2python.lowering_matrix import (
+    LoweringMatrixError,
+    export_lowering_matrix_markdown,
+    export_source_map_contract_markdown,
+    validate_lowering_matrix,
+    validate_source_map_contract,
+)
 from ast2python.translator import Translator
 
 
@@ -45,6 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--bars", help="JSON or CSV bars file; defaults to two deterministic sample bars"
     )
 
+    lowering_parser = subparsers.add_parser("lowering-matrix")
+    lowering_parser.add_argument("action", choices=["validate", "export-md"])
+    lowering_parser.add_argument("output", nargs="?", default="docs/LOWERING_MATRIX.md")
+
+    source_map_parser = subparsers.add_parser("source-map-contract")
+    source_map_parser.add_argument("action", choices=["validate", "export-md"])
+    source_map_parser.add_argument("output", nargs="?", default="docs/SOURCE_MAP_CONTRACT.md")
+
     return parser
 
 
@@ -73,7 +88,39 @@ def main(argv: list[str] | None = None) -> int:
             return command_coverage(args.ast_path, strict=args.strict)
         if args.command == "smoke":
             return command_smoke(args.python_path, bars_path=args.bars)
+        if args.command == "lowering-matrix":
+            return command_lowering_matrix(args.action, output=args.output)
+        if args.command == "source-map-contract":
+            return command_source_map_contract(args.action, output=args.output)
     except AST2PythonError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    return 0
+
+
+def command_lowering_matrix(action: str, *, output: str) -> int:
+    try:
+        if action == "validate":
+            validate_lowering_matrix()
+            print("OK lowering matrix")
+        elif action == "export-md":
+            validate_lowering_matrix()
+            print(export_lowering_matrix_markdown(output))
+    except LoweringMatrixError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    return 0
+
+
+def command_source_map_contract(action: str, *, output: str) -> int:
+    try:
+        if action == "validate":
+            validate_source_map_contract()
+            print("OK source-map contract")
+        elif action == "export-md":
+            validate_source_map_contract()
+            print(export_source_map_contract_markdown(output))
+    except LoweringMatrixError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     return 0

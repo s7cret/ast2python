@@ -1,0 +1,26 @@
+{
+  "schema_version": "pain.ast2python.source_map_contract.v1",
+  "runtime_contract": "1.4",
+  "artifact": "<module>.sourcemap.json",
+  "format": "json-array",
+  "required_fields": [
+    "python_line",
+    "pine_line",
+    "pine_column",
+    "pine_end_line",
+    "pine_end_column",
+    "pine_source"
+  ],
+  "guarantees": [
+    "python_line is 1-based generated Python line number",
+    "pine_* fields preserve Pine source span when present in input AST, otherwise null",
+    "pine_source may include best-effort source/comment text",
+    "source maps are emitted beside every translated module",
+    "coverage metadata includes source_map coverage summary"
+  ],
+  "limitations": [
+    "not every generated helper line maps to a Pine line",
+    "generated scaffolding/import/runtime-contract lines may be intentionally unmapped",
+    "source map is a debugging/provenance artifact, not a full reversible compiler map"
+  ]
+}

@@ -19,7 +19,10 @@ dependencies = [
 ast2python = "ast2python.cli.main:main"
 
 [tool.setuptools]
-packages = ["ast2python", "ast2python.ast", "ast2python.cli", "ast2python.emitters", "ast2python.runtime_contract", "ast2python.templates"]
+packages = ["ast2python", "ast2python.ast", "ast2python.cli", "ast2python.emitters", "ast2python.lowering_matrix", "ast2python.runtime_contract", "ast2python.templates"]
+
+[tool.setuptools.package-data]
+ast2python = ["lowering_matrix/*.json"]
 
 [tool.black]
 line-length = 100
