@@ -4,6 +4,12 @@ AST2Python translates Pine2AST JSON into readable, deterministic Python modules 
 
 v1.0.0 is the finalized runtime-contract `1.4` release. Stack train metadata: `pain-stack-pine-v6-2026.04-r1`, `pine_language_version=6`, `pine_docs_baseline=2026-04`, `runtime_contract=1.4` (see `RELEASE_STACK_MANIFEST_2026_04_R1.json`). This is a verified Pine v6 subset/oracle-snapshot target, not a full Pine v6 parity claim. The April 2026 language-relevant baseline delta is UDT collection sorting via `sort_field` for `array.sort`, `array.sort_indices`, and `matrix.sort`; Pine Editor word-wrap is non-runtime UX.
 
+## Release scope and stack boundaries
+
+`ast2python` is the code-generation layer between Pine2AST JSON and PineLib `runtime_contract=1.4`. It owns deterministic lowering, source maps, coverage metadata, generated runtime-contract checks, and explicit unsupported-feature diagnostics. It does **not** parse Pine source, emulate TradingView bars/orders, fetch market data, run backtests, or optimize strategies.
+
+Future Backtest Engine and Optimizer work is planned as independent layers outside this package and outside the current `pain-stack-pine-v6-2026.04-r1` claim. Any optimizer integration should be protocol-bound through a BacktestRunner-style interface, not documented as part of this v1.0.0 generator release.
+
 It keeps v0.9.0 release-candidate hardening and finalizes:
 
 - final audit documentation and release notes
@@ -30,8 +36,12 @@ Generated modules emit:
 - `REQUIRED_RUNTIME_CONTRACT = "1.4"`
 - runtime contract version check with `P2A_CONTRACT_VERSION_MISMATCH`
 - explicit diagnostics/failures for unsupported nodes/builtins instead of silent placeholder translation
-- no direct generated calls to `commit_current()` or strategy fills; runtime/backtest loop owns commits and broker execution
+- no direct generated calls to `commit_current()` or strategy fills; the embedding runtime/caller loop owns commits and any broker execution
 - generated visual calls routed through `runtime.visual` recorder methods
+
+## License
+
+This repository is currently packaged with a proprietary/all-rights-reserved license. See `LICENSE`.
 
 ## Release archive
 

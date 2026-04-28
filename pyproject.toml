@@ -8,6 +8,7 @@ version = "1.0.0"
 description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
 readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "Proprietary"}
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
   "pinelib>=1.0.1",
