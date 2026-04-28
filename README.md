@@ -2,7 +2,9 @@
 
 AST2Python translates Pine2AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
 
-v1.0.0 is the finalized runtime-contract `1.4` release. It keeps v0.9.0 release-candidate hardening and finalizes:
+v1.0.0 is the finalized runtime-contract `1.4` release. Stack train metadata: `pain-stack-pine-v6-2026.04-r1`, `pine_language_version=6`, `pine_docs_baseline=2026-04`, `runtime_contract=1.4` (see `RELEASE_STACK_MANIFEST_2026_04_R1.json`). This is a verified Pine v6 subset/oracle-snapshot target, not a full Pine v6 parity claim. The April 2026 language-relevant baseline delta is UDT collection sorting via `sort_field` for `array.sort`, `array.sort_indices`, and `matrix.sort`; Pine Editor word-wrap is non-runtime UX.
+
+It keeps v0.9.0 release-candidate hardening and finalizes:
 
 - final audit documentation and release notes
 - explicit v1.0 limitations carried forward without hidden feature expansion
