@@ -41,7 +41,7 @@ Generated modules emit:
 
 ## License
 
-This repository is currently packaged with a proprietary/all-rights-reserved license. See `LICENSE`.
+MIT. See `LICENSE`.
 
 ## Release archive
 
