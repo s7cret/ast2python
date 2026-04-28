@@ -30,7 +30,9 @@ class SourceMapEntry:
 class SourceMapBuilder:
     entries: list[SourceMapEntry] = field(default_factory=list)
 
-    def add(self, python_line: int, location: SourceLocation | None, pine_source: str | None = None) -> None:
+    def add(
+        self, python_line: int, location: SourceLocation | None, pine_source: str | None = None
+    ) -> None:
         self.entries.append(
             SourceMapEntry(
                 python_line=python_line,

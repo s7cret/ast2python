@@ -20,7 +20,9 @@ PINELIB_ROOT = ROOT.parent / "pinelib"
 def _env() -> dict[str, str]:
     env = os.environ.copy()
     paths = [str(PINE2AST_ROOT), str(ROOT), str(PINELIB_ROOT)]
-    env["PYTHONPATH"] = os.pathsep.join(paths + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    env["PYTHONPATH"] = os.pathsep.join(
+        paths + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
+    )
     return env
 
 
@@ -49,7 +51,9 @@ def _bars() -> list[Bar]:
     ]
 
 
-def _pine_to_module(tmp_path: Path, name: str, source: str) -> tuple[ModuleType, dict[str, Any], dict[str, Any]]:
+def _pine_to_module(
+    tmp_path: Path, name: str, source: str
+) -> tuple[ModuleType, dict[str, Any], dict[str, Any]]:
     pine = tmp_path / f"{name}.pine"
     ast_json = tmp_path / f"{name}.ast.json"
     inspect_json = tmp_path / f"{name}.inspect.json"
@@ -60,23 +64,27 @@ def _pine_to_module(tmp_path: Path, name: str, source: str) -> tuple[ModuleType,
     assert parse.returncode == 0, parse.stderr + parse.stdout
     assert ast_json.exists()
 
-    inspect = _run([sys.executable, "-m", "pine2ast", "inspect", str(pine), "--json", str(inspect_json)])
+    inspect = _run(
+        [sys.executable, "-m", "pine2ast", "inspect", str(pine), "--json", str(inspect_json)]
+    )
     assert inspect.returncode == 0, inspect.stderr + inspect.stdout
     inspect_payload = json.loads(inspect_json.read_text(encoding="utf-8"))
     assert inspect_payload["ok"] is True
     assert inspect_payload["producer"]["contract"] == "pine2ast.inspect.optimizer.v1"
 
-    translate = _run([
-        sys.executable,
-        "-m",
-        "ast2python.cli.main",
-        "translate",
-        str(ast_json),
-        "-o",
-        str(out),
-        "--module-name",
-        name,
-    ])
+    translate = _run(
+        [
+            sys.executable,
+            "-m",
+            "ast2python.cli.main",
+            "translate",
+            str(ast_json),
+            "-o",
+            str(out),
+            "--module-name",
+            name,
+        ]
+    )
     assert translate.returncode == 0, translate.stderr + translate.stdout
     payload = json.loads(translate.stdout)
     py_path = Path(payload["paths"]["python"])
@@ -128,17 +136,19 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
     )
     parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
     assert parse.returncode == 0, parse.stderr + parse.stdout
-    translate = _run([
-        sys.executable,
-        "-m",
-        "ast2python.cli.main",
-        "translate",
-        str(ast_json),
-        "-o",
-        str(out),
-        "--module-name",
-        "bad_overload",
-    ])
+    translate = _run(
+        [
+            sys.executable,
+            "-m",
+            "ast2python.cli.main",
+            "translate",
+            str(ast_json),
+            "-o",
+            str(out),
+            "--module-name",
+            "bad_overload",
+        ]
+    )
     assert translate.returncode != 0
     assert "semantic binding failed" in translate.stderr
 
@@ -154,9 +164,13 @@ def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
         plot(htf)
         """,
     )
-    provider = InMemoryDataProvider({
-        ("AAPL", "D"): [Bar(time=0, time_close=119_999, open=100, high=101, low=99, close=100, volume=1)],
-    })
+    provider = InMemoryDataProvider(
+        {
+            ("AAPL", "D"): [
+                Bar(time=0, time_close=119_999, open=100, high=101, low=99, close=100, volume=1)
+            ],
+        }
+    )
     rt = _runtime(provider)
     mod.GeneratedIndicator(runtime=rt).run(_bars())
     assert rt.series_registry["htf"]._history == [na, 100]
@@ -179,13 +193,15 @@ def test_cross_project_request_security_lower_tf_array_path(tmp_path: Path) -> N
         Bar(time=0, time_close=59_999, open=10, high=11, low=9, close=10, volume=100),
         Bar(time=60_000, time_close=119_999, open=20, high=21, low=19, close=20, volume=200),
     ]
-    provider = InMemoryDataProvider({
-        ("AAPL", "15S"): [
-            Bar(time=0, time_close=14_999, open=1, high=1, low=1, close=1, volume=1),
-            Bar(time=15_000, time_close=29_999, open=2, high=2, low=2, close=2, volume=1),
-            Bar(time=60_000, time_close=74_999, open=3, high=3, low=3, close=3, volume=1),
-        ],
-    })
+    provider = InMemoryDataProvider(
+        {
+            ("AAPL", "15S"): [
+                Bar(time=0, time_close=14_999, open=1, high=1, low=1, close=1, volume=1),
+                Bar(time=15_000, time_close=29_999, open=2, high=2, low=2, close=2, volume=1),
+                Bar(time=60_000, time_close=74_999, open=3, high=3, low=3, close=3, volume=1),
+            ],
+        }
+    )
     rt = _runtime(provider)
     mod.GeneratedIndicator(runtime=rt).run(chart)
     assert rt.series_registry["n"]._history == [2, 1]
@@ -211,11 +227,29 @@ def test_cross_project_request_security_lower_tf_negative_cli_fixtures(tmp_path:
         pine = tmp_path / f"{name}.pine"
         ast_json = tmp_path / f"{name}.ast.json"
         pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
-        parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
+        parse = _run(
+            [sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)]
+        )
         assert parse.returncode == 0, parse.stderr + parse.stdout
-        translate = _run([sys.executable, "-m", "ast2python.cli.main", "translate", str(ast_json), "-o", str(tmp_path / f"out_{name}"), "--module-name", name])
+        translate = _run(
+            [
+                sys.executable,
+                "-m",
+                "ast2python.cli.main",
+                "translate",
+                str(ast_json),
+                "-o",
+                str(tmp_path / f"out_{name}"),
+                "--module-name",
+                name,
+            ]
+        )
         assert translate.returncode != 0
-        assert "request.security_lower_tf" in translate.stderr or "P2A_REQUEST_SECURITY_CAPTURE_UNSAFE" in translate.stderr or "P2A_NESTED_REQUEST_SECURITY" in translate.stderr
+        assert (
+            "request.security_lower_tf" in translate.stderr
+            or "P2A_REQUEST_SECURITY_CAPTURE_UNSAFE" in translate.stderr
+            or "P2A_NESTED_REQUEST_SECURITY" in translate.stderr
+        )
 
 
 def test_cross_project_strategy_order_path(tmp_path: Path) -> None:

@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import ModuleType
-import sys
 
 PINELIB_ROOT = Path(__file__).resolve().parents[3] / "pinelib"
 if str(PINELIB_ROOT) not in sys.path:
     sys.path.insert(0, str(PINELIB_ROOT))
 
-import pytest
+import pytest  # noqa: E402
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na  # noqa: E402
+from pinelib.request.providers import InMemoryDataProvider  # noqa: E402
 
-from ast2python.errors import TypeResolutionError
-from ast2python.translator import translate_ast
-from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na
-from pinelib.request.providers import InMemoryDataProvider
+from ast2python.errors import TypeResolutionError  # noqa: E402
+from ast2python.translator import translate_ast  # noqa: E402
 
 
 def decl(kind: str = "indicator") -> dict:
@@ -37,7 +37,11 @@ def ident(name: str) -> dict:
 
 
 def member(obj, name: str) -> dict:
-    return {"kind": "MemberAccessExpr", "object": obj if isinstance(obj, dict) else ident(obj), "member": name}
+    return {
+        "kind": "MemberAccessExpr",
+        "object": obj if isinstance(obj, dict) else ident(obj),
+        "member": name,
+    }
 
 
 def arg(value, name=None) -> dict:
@@ -45,7 +49,9 @@ def arg(value, name=None) -> dict:
 
 
 def call(name: str, args=None) -> dict:
-    callee = ident(name) if "." not in name else member(name.split(".", 1)[0], name.split(".", 1)[1])
+    callee = (
+        ident(name) if "." not in name else member(name.split(".", 1)[0], name.split(".", 1)[1])
+    )
     return {"kind": "CallExpr", "callee": callee, "arguments": args or []}
 
 
@@ -58,7 +64,13 @@ def expr(expression: dict) -> dict:
 
 
 def program(items, kind: str = "indicator") -> dict:
-    return {"kind": "Program", "language": "pine", "version": 6, "declaration": decl(kind), "items": items}
+    return {
+        "kind": "Program",
+        "language": "pine",
+        "version": 6,
+        "declaration": decl(kind),
+        "items": items,
+    }
 
 
 def load_generated(code: str, name: str = "generated_contract") -> ModuleType:
@@ -68,7 +80,11 @@ def load_generated(code: str, name: str = "generated_contract") -> ModuleType:
 
 
 def runtime(provider=None) -> PineRuntime:
-    return PineRuntime(SymbolInfo(tickerid="AAPL", timezone="UTC", session="0000-2359"), TimeframeInfo.from_string("1"), data_provider=provider)
+    return PineRuntime(
+        SymbolInfo(tickerid="AAPL", timezone="UTC", session="0000-2359"),
+        TimeframeInfo.from_string("1"),
+        data_provider=provider,
+    )
 
 
 def bars() -> list[Bar]:
@@ -79,10 +95,12 @@ def bars() -> list[Bar]:
 
 
 def test_run_owns_full_bar_lifecycle_history_commit_and_scalar_current_close():
-    p = program([
-        var("x", ident("close")),
-        var("prev", {"kind": "HistoryRefExpr", "base": ident("x"), "offset": lit(1)}),
-    ])
+    p = program(
+        [
+            var("x", ident("close")),
+            var("prev", {"kind": "HistoryRefExpr", "base": ident("x"), "offset": lit(1)}),
+        ]
+    )
     result = translate_ast(p, module_name="history_contract")
     assert ".begin_bar(" in result.code and ".end_bar(" in result.code
     assert "self.x.set_current(self.rt.close.current)" in result.code
@@ -96,12 +114,24 @@ def test_run_owns_full_bar_lifecycle_history_commit_and_scalar_current_close():
 
 
 def test_request_security_lowers_to_pinelib_function_and_executes():
-    provider = InMemoryDataProvider({
-        ("AAPL", "D"): [Bar(time=0, time_close=119_999, open=100, high=101, low=99, close=100, volume=1)],
-    })
-    p = program([
-        var("htf", call("request.security", [arg(lit("AAPL", "string")), arg(lit("D", "string")), arg(ident("close"))])),
-    ])
+    provider = InMemoryDataProvider(
+        {
+            ("AAPL", "D"): [
+                Bar(time=0, time_close=119_999, open=100, high=101, low=99, close=100, volume=1)
+            ],
+        }
+    )
+    p = program(
+        [
+            var(
+                "htf",
+                call(
+                    "request.security",
+                    [arg(lit("AAPL", "string")), arg(lit("D", "string")), arg(ident("close"))],
+                ),
+            ),
+        ]
+    )
     result = translate_ast(p, module_name="request_contract")
     assert "request_security(" in result.code
     assert ".request.security" not in result.code
@@ -112,31 +142,55 @@ def test_request_security_lowers_to_pinelib_function_and_executes():
 
 
 def test_visual_strategy_operator_input_time_and_stateful_ta_smoke_without_attribute_errors():
-    visual = program([
-        var("ln", call("line.new", [arg(lit(0)), arg(ident("close")), arg(lit(1)), arg(ident("close"))]), type_ref={"kind": "TypeRef", "name": "line"}, mode="var"),
-        expr(call("line.set_xy1", [arg(ident("ln")), arg(ident("bar_index")), arg(ident("close"))])),
-        expr(call("plot", [arg(ident("close"))])),
-    ])
-    mod = load_generated(translate_ast(visual, module_name="visual_contract").code, "visual_contract")
+    visual = program(
+        [
+            var(
+                "ln",
+                call(
+                    "line.new", [arg(lit(0)), arg(ident("close")), arg(lit(1)), arg(ident("close"))]
+                ),
+                type_ref={"kind": "TypeRef", "name": "line"},
+                mode="var",
+            ),
+            expr(
+                call(
+                    "line.set_xy1", [arg(ident("ln")), arg(ident("bar_index")), arg(ident("close"))]
+                )
+            ),
+            expr(call("plot", [arg(ident("close"))])),
+        ]
+    )
+    mod = load_generated(
+        translate_ast(visual, module_name="visual_contract").code, "visual_contract"
+    )
     rt = runtime()
     mod.GeneratedIndicator(runtime=rt).run(bars())
     assert len(rt.visual.events) >= 2
 
-    strategy = program([expr(call("strategy.entry", [arg(lit("L", "string")), arg(member("strategy", "long"))]))], kind="strategy")
-    smod = load_generated(translate_ast(strategy, module_name="strategy_contract").code, "strategy_contract")
+    strategy = program(
+        [expr(call("strategy.entry", [arg(lit("L", "string")), arg(member("strategy", "long"))]))],
+        kind="strategy",
+    )
+    smod = load_generated(
+        translate_ast(strategy, module_name="strategy_contract").code, "strategy_contract"
+    )
     srt = runtime()
     script = smod.GeneratedStrategy(runtime=srt)
     script.run([bars()[0]])
     assert script.ctx.pending_orders and script.ctx.pending_orders[0].id == "L"
 
-    operator = program([
-        var("bad", {"kind": "BinaryExpr", "op": "+", "left": ident("na"), "right": lit(1)}),
-        var("cmp", {"kind": "BinaryExpr", "op": ">", "left": ident("na"), "right": lit(1)}),
-        var("inp", call("input.int", [arg(lit(5)), arg(lit("Length", "string"), "title")])),
-        var("t", call("time", [arg(lit("1", "string")), arg(lit("0000-2359", "string"))])),
-        var("avg", call("ta.sma", [arg(ident("close")), arg(lit(2))])),
-    ])
-    omod = load_generated(translate_ast(operator, module_name="operator_contract").code, "operator_contract")
+    operator = program(
+        [
+            var("bad", {"kind": "BinaryExpr", "op": "+", "left": ident("na"), "right": lit(1)}),
+            var("cmp", {"kind": "BinaryExpr", "op": ">", "left": ident("na"), "right": lit(1)}),
+            var("inp", call("input.int", [arg(lit(5)), arg(lit("Length", "string"), "title")])),
+            var("t", call("time", [arg(lit("1", "string")), arg(lit("0000-2359", "string"))])),
+            var("avg", call("ta.sma", [arg(ident("close")), arg(lit(2))])),
+        ]
+    )
+    omod = load_generated(
+        translate_ast(operator, module_name="operator_contract").code, "operator_contract"
+    )
     ort = runtime()
     omod.GeneratedIndicator(runtime=ort).run(bars())
     assert ort.series_registry["bad"]._history == [na, na]
@@ -146,9 +200,11 @@ def test_visual_strategy_operator_input_time_and_stateful_ta_smoke_without_attri
 
 
 def test_bool_na_helpers_are_compile_time_diagnostics():
-    p = program([
-        var("b", lit(True, "bool"), type_ref={"kind": "TypeRef", "name": "bool"}),
-        var("bad", call("nz", [arg(ident("b"))])),
-    ])
+    p = program(
+        [
+            var("b", lit(True, "bool"), type_ref={"kind": "TypeRef", "name": "bool"}),
+            var("bad", call("nz", [arg(ident("b"))])),
+        ]
+    )
     with pytest.raises(TypeResolutionError):
         translate_ast(p, module_name="bool_nz_contract")

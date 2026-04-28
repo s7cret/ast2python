@@ -37,7 +37,9 @@ class Scope:
 @dataclass
 class TranslationContext:
     variables: dict[str, VariableInfo] = field(default_factory=dict)
-    scopes: list[Scope] = field(default_factory=lambda: [Scope(id="global", kind="global", parent_id=None)])
+    scopes: list[Scope] = field(
+        default_factory=lambda: [Scope(id="global", kind="global", parent_id=None)]
+    )
     imports: ImportManager = field(default_factory=ImportManager)
     source_map: SourceMapBuilder = field(default_factory=SourceMapBuilder)
     diagnostics: list[Diagnostic] = field(default_factory=list)
@@ -133,6 +135,8 @@ class TranslationContext:
             )
         )
 
-    def unsupported(self, node_kind: str, reason: str, *, location: SourceLocation | None = None) -> None:
+    def unsupported(
+        self, node_kind: str, reason: str, *, location: SourceLocation | None = None
+    ) -> None:
         self.coverage.unsupported()
         raise UnsupportedNodeError(f"{node_kind}: {reason}")

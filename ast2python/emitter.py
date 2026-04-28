@@ -24,7 +24,9 @@ class CodeEmitter:
     def dedent(self) -> None:
         self._indent = max(0, self._indent - 1)
 
-    def line(self, text: str = "", *, loc: SourceLocation | None = None, source: str | None = None) -> None:
+    def line(
+        self, text: str = "", *, loc: SourceLocation | None = None, source: str | None = None
+    ) -> None:
         if text:
             self._lines.append(f"{self.indent_unit * self._indent}{text}")
         else:

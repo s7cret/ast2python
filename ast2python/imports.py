@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-
 CONFLICT_ALIASES = {
     "abs": "pine_abs",
     "round": "pine_round",
@@ -17,7 +16,9 @@ CONFLICT_ALIASES = {
 
 @dataclass
 class ImportManager:
-    from_imports: dict[str, dict[str, str | None]] = field(default_factory=lambda: defaultdict(dict))
+    from_imports: dict[str, dict[str, str | None]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
     plain_imports: dict[str, str | None] = field(default_factory=dict)
 
     def require_from(self, module: str, symbol: str, alias: str | None = None) -> str:

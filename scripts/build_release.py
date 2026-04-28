@@ -23,7 +23,9 @@ def iter_files() -> list[Path]:
     for entry in manifest["include"]:
         path = ROOT / entry
         if path.is_dir():
-            files.extend(sorted(item for item in path.rglob("*") if item.is_file() and _is_releasable(item)))
+            files.extend(
+                sorted(item for item in path.rglob("*") if item.is_file() and _is_releasable(item))
+            )
         elif path.is_file() and _is_releasable(path):
             files.append(path)
     archive = ROOT / str(manifest["archive"])

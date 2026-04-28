@@ -10,19 +10,19 @@ from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
 from ast2python.context import TranslationContext, VariableInfo
 from ast2python.diagnostics import (
-    CONTRACT_VERSION_MISMATCH,
-    BOOL_NA_OVERLOAD,
     BINDER_SIGNATURE_MISMATCH,
     BINDER_UNSUPPORTED_BUILTIN,
+    BOOL_NA_OVERLOAD,
+    CONTRACT_VERSION_MISMATCH,
+    EXTERNAL_LIBRARY_CALL,
     NESTED_REQUEST_SECURITY,
     REFERENCE_COPY_POLICY,
     REFERENCE_HISTORY_UNSUPPORTED,
     REQUEST_SECURITY_CAPTURE_UNSAFE,
-    EXTERNAL_LIBRARY_CALL,
-    UNSUPPORTED_NODE,
-    UNSUPPORTED_REQUEST,
     UNKNOWN_OVERLOAD,
     UNSUPPORTED_DECLARATION_ARG,
+    UNSUPPORTED_NODE,
+    UNSUPPORTED_REQUEST,
     VISUAL_OBJECT_USED_AS_VALUE,
     WARNING_NESTED_SECURITY,
     Diagnostic,
@@ -89,15 +89,42 @@ STRATEGY_CONTEXT_FIELDS = {
 DECLARATION_CONTEXT_FIELDS["strategy"] = STRATEGY_CONTEXT_FIELDS | {"overlay"}
 VISUAL_OBJECT_PRODUCERS = {"line.new", "label.new", "box.new", "table.new"}
 VISUAL_OBJECT_METHOD_PREFIXES = ("line.", "label.", "box.", "table.")
-VISUAL_STATEMENT_CALLS = {"plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor", "table.cell"}
+VISUAL_STATEMENT_CALLS = {
+    "plot",
+    "plotshape",
+    "plotchar",
+    "hline",
+    "fill",
+    "bgcolor",
+    "barcolor",
+    "table.cell",
+}
 FUNCTION_DECLARATIONS = {"FunctionDeclaration", "FunctionDecl", "FunctionDefinition"}
 METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
 UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
 ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
 LOWER_TF_PURE_CALL_PREFIXES = ("math.",)
-LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {"int", "float", "bool", "string", "color", "timeframe", "session", "time"}
-DATE_HELPERS = {"year", "month", "weekofyear", "dayofmonth", "dayofweek", "hour", "minute", "second"}
+LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
+    "int",
+    "float",
+    "bool",
+    "string",
+    "color",
+    "timeframe",
+    "session",
+    "time",
+}
+DATE_HELPERS = {
+    "year",
+    "month",
+    "weekofyear",
+    "dayofmonth",
+    "dayofweek",
+    "hour",
+    "minute",
+    "second",
+}
 REFERENCE_TYPES = {"array", "map", "matrix", "PineArray", "PineMap", "PineMatrix"}
 INPUT_CALLS = {
     "input.int",
@@ -109,10 +136,30 @@ INPUT_CALLS = {
     "input.source",
     "input.time",
 }
-STRATEGY_CALLS_P0 = {"strategy.entry", "strategy.order", "strategy.exit", "strategy.close", "strategy.close_all", "strategy.cancel", "strategy.cancel_all"}
+STRATEGY_CALLS_P0 = {
+    "strategy.entry",
+    "strategy.order",
+    "strategy.exit",
+    "strategy.close",
+    "strategy.close_all",
+    "strategy.cancel",
+    "strategy.cancel_all",
+}
 STRATEGY_READONLY_FIELDS = {
-    "equity", "netprofit", "openprofit", "grossprofit", "grossloss", "position_size", "position_avg_price",
-    "opentrades", "closedtrades", "wintrades", "losstrades", "eventrades", "max_drawdown", "max_runup",
+    "equity",
+    "netprofit",
+    "openprofit",
+    "grossprofit",
+    "grossloss",
+    "position_size",
+    "position_avg_price",
+    "opentrades",
+    "closedtrades",
+    "wintrades",
+    "losstrades",
+    "eventrades",
+    "max_drawdown",
+    "max_runup",
 }
 
 
@@ -156,9 +203,15 @@ class TranslationResult:
         sourcemap_path = output / f"{self.module_name}.sourcemap.json"
         coverage_path = output / f"{self.module_name}.coverage.json"
         py_path.write_text(self.code, encoding="utf-8")
-        meta_path.write_text(json.dumps(self.metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        sourcemap_path.write_text(json.dumps(self.source_map, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        coverage_path.write_text(json.dumps(self.coverage, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        meta_path.write_text(
+            json.dumps(self.metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        sourcemap_path.write_text(
+            json.dumps(self.source_map, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        coverage_path.write_text(
+            json.dumps(self.coverage, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         return {
             "python": py_path,
             "metadata": meta_path,
@@ -179,10 +232,14 @@ class Translator:
         self.functions: set[str] = set()
         self.methods: set[str] = set()
 
-    def translate_file(self, path: str | Path, *, module_name: str | None = None) -> TranslationResult:
+    def translate_file(
+        self, path: str | Path, *, module_name: str | None = None
+    ) -> TranslationResult:
         return self.translate_program(load_ast(path), module_name=module_name or Path(path).stem)
 
-    def translate_program(self, program: ASTProgram | dict[str, Any], *, module_name: str | None = None) -> TranslationResult:
+    def translate_program(
+        self, program: ASTProgram | dict[str, Any], *, module_name: str | None = None
+    ) -> TranslationResult:
         if isinstance(program, dict):
             program = ensure_program_node(program)
         problems = validate_ast(program)
@@ -242,10 +299,14 @@ class Translator:
         for node in program.descendants():
             if node.kind not in executable_kinds or node.loc is None or node.loc.line is None:
                 continue
-            if node.kind == "VarDeclaration" and self._is_input_call(node.child("initializer") or ASTNode({})):
+            if node.kind == "VarDeclaration" and self._is_input_call(
+                node.child("initializer") or ASTNode({})
+            ):
                 continue
             executable_lines.add(node.loc.line)
-        mapped_lines = {entry.pine_line for entry in self.ctx.source_map.entries if entry.pine_line is not None}
+        mapped_lines = {
+            entry.pine_line for entry in self.ctx.source_map.entries if entry.pine_line is not None
+        }
         covered = executable_lines & mapped_lines
         ratio = 1.0 if not executable_lines else len(covered) / len(executable_lines)
         return {
@@ -254,13 +315,15 @@ class Translator:
             "source_map_executable_line_ratio": ratio,
         }
 
-    def _emit_module(self, program: ASTProgram, declaration: ASTNode, *, title: str, module_name: str) -> None:
+    def _emit_module(
+        self, program: ASTProgram, declaration: ASTNode, *, title: str, module_name: str
+    ) -> None:
         self._collect_globals(program)
         self._declare_base_imports()
         self._declare_dynamic_imports(program)
         self.emitter.line("# Generated by AST2Python")
         self.emitter.line(f"# Pine runtime contract: {RUNTIME_CONTRACT_VERSION}")
-        self.emitter.line(f'# Source: {module_name}.pine')
+        self.emitter.line(f"# Source: {module_name}.pine")
         self.emitter.line()
         self.emitter.line("from __future__ import annotations")
         self.emitter.line()
@@ -292,7 +355,9 @@ class Translator:
 
     def _declare_base_imports(self) -> None:
         self.ctx.imports.require_from("ast2python.errors", "RuntimeContractError")
-        self.ctx.imports.require_from("ast2python.runtime_contract.generated_base", base_class_for_mode(self.ctx.mode))
+        self.ctx.imports.require_from(
+            "ast2python.runtime_contract.generated_base", base_class_for_mode(self.ctx.mode)
+        )
         self.ctx.imports.require_from("pinelib.core", "PineRuntime")
         self.ctx.imports.require_from("pinelib.core", "na")
         self.ctx.imports.require_from("pinelib.core", "pine_bool")
@@ -322,7 +387,9 @@ class Translator:
             if node.kind == "CallExpr":
                 callee = node.child("callee")
                 if callee is not None and member_chain(callee) == "request.security_lower_tf":
-                    self.ctx.imports.require_from("pinelib.request", "security_lower_tf", alias="request_security_lower_tf")
+                    self.ctx.imports.require_from(
+                        "pinelib.request", "security_lower_tf", alias="request_security_lower_tf"
+                    )
             if node.kind in {"ForRangeStructure", "ForStructure"}:
                 self.ctx.imports.require_from("pinelib.core", "pine_range")
             if node.kind == "ForInStructure":
@@ -350,7 +417,12 @@ class Translator:
             elif chain.startswith("str."):
                 self.ctx.imports.require_from("pinelib", "string", alias="pine_string")
             elif chain.startswith(("array.", "map.", "matrix.")):
-                self.ctx.imports.require_from("pinelib.reference", {"array": "PineArray", "map": "PineMap", "matrix": "PineMatrix"}[chain.split(".", 1)[0]])
+                self.ctx.imports.require_from(
+                    "pinelib.reference",
+                    {"array": "PineArray", "map": "PineMap", "matrix": "PineMatrix"}[
+                        chain.split(".", 1)[0]
+                    ],
+                )
 
     def _emit_init(self, declaration: ASTNode) -> None:
         self.emitter.line("def __init__(self, params=None, runtime=None):")
@@ -361,14 +433,16 @@ class Translator:
         self.emitter.indent()
         self.emitter.line('raise RuntimeContractError("runtime is required for generated modules")')
         self.emitter.dedent()
-        self.emitter.line("if getattr(self.rt, 'contract_version', None) != REQUIRED_RUNTIME_CONTRACT:")
+        self.emitter.line(
+            "if getattr(self.rt, 'contract_version', None) != REQUIRED_RUNTIME_CONTRACT:"
+        )
         self.emitter.indent()
         self.emitter.line(
-            'raise RuntimeContractError('
+            "raise RuntimeContractError("
             f'f"{CONTRACT_VERSION_MISMATCH}: requires runtime contract '
-            '{REQUIRED_RUNTIME_CONTRACT}, got '
-            '{getattr(self.rt, \'contract_version\', None)}"'
-            ')'
+            "{REQUIRED_RUNTIME_CONTRACT}, got "
+            "{getattr(self.rt, 'contract_version', None)}\""
+            ")"
         )
         self.emitter.dedent()
         if self.ctx.mode == "strategy":
@@ -387,24 +461,36 @@ class Translator:
         self.emitter.line()
         self.emitter.line("def _record_alert(self, kind, *args, source_map=None, **kwargs):")
         self.emitter.indent()
-        self.emitter.line("payload = {'kind': kind, 'args': args, 'kwargs': kwargs, 'source_map': source_map}")
-        self.emitter.line("(self.alert_conditions if kind == 'alertcondition' else self.alerts).append(payload)")
+        self.emitter.line(
+            "payload = {'kind': kind, 'args': args, 'kwargs': kwargs, 'source_map': source_map}"
+        )
+        self.emitter.line(
+            "(self.alert_conditions if kind == 'alertcondition' else self.alerts).append(payload)"
+        )
         self.emitter.line("return None")
         self.emitter.dedent()
         self.emitter.line()
-        self.emitter.line("def _external_library_call(self, alias, member, *args, source_map=None, **kwargs):")
+        self.emitter.line(
+            "def _external_library_call(self, alias, member, *args, source_map=None, **kwargs):"
+        )
         self.emitter.indent()
-        self.emitter.line("self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})")
+        self.emitter.line(
+            "self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})"  # noqa: E501
+        )
         self.emitter.line("return na")
         self.emitter.dedent()
         self.emitter.line()
         self.emitter.line("def _visual_call(self, name, *args, source_map=None, **kwargs):")
         self.emitter.indent()
-        self.emitter.line("self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})")
+        self.emitter.line(
+            "self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})"  # noqa: E501
+        )
         self.emitter.line("if name.endswith('.new'):")
         self.emitter.indent()
         self.emitter.line("kind = name.split('.', 1)[0]")
-        self.emitter.line("positional = {'line': ('x1', 'y1', 'x2', 'y2'), 'label': ('x', 'y', 'text'), 'box': ('left', 'top', 'right', 'bottom'), 'table': ('position', 'columns', 'rows')}.get(kind, ())")
+        self.emitter.line(
+            "positional = {'line': ('x1', 'y1', 'x2', 'y2'), 'label': ('x', 'y', 'text'), 'box': ('left', 'top', 'right', 'bottom'), 'table': ('position', 'columns', 'rows')}.get(kind, ())"  # noqa: E501
+        )
         self.emitter.line("attrs = dict(kwargs)")
         self.emitter.line("attrs.update({key: value for key, value in zip(positional, args)})")
         self.emitter.line("return self.rt.visual.new(kind, **attrs)")
@@ -429,7 +515,9 @@ class Translator:
         if not self.global_series:
             self.emitter.line("pass")
         for info, dtype in self.global_series:
-            self.emitter.line(f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")')
+            self.emitter.line(
+                f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")'
+            )
             self.emitter.line(f'self._var_initialized["{info.py_name}"] = False')
         self.emitter.dedent()
         self.emitter.line()
@@ -440,9 +528,11 @@ class Translator:
         for info, dtype, meta in self.input_series:
             default = meta["default_python"]
             schema = repr(meta["public"])
-            self.emitter.line(f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")')
             self.emitter.line(
-                f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'
+                f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")'
+            )
+            self.emitter.line(
+                f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'  # noqa: E501
             )
         self.emitter.dedent()
         self.emitter.line()
@@ -452,18 +542,26 @@ class Translator:
         self.emitter.line("kind = schema.get('type')")
         self.emitter.line("def fail(message):")
         self.emitter.indent()
-        self.emitter.line("diagnostics = getattr(getattr(self.rt, 'config', None), 'diagnostics', None)")
+        self.emitter.line(
+            "diagnostics = getattr(getattr(self.rt, 'config', None), 'diagnostics', None)"
+        )
         self.emitter.line("if isinstance(diagnostics, list):")
         self.emitter.indent()
-        self.emitter.line("diagnostics.append({'code': PL_INPUT_VALIDATION_ERROR, 'message': message, 'input': name})")
+        self.emitter.line(
+            "diagnostics.append({'code': PL_INPUT_VALIDATION_ERROR, 'message': message, 'input': name})"  # noqa: E501
+        )
         self.emitter.dedent()
         self.emitter.line("raise PineRuntimeError(message, code=PL_INPUT_VALIDATION_ERROR)")
         self.emitter.dedent()
-        self.emitter.line("if kind == 'int' and (not isinstance(value, int) or isinstance(value, bool)):")
+        self.emitter.line(
+            "if kind == 'int' and (not isinstance(value, int) or isinstance(value, bool)):"
+        )
         self.emitter.indent()
         self.emitter.line("fail(f'Input {name} must be int')")
         self.emitter.dedent()
-        self.emitter.line("if kind == 'float' and (not isinstance(value, (int, float)) or isinstance(value, bool)):")
+        self.emitter.line(
+            "if kind == 'float' and (not isinstance(value, (int, float)) or isinstance(value, bool)):"  # noqa: E501
+        )
         self.emitter.indent()
         self.emitter.line("fail(f'Input {name} must be float')")
         self.emitter.dedent()
@@ -471,7 +569,9 @@ class Translator:
         self.emitter.indent()
         self.emitter.line("fail(f'Input {name} must be bool')")
         self.emitter.dedent()
-        self.emitter.line("if kind in {'string', 'session', 'timeframe'} and not isinstance(value, str):")
+        self.emitter.line(
+            "if kind in {'string', 'session', 'timeframe'} and not isinstance(value, str):"
+        )
         self.emitter.indent()
         self.emitter.line("fail(f'Input {name} must be string')")
         self.emitter.dedent()
@@ -512,7 +612,9 @@ class Translator:
             self.emitter.line("bar = runtime.current_bar")
             self.emitter.line("if bar is None:")
             self.emitter.indent()
-            self.emitter.line('raise RuntimeContractError("strategy callback requires an active bar")')
+            self.emitter.line(
+                'raise RuntimeContractError("strategy callback requires an active bar")'
+            )
             self.emitter.dedent()
             self.emitter.line("self._process_bar(bar)")
             self.emitter.dedent()
@@ -539,13 +641,17 @@ class Translator:
                 self.emitter.line("self.ctx.process_orders_for_bar(runtime=self.rt, bar=bar)")
                 if self.ctx.strategy_metadata.get("calc_on_order_fills") is True:
                     self.emitter.line("_recalc_count = 0")
-                    self.emitter.line("while self.ctx.calc_on_order_fills and self.ctx.has_fill_recalc_pending():")
+                    self.emitter.line(
+                        "while self.ctx.calc_on_order_fills and self.ctx.has_fill_recalc_pending():"
+                    )
                     self.emitter.indent()
                     self.emitter.line("_recalc_count += 1")
                     self.emitter.line("self.rt.guard_recalc_count(_recalc_count)")
                     self.emitter.line("self.ctx.update_position_equity_trades_after_fill()")
                     self.emitter.line("self._process_bar(bar)")
-                    self.emitter.line("self.ctx.process_orders_for_bar(runtime=self.rt, bar=bar, recalc_phase=True)")
+                    self.emitter.line(
+                        "self.ctx.process_orders_for_bar(runtime=self.rt, bar=bar, recalc_phase=True)"  # noqa: E501
+                    )
                     self.emitter.dedent()
         self.emitter.dedent()
         self.emitter.line("finally:")
@@ -578,7 +684,14 @@ class Translator:
         if not program.items:
             self.emitter.line("pass")
         for item in program.items:
-            if item.kind in FUNCTION_DECLARATIONS | METHOD_DECLARATIONS | UDT_DECLARATIONS | ENUM_DECLARATIONS or item.kind == "ImportDeclaration":
+            if (
+                item.kind
+                in FUNCTION_DECLARATIONS
+                | METHOD_DECLARATIONS
+                | UDT_DECLARATIONS
+                | ENUM_DECLARATIONS
+                or item.kind == "ImportDeclaration"
+            ):
                 continue
             self._emit_statement(item)
         self.emitter.dedent()
@@ -618,10 +731,16 @@ class Translator:
                     )
                     if initializer is not None:
                         info.type_info = self._infer_type_info(initializer)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                            info.type_info.to_dict()
+                        )
                     elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                        info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                        info.type_info = make_type_info(
+                            "PineObjectId", info.qualifier, is_series=info.is_series
+                        )
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                            info.type_info.to_dict()
+                        )
                     self.global_series.append((info, self._infer_dtype(initializer)))
                 continue
             if item.kind == "VarDeclaration":
@@ -662,10 +781,16 @@ class Translator:
                     )
                     if initializer is not None:
                         info.type_info = self._infer_type_info(initializer)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                            info.type_info.to_dict()
+                        )
                     elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                        info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                        info.type_info = make_type_info(
+                            "PineObjectId", info.qualifier, is_series=info.is_series
+                        )
+                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                            info.type_info.to_dict()
+                        )
                     self.global_series.append((info, self._infer_dtype(initializer)))
 
     def _emit_statement(self, node: ASTNode) -> None:
@@ -687,7 +812,9 @@ class Translator:
             expression = node.child("expression")
             if expression is None:
                 raise UnsupportedNodeError("ExpressionStatement without expression")
-            self.emitter.line(self.translate_expression(expression), loc=node.loc, source=node.source)
+            self.emitter.line(
+                self.translate_expression(expression), loc=node.loc, source=node.source
+            )
             return
         if node.kind == "IfStructure":
             self._emit_if(node)
@@ -740,10 +867,16 @@ class Translator:
             )
             if initializer is not None:
                 info.type_info = self._infer_type_info(initializer)
-                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                    info.type_info.to_dict()
+                )
             elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                info.type_info = make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
-                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
+                info.type_info = make_type_info(
+                    "PineObjectId", info.qualifier, is_series=info.is_series
+                )
+                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                    info.type_info.to_dict()
+                )
             if is_global:
                 self.global_series.append((info, self._infer_dtype(initializer)))
             return info
@@ -759,19 +892,27 @@ class Translator:
         if self.ctx.current_scope.kind == "global":
             expr = self.translate_expression(initializer)
             if info.declaration_kind == "var":
-                self.emitter.line(f'if not self._var_initialized["{info.py_name}"]:', loc=node.loc, source=node.source)
+                self.emitter.line(
+                    f'if not self._var_initialized["{info.py_name}"]:',
+                    loc=node.loc,
+                    source=node.source,
+                )
                 self.emitter.indent()
                 self.emitter.line(f"self.{info.py_name}.set_current({expr})")
                 self.emitter.line(f'self._var_initialized["{info.py_name}"] = True')
                 self.emitter.dedent()
             else:
-                self.emitter.line(f"self.{info.py_name}.set_current({expr})", loc=node.loc, source=node.source)
+                self.emitter.line(
+                    f"self.{info.py_name}.set_current({expr})", loc=node.loc, source=node.source
+                )
             return
         expr = self.translate_expression(initializer)
         self.emitter.line(f"{info.py_name} = {expr}", loc=node.loc, source=node.source)
 
     def _tuple_targets(self, node: ASTNode) -> list[str]:
-        raw_targets = node.raw.get("targets") or node.raw.get("names") or node.raw.get("elements") or []
+        raw_targets = (
+            node.raw.get("targets") or node.raw.get("names") or node.raw.get("elements") or []
+        )
         targets: list[str] = []
         if not isinstance(raw_targets, list):
             raise UnsupportedNodeError("TupleDeclaration targets must be a list")
@@ -830,10 +971,14 @@ class Translator:
         rhs = self.translate_expression(value)
         if info.is_series:
             if node.field("op") in {":=", "="}:
-                self.emitter.line(f"self.{info.py_name}.set_current({rhs})", loc=node.loc, source=node.source)
+                self.emitter.line(
+                    f"self.{info.py_name}.set_current({rhs})", loc=node.loc, source=node.source
+                )
             else:
                 operator = str(node.field("op")).replace("=", "")
-                lowered = self._lower_binary_operator(operator, f"self.{info.py_name}.current", rhs, node)
+                lowered = self._lower_binary_operator(
+                    operator, f"self.{info.py_name}.current", rhs, node
+                )
                 self.emitter.line(
                     f"self.{info.py_name}.set_current({lowered})",
                     loc=node.loc,
@@ -844,7 +989,11 @@ class Translator:
             self.emitter.line(f"{info.py_name} = {rhs}", loc=node.loc, source=node.source)
         else:
             operator = str(node.field("op")).replace("=", "")
-            self.emitter.line(f"{info.py_name} = {self._lower_binary_operator(operator, info.py_name, rhs, node)}", loc=node.loc, source=node.source)
+            self.emitter.line(
+                f"{info.py_name} = {self._lower_binary_operator(operator, info.py_name, rhs, node)}",  # noqa: E501
+                loc=node.loc,
+                source=node.source,
+            )
 
     def _emit_if(self, node: ASTNode) -> None:
         condition = node.child("condition")
@@ -853,7 +1002,11 @@ class Translator:
         if condition is None or then_block is None:
             raise UnsupportedNodeError("IfStructure missing condition or then_block")
         self._reject_visual_value(condition)
-        self.emitter.line(f"if pine_bool({self.translate_expression(condition)}):", loc=node.loc, source=node.source)
+        self.emitter.line(
+            f"if pine_bool({self.translate_expression(condition)}):",
+            loc=node.loc,
+            source=node.source,
+        )
         self.emitter.indent()
         self.ctx.enter_scope("block")
         if then_block.children("statements"):
@@ -912,9 +1065,15 @@ class Translator:
         step_node = node.child("step")
         if step_node is not None:
             step = self.translate_expression(step_node)
-            self.emitter.line(f"for {loop_name} in pine_range({start}, {end}, {step}):", loc=node.loc, source=node.source)
+            self.emitter.line(
+                f"for {loop_name} in pine_range({start}, {end}, {step}):",
+                loc=node.loc,
+                source=node.source,
+            )
         else:
-            self.emitter.line(f"for {loop_name} in pine_range({start}, {end}):", loc=node.loc, source=node.source)
+            self.emitter.line(
+                f"for {loop_name} in pine_range({start}, {end}):", loc=node.loc, source=node.source
+            )
         self.emitter.indent()
         body = node.child("body")
         if body is None or not body.children("statements"):
@@ -929,7 +1088,9 @@ class Translator:
         target = node.child("target")
         raw_names: Any = None if target is None else target.raw.get("names")
         if raw_names is None:
-            raw_names = node.raw.get("names") or node.raw.get("variables") or node.raw.get("targets")
+            raw_names = (
+                node.raw.get("names") or node.raw.get("variables") or node.raw.get("targets")
+            )
         if isinstance(raw_names, list):
             return [str(item) for item in raw_names]
         if isinstance(raw_names, str):
@@ -948,7 +1109,16 @@ class Translator:
         self.ctx.enter_scope("loop")
         py_names: list[str] = []
         for name in names:
-            info = self.ctx.declare_var(name, type_ref=None, qualifier=None, declaration_kind="loop", is_series=False, is_mutable=True, loc=node.loc, prefer_py_name=name)
+            info = self.ctx.declare_var(
+                name,
+                type_ref=None,
+                qualifier=None,
+                declaration_kind="loop",
+                is_series=False,
+                is_mutable=True,
+                loc=node.loc,
+                prefer_py_name=name,
+            )
             py_names.append(info.py_name)
         target = py_names[0] if len(py_names) == 1 else f"({', '.join(py_names)})"
         self.emitter.line(f"for {target} in {iterable}:", loc=node.loc, source=node.source)
@@ -975,10 +1145,20 @@ class Translator:
         if message is not None:
             kwargs.append(f"message={self.translate_expression(message)}")
         self.ctx.coverage.builtin("alertcondition")
-        self.emitter.line(f"self._record_alert('alertcondition'{', ' if args or kwargs else ''}{', '.join(args + kwargs)}, source_map=\"{node.loc.source_map if node.loc else ''}\")", loc=node.loc, source=node.source)
+        self.emitter.line(
+            f"self._record_alert('alertcondition'{', ' if args or kwargs else ''}{', '.join(args + kwargs)}, source_map=\"{node.loc.source_map if node.loc else ''}\")",  # noqa: E501
+            loc=node.loc,
+            source=node.source,
+        )
 
     def _unsupported(self, node: ASTNode, message: str) -> NoReturn:
-        self.ctx.add_diagnostic(UNSUPPORTED_NODE, message, Severity.ERROR, location=node.loc, details={"kind": node.kind})
+        self.ctx.add_diagnostic(
+            UNSUPPORTED_NODE,
+            message,
+            Severity.ERROR,
+            location=node.loc,
+            details={"kind": node.kind},
+        )
         self.ctx.coverage.unsupported()
         raise UnsupportedNodeError(message)
 
@@ -1002,11 +1182,17 @@ class Translator:
         guard = self.ctx.naming.reserve("while_guard", prefer="_guard")
         self.emitter.line(f"{guard} = 0", loc=node.loc, source=node.source)
         self._reject_visual_value(condition)
-        self.emitter.line(f"while pine_bool({self.translate_expression(condition)}):", loc=node.loc, source=node.source)
+        self.emitter.line(
+            f"while pine_bool({self.translate_expression(condition)}):",
+            loc=node.loc,
+            source=node.source,
+        )
         self.emitter.indent()
         self.ctx.enter_scope("loop")
         self.emitter.line(f"{guard} += 1")
-        self.emitter.line(f"if {guard} > getattr(getattr(self.rt, 'config', None), 'max_loop_iterations', 100000):")
+        self.emitter.line(
+            f"if {guard} > getattr(getattr(self.rt, 'config', None), 'max_loop_iterations', 100000):"  # noqa: E501
+        )
         self.emitter.indent()
         self.emitter.line('raise RuntimeContractError("max_loop_iterations exceeded")')
         self.emitter.dedent()
@@ -1022,7 +1208,12 @@ class Translator:
         return node.children("cases", "branches", "arms")
 
     def _case_condition(self, case: ASTNode) -> ASTNode | None:
-        return case.child("condition") or case.child("match") or case.child("value") or case.child("test")
+        return (
+            case.child("condition")
+            or case.child("match")
+            or case.child("value")
+            or case.child("test")
+        )
 
     def _case_body(self, case: ASTNode) -> ASTNode | None:
         return case.child("body") or case.child("block") or case.child("then")
@@ -1035,18 +1226,32 @@ class Translator:
             body = self._case_body(case)
             is_default = cond is None or bool(case.field("default", default=False))
             if is_default:
-                self.emitter.line("else:" if emitted else "if True:", loc=case.loc or node.loc, source=case.source or node.source)
+                self.emitter.line(
+                    "else:" if emitted else "if True:",
+                    loc=case.loc or node.loc,
+                    source=case.source or node.source,
+                )
             else:
                 if subject is not None:
                     assert cond is not None
-                    rendered = f"{self.translate_expression(subject)} == {self.translate_expression(cond)}"
+                    rendered = (
+                        f"{self.translate_expression(subject)} == {self.translate_expression(cond)}"
+                    )
                     prefix = "elif" if emitted else "if"
-                    self.emitter.line(f"{prefix} {rendered}:", loc=case.loc or node.loc, source=case.source or node.source)
+                    self.emitter.line(
+                        f"{prefix} {rendered}:",
+                        loc=case.loc or node.loc,
+                        source=case.source or node.source,
+                    )
                 else:
                     assert cond is not None
                     self._reject_visual_value(cond)
                     prefix = "elif" if emitted else "if"
-                    self.emitter.line(f"{prefix} pine_bool({self.translate_expression(cond)}):", loc=case.loc or node.loc, source=case.source or node.source)
+                    self.emitter.line(
+                        f"{prefix} pine_bool({self.translate_expression(cond)}):",
+                        loc=case.loc or node.loc,
+                        source=case.source or node.source,
+                    )
             emitted = True
             self.emitter.indent()
             statements = [] if body is None else body.children("statements")
@@ -1089,8 +1294,14 @@ class Translator:
             field_name = str(field_node.field("name"))
             type_name = self._type_ref_name(field_node) or str(field_node.field("type") or "object")
             default_node = field_node.child("default") or field_node.child("initializer")
-            default = self.translate_expression(default_node) if default_node is not None else self._default_for_type(type_name)
-            self.emitter.line(f"{snake_case(field_name)}: {self._python_type_name(type_name)} = {default}")
+            default = (
+                self.translate_expression(default_node)
+                if default_node is not None
+                else self._default_for_type(type_name)
+            )
+            self.emitter.line(
+                f"{snake_case(field_name)}: {self._python_type_name(type_name)} = {default}"
+            )
         self.emitter.dedent()
         self.emitter.line()
 
@@ -1124,33 +1335,58 @@ class Translator:
         name = snake_case(str(node.field("name")))
         params = node.children("params", "parameters", "arguments")
         py_params = [self._param_name(param) for param in params]
-        self.emitter.line(f"def {name}(self{', ' if py_params else ''}{', '.join(py_params)}):", loc=node.loc, source=node.source)
+        self.emitter.line(
+            f"def {name}(self{', ' if py_params else ''}{', '.join(py_params)}):",
+            loc=node.loc,
+            source=node.source,
+        )
         self.emitter.indent()
         self.ctx.enter_scope("function")
-        for param, py_name in zip(params, py_params):
-            info = self.ctx.declare_var(str(param.field("name") or py_name), type_ref=self._type_ref_name(param), qualifier=None, declaration_kind="param", is_series=False, is_mutable=True, loc=param.loc, prefer_py_name=py_name)
+        for param, py_name in zip(params, py_params, strict=False):
+            info = self.ctx.declare_var(
+                str(param.field("name") or py_name),
+                type_ref=self._type_ref_name(param),
+                qualifier=None,
+                declaration_kind="param",
+                is_series=False,
+                is_mutable=True,
+                loc=param.loc,
+                prefer_py_name=py_name,
+            )
             info.py_name = py_name
         body = node.child("body") or node.child("block")
         statements = [] if body is None else body.children("statements")
         if not statements:
             expr = node.child("expression") or node.child("result")
-            self.emitter.line(f"return {self.translate_expression(expr)}" if expr is not None else "return None")
+            self.emitter.line(
+                f"return {self.translate_expression(expr)}" if expr is not None else "return None"
+            )
         else:
             for index, statement in enumerate(statements):
                 if index == len(statements) - 1 and statement.kind == "ExpressionStatement":
                     expr = statement.child("expression")
                     self.emitter.source_comment(statement.loc, statement.source)
-                    self.emitter.line(f"return {self.translate_expression(expr)}" if expr is not None else "return None", loc=statement.loc, source=statement.source)
+                    self.emitter.line(
+                        f"return {self.translate_expression(expr)}"
+                        if expr is not None
+                        else "return None",
+                        loc=statement.loc,
+                        source=statement.source,
+                    )
                 else:
                     self._emit_statement(statement)
         self.ctx.exit_scope()
         self.emitter.dedent()
 
     def _python_type_name(self, pine_type: str | None) -> str:
-        return {"int": "int", "float": "float", "bool": "bool", "string": "str", "str": "str"}.get(str(pine_type), "object")
+        return {"int": "int", "float": "float", "bool": "bool", "string": "str", "str": "str"}.get(
+            str(pine_type), "object"
+        )
 
     def _default_for_type(self, pine_type: str | None) -> str:
-        return {"int": "0", "float": "na", "bool": "False", "string": "''", "str": "''"}.get(str(pine_type), "na")
+        return {"int": "0", "float": "na", "bool": "False", "string": "''", "str": "''"}.get(
+            str(pine_type), "na"
+        )
 
     def _is_visual_method_call(self, name: str) -> bool:
         if not name.startswith(VISUAL_OBJECT_METHOD_PREFIXES):
@@ -1163,7 +1399,12 @@ class Translator:
             return
         info = self._infer_type_info(node)
         if info.base_type == "PineObjectId":
-            self.ctx.add_diagnostic(VISUAL_OBJECT_USED_AS_VALUE, "visual object id used as arithmetic/bool value is not supported", Severity.ERROR, location=node.loc)
+            self.ctx.add_diagnostic(
+                VISUAL_OBJECT_USED_AS_VALUE,
+                "visual object id used as arithmetic/bool value is not supported",
+                Severity.ERROR,
+                location=node.loc,
+            )
             raise TypeResolutionError("Visual object id cannot be used as a value")
 
     def _translate_switch_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
@@ -1174,16 +1415,30 @@ class Translator:
             cond = self._case_condition(case)
             expr = case.child("expression") or case.child("result")
             body_expr = self._block_expression(self._case_body(case), runtime_expr=runtime_expr)
-            value = self.translate_expression(expr, runtime_expr=runtime_expr) if expr is not None else (body_expr or "na")
+            value = (
+                self.translate_expression(expr, runtime_expr=runtime_expr)
+                if expr is not None
+                else (body_expr or "na")
+            )
             if cond is None or bool(case.field("default", default=False)):
                 default = value
             elif subject is not None:
                 assert cond is not None
-                clauses.append((f"{self.translate_expression(subject, runtime_expr=runtime_expr)} == {self.translate_expression(cond, runtime_expr=runtime_expr)}", value))
+                clauses.append(
+                    (
+                        f"{self.translate_expression(subject, runtime_expr=runtime_expr)} == {self.translate_expression(cond, runtime_expr=runtime_expr)}",  # noqa: E501
+                        value,
+                    )
+                )
             else:
                 assert cond is not None
                 self._reject_visual_value(cond)
-                clauses.append((f"pine_bool({self.translate_expression(cond, runtime_expr=runtime_expr)})", value))
+                clauses.append(
+                    (
+                        f"pine_bool({self.translate_expression(cond, runtime_expr=runtime_expr)})",
+                        value,
+                    )
+                )
         rendered = default
         for cond_text, value in reversed(clauses):
             rendered = f"({value} if {cond_text} else {rendered})"
@@ -1260,10 +1515,24 @@ class Translator:
         if node.kind in {"SwitchStructure", "SwitchExpr", "SwitchExpression"}:
             return self._translate_switch_expression(node, runtime_expr=runtime_expr)
         if node.kind == "TupleExpr":
-            return "(" + ", ".join(self.translate_expression(item, runtime_expr=runtime_expr) for item in node.children("elements", "items", "values")) + ",)"
+            return (
+                "("
+                + ", ".join(
+                    self.translate_expression(item, runtime_expr=runtime_expr)
+                    for item in node.children("elements", "items", "values")
+                )
+                + ",)"
+            )
         if node.kind == "ArrayLiteral":
             self.ctx.imports.require_from("pinelib.reference", "PineArray")
-            return "PineArray([" + ", ".join(self.translate_expression(item, runtime_expr=runtime_expr) for item in node.children("elements", "items", "values")) + "])"
+            return (
+                "PineArray(["
+                + ", ".join(
+                    self.translate_expression(item, runtime_expr=runtime_expr)
+                    for item in node.children("elements", "items", "values")
+                )
+                + "])"
+            )
         if node.kind == "MapLiteral":
             self.ctx.imports.require_from("pinelib.reference", "PineMap")
             entries = []
@@ -1272,10 +1541,14 @@ class Translator:
                 value = item.child("value")
                 if key is None or value is None:
                     self._unsupported(item, "MapLiteral entry requires key/value")
-                entries.append(f"{self.translate_expression(key, runtime_expr=runtime_expr)}: {self.translate_expression(value, runtime_expr=runtime_expr)}")
+                entries.append(
+                    f"{self.translate_expression(key, runtime_expr=runtime_expr)}: {self.translate_expression(value, runtime_expr=runtime_expr)}"  # noqa: E501
+                )
             return "PineMap({" + ", ".join(entries) + "})"
         if node.kind == "MatrixLiteral":
-            self._unsupported(node, "MatrixLiteral lowering requires shape-preserving PineLib constructor support")
+            self._unsupported(
+                node, "MatrixLiteral lowering requires shape-preserving PineLib constructor support"
+            )
         if node.kind == "CallExpr":
             return self._translate_call(node, runtime_expr=runtime_expr)
         self._unsupported(node, f"Unsupported expression node: {node.kind}")
@@ -1296,11 +1569,11 @@ class Translator:
         if name == "hl2":
             return f"pine_div(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), 2)"
         if name == "hlc3":
-            return f"pine_div(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), 3)"
+            return f"pine_div(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), 3)"  # noqa: E501
         if name == "ohlc4":
-            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open.current, {runtime_expr}.high.current), {runtime_expr}.low.current), {runtime_expr}.close.current), 4)"
+            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open.current, {runtime_expr}.high.current), {runtime_expr}.low.current), {runtime_expr}.close.current), 4)"  # noqa: E501
         if name == "hlcc4":
-            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"
+            return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"  # noqa: E501
         info = self.ctx.resolve_var(name)
         if info.is_series:
             return f"self.{info.py_name}.current"
@@ -1332,7 +1605,9 @@ class Translator:
             return repr(chain.rsplit(".", 1)[-1])
         if chain.startswith("barmerge."):
             return repr(chain)
-        if chain.startswith(("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")):
+        if chain.startswith(
+            ("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")
+        ):
             return repr(chain)
         if chain.startswith("color."):
             self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
@@ -1354,7 +1629,12 @@ class Translator:
         return chain
 
     def _translate_history_reference(self, node: ASTNode, *, runtime_expr: str) -> str:
-        base = node.child("base") or node.child("object") or node.child("target") or node.child("expression")
+        base = (
+            node.child("base")
+            or node.child("object")
+            or node.child("target")
+            or node.child("expression")
+        )
         offset_node = node.child("offset") or node.child("index")
         if base is None or offset_node is None:
             raise UnsupportedNodeError("History reference requires base and offset")
@@ -1366,7 +1646,11 @@ class Translator:
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}[{offset}]"
             info = self.ctx.resolve_var(name)
-            if info.type_info is not None and info.type_info.base_type in {"array", "map", "matrix"}:
+            if info.type_info is not None and info.type_info.base_type in {
+                "array",
+                "map",
+                "matrix",
+            }:
                 self.ctx.add_diagnostic(
                     REFERENCE_HISTORY_UNSUPPORTED,
                     "reference type history is unsupported by AST2Python v0.5.0 generation policy",
@@ -1385,8 +1669,10 @@ class Translator:
         then_expr = self._block_expression(node.child("then_block"), runtime_expr=runtime_expr)
         else_expr = self._block_expression(node.child("else_block"), runtime_expr=runtime_expr)
         if condition is None or then_expr is None or else_expr is None:
-            raise UnsupportedNodeError("IfStructure expression form requires expression-only branches")
-        return f"({then_expr} if pine_bool({self.translate_expression(condition, runtime_expr=runtime_expr)}) else {else_expr})"
+            raise UnsupportedNodeError(
+                "IfStructure expression form requires expression-only branches"
+            )
+        return f"({then_expr} if pine_bool({self.translate_expression(condition, runtime_expr=runtime_expr)}) else {else_expr})"  # noqa: E501
 
     def _block_expression(self, block: ASTNode | None, *, runtime_expr: str) -> str | None:
         if block is None:
@@ -1415,14 +1701,19 @@ class Translator:
         if callee_chain == "request.security_lower_tf":
             return self._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
         if callee_chain.startswith("request."):
-            return self._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
+            return self._translate_unsupported_request_call(
+                callee_chain, node, runtime_expr=runtime_expr
+            )
         if callee_chain in DATE_HELPERS:
             return self._translate_date_helper_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"time", "time_close"}:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"na", "nz", "fixnan"}:
             return self._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain.startswith("strategy.") and callee_chain not in {"strategy.long", "strategy.short"}:
+        if callee_chain.startswith("strategy.") and callee_chain not in {
+            "strategy.long",
+            "strategy.short",
+        }:
             return self._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"alert", "alertcondition"}:
             return self._translate_alert_call(callee_chain, node, runtime_expr=runtime_expr)
@@ -1438,21 +1729,36 @@ class Translator:
             return self._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
         alias = callee_chain.split(".", 1)[0]
         if alias in self.ctx.import_aliases and "." in callee_chain:
-            return self._translate_external_library_call(callee_chain, node, runtime_expr=runtime_expr)
+            return self._translate_external_library_call(
+                callee_chain, node, runtime_expr=runtime_expr
+            )
         if callee.kind == "MemberAccessExpr":
             obj = callee.child("object")
             member = callee.field("member")
             if obj is not None and isinstance(member, str) and member in self.methods:
                 pieces = [self.translate_expression(obj, runtime_expr=runtime_expr)]
-                pieces.extend(self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node))
+                pieces.extend(
+                    self.translate_expression(arg, runtime_expr=runtime_expr)
+                    for _, arg in self._call_arguments(node)
+                )
                 return f"self.{snake_case(member)}({', '.join(pieces)})"
-        if callee_chain in VISUAL_STATEMENT_CALLS or callee_chain in VISUAL_OBJECT_PRODUCERS or self._is_visual_method_call(callee_chain):
+        if (
+            callee_chain in VISUAL_STATEMENT_CALLS
+            or callee_chain in VISUAL_OBJECT_PRODUCERS
+            or self._is_visual_method_call(callee_chain)
+        ):
             return self._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in self.functions:
-            pieces = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            pieces = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
         if callee_chain in self.methods:
-            pieces = [self.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            pieces = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
         if callee_chain and callee_chain[:1].isupper():
             pieces = []
@@ -1502,7 +1808,7 @@ class Translator:
             severity = Severity.ERROR if self.strict else Severity.WARNING
             self.ctx.add_diagnostic(
                 WARNING_NESTED_SECURITY,
-                "request.security inside request.security expression may not be supported by PineLib MVP",
+                "request.security inside request.security expression may not be supported by PineLib MVP",  # noqa: E501
                 severity,
                 location=expression.loc,
             )
@@ -1513,12 +1819,14 @@ class Translator:
                 location=expression.loc,
             )
             if self.strict:
-                raise UnsupportedBuiltinError("nested request.security is unsupported in strict mode")
+                raise UnsupportedBuiltinError(
+                    "nested request.security is unsupported in strict mode"
+                )
         state_id = state_id_for_call(self.ctx, node, "security")
         call_args = [
             self.translate_expression(arguments[0][1], runtime_expr=runtime_expr),
             self.translate_expression(arguments[1][1], runtime_expr=runtime_expr),
-            f"lambda request_rt: {self.translate_expression(expression, runtime_expr='request_rt')}",
+            f"lambda request_rt: {self.translate_expression(expression, runtime_expr='request_rt')}",  # noqa: E501
         ]
         kwargs: list[str] = []
         for name, arg in arguments[3:]:
@@ -1535,7 +1843,9 @@ class Translator:
         return f"request_security({', '.join(call_args + kwargs)})"
 
     def _translate_request_security_lower_tf(self, node: ASTNode, *, runtime_expr: str) -> str:
-        self.ctx.imports.require_from("pinelib.request", "security_lower_tf", alias="request_security_lower_tf")
+        self.ctx.imports.require_from(
+            "pinelib.request", "security_lower_tf", alias="request_security_lower_tf"
+        )
         self._bind_or_raise("request.security_lower_tf", node)
         arguments = self._ordered_call_arguments("request.security_lower_tf", node)
         if len(arguments) < 3:
@@ -1546,7 +1856,7 @@ class Translator:
         call_args = [
             self.translate_expression(arguments[0][1], runtime_expr=runtime_expr),
             self.translate_expression(arguments[1][1], runtime_expr=runtime_expr),
-            f"lambda request_rt: {self.translate_expression(expression, runtime_expr='request_rt')}",
+            f"lambda request_rt: {self.translate_expression(expression, runtime_expr='request_rt')}",  # noqa: E501
         ]
         kwargs: list[str] = []
         for name, arg in arguments[3:]:
@@ -1562,7 +1872,9 @@ class Translator:
         self.ctx.coverage.builtin("request.security_lower_tf")
         return f"request_security_lower_tf({', '.join(call_args + kwargs)})"
 
-    def _translate_unsupported_request_call(self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False) -> str:
+    def _translate_unsupported_request_call(
+        self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False
+    ) -> str:
         del runtime_expr
         severity = Severity.ERROR if (self.strict or force_error) else Severity.WARNING
         self.ctx.add_diagnostic(
@@ -1577,7 +1889,9 @@ class Translator:
         self.ctx.coverage.builtin(name)
         return "na"
 
-    def _translate_external_library_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+    def _translate_external_library_call(
+        self, name: str, node: ASTNode, *, runtime_expr: str
+    ) -> str:
         del runtime_expr
         alias, member = name.split(".", 1)
         args: list[str] = []
@@ -1596,7 +1910,7 @@ class Translator:
             details=self.ctx.import_aliases.get(alias),
         )
         self.ctx.coverage.builtin(name)
-        return f"self._external_library_call({alias!r}, {member!r}{', ' if args or kwargs else ''}{', '.join(args + kwargs)}, source_map=\"{node.loc.source_map if node.loc else ''}\")"
+        return f'self._external_library_call({alias!r}, {member!r}{", " if args or kwargs else ""}{", ".join(args + kwargs)}, source_map="{node.loc.source_map if node.loc else ""}")'  # noqa: E501
 
     def _translate_alert_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
@@ -1609,7 +1923,7 @@ class Translator:
             else:
                 kwargs.append(f"{arg_name}={rendered}")
         self.ctx.coverage.builtin(name)
-        return f"self._record_alert({name!r}{', ' if args or kwargs else ''}{', '.join(args + kwargs)}, source_map=\"{node.loc.source_map if node.loc else ''}\")"
+        return f'self._record_alert({name!r}{", " if args or kwargs else ""}{", ".join(args + kwargs)}, source_map="{node.loc.source_map if node.loc else ""}")'  # noqa: E501
 
     def _translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         args = []
@@ -1933,7 +2247,7 @@ class Translator:
         if unsafe_calls:
             self.ctx.add_diagnostic(
                 REQUEST_SECURITY_CAPTURE_UNSAFE,
-                "request.security_lower_tf expression calls unsupported functions; only reviewed pure math.* calls are allowed in first-slice lowering",
+                "request.security_lower_tf expression calls unsupported functions; only reviewed pure math.* calls are allowed in first-slice lowering",  # noqa: E501
                 Severity.ERROR,
                 location=expression.loc,
                 details={"calls": sorted(set(unsafe_calls))},
@@ -1954,7 +2268,7 @@ class Translator:
         if captured:
             self.ctx.add_diagnostic(
                 REQUEST_SECURITY_CAPTURE_UNSAFE,
-                "request.security_lower_tf expression captures unsafe state; first-slice lowering only supports builtin series plus immutable scalar input captures and reviewed pure math expressions",
+                "request.security_lower_tf expression captures unsafe state; first-slice lowering only supports builtin series plus immutable scalar input captures and reviewed pure math expressions",  # noqa: E501
                 Severity.ERROR,
                 location=expression.loc,
                 details={"captured": sorted(set(captured))},
@@ -1990,7 +2304,7 @@ class Translator:
         severity = Severity.ERROR if self.strict else Severity.WARNING
         self.ctx.add_diagnostic(
             REQUEST_SECURITY_CAPTURE_UNSAFE,
-            "request.security expression captures mutable or reference state; capture safety must be reviewed",
+            "request.security expression captures mutable or reference state; capture safety must be reviewed",  # noqa: E501
             severity,
             location=expression.loc,
             details={"captured": sorted(set(captured))},
@@ -2000,9 +2314,13 @@ class Translator:
 
     def _is_input_call(self, node: ASTNode) -> bool:
         callee = node.child("callee")
-        return node.kind == "CallExpr" and callee is not None and member_chain(callee) in INPUT_CALLS
+        return (
+            node.kind == "CallExpr" and callee is not None and member_chain(callee) in INPUT_CALLS
+        )
 
-    def _build_input_metadata(self, declaration: ASTNode, initializer: ASTNode, py_name: str) -> dict[str, Any]:
+    def _build_input_metadata(
+        self, declaration: ASTNode, initializer: ASTNode, py_name: str
+    ) -> dict[str, Any]:
         callee = initializer.child("callee")
         chain = None if callee is None else member_chain(callee)
         if chain is None:
@@ -2011,11 +2329,15 @@ class Translator:
         args = self._call_arguments(initializer)
         default_node = args[0][1]
         default_rendered = self.translate_expression(default_node)
-        default_value = literal_value(default_node) if default_node.kind == "Literal" else default_rendered
+        default_value = (
+            literal_value(default_node) if default_node.kind == "Literal" else default_rendered
+        )
         metadata = {
             "pine_name": declaration.field("name"),
             "py_name": py_name,
-            "type": {"timeframe": "string", "session": "string", "time": "int"}.get(info_type, info_type),
+            "type": {"timeframe": "string", "session": "string", "time": "int"}.get(
+                info_type, info_type
+            ),
             "qualifier": "input",
             "default": default_value,
             "title": None,
@@ -2068,12 +2390,20 @@ class Translator:
             return make_type_info("object", "simple")
         if node.kind == "Literal":
             literal_type = node.field("literal_type")
-            base = "object" if literal_type == "na" else ("float" if literal_type == "float" else str(literal_type or "object"))
+            base = (
+                "object"
+                if literal_type == "na"
+                else ("float" if literal_type == "float" else str(literal_type or "object"))
+            )
             return make_type_info(base, "const", can_be_na=base != "bool")
         if node.kind == "Identifier":
             name = str(node.field("name"))
             if name in BUILTIN_SERIES:
-                return make_type_info({"time": "int", "time_close": "int"}.get(name, "float"), "series", is_series=True)
+                return make_type_info(
+                    {"time": "int", "time_close": "int"}.get(name, "float"),
+                    "series",
+                    is_series=True,
+                )
             if name == "bar_index":
                 return make_type_info("int", "series", is_series=True, can_be_na=False)
             if name == "na":
@@ -2082,7 +2412,9 @@ class Translator:
                 info = self.ctx.resolve_var(name)
                 if info.type_info is not None:
                     if info.declaration_kind == "input":
-                        return make_type_info(info.type_info.base_type, "input", can_be_na=info.type_info.can_be_na)
+                        return make_type_info(
+                            info.type_info.base_type, "input", can_be_na=info.type_info.can_be_na
+                        )
                     return info.type_info
                 if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
                     return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
@@ -2091,11 +2423,27 @@ class Translator:
                 return make_type_info("object", "simple")
         if node.kind == "MemberAccessExpr":
             chain = member_chain(node)
-            if chain in {"strategy.long", "strategy.short", "strategy.oca.cancel", "strategy.oca.reduce"}:
+            if chain in {
+                "strategy.long",
+                "strategy.short",
+                "strategy.oca.cancel",
+                "strategy.oca.reduce",
+            }:
                 return make_type_info("string", "const", can_be_na=False)
             if chain is not None and chain.startswith("syminfo."):
                 return make_type_info("string", "simple", can_be_na=False)
-            if chain is not None and chain.startswith(("barmerge.", "display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")):
+            if chain is not None and chain.startswith(
+                (
+                    "barmerge.",
+                    "display.",
+                    "currency.",
+                    "location.",
+                    "shape.",
+                    "size.",
+                    "position.",
+                    "plot.style_",
+                )
+            ):
                 return make_type_info("string", "const", can_be_na=False)
             if chain is not None and chain.startswith("color."):
                 return make_type_info("color", "const", can_be_na=False)
@@ -2105,14 +2453,18 @@ class Translator:
             if chain is None:
                 return make_type_info("object", "input")
             info_type = chain.split(".", 1)[1]
-            base = {"timeframe": "string", "session": "string", "time": "int"}.get(info_type, info_type)
+            base = {"timeframe": "string", "session": "string", "time": "int"}.get(
+                info_type, info_type
+            )
             return make_type_info(base, "input", can_be_na=base != "bool")
         if node.kind == "BinaryExpr":
             left = self._infer_type_info(node.child("left"))
             right = self._infer_type_info(node.child("right"))
             op = node.field("op")
             if op in {"and", "or", "==", "!=", ">", ">=", "<", "<="}:
-                return make_type_info("bool", join_qualifiers(left.qualifier, right.qualifier), can_be_na=False)
+                return make_type_info(
+                    "bool", join_qualifiers(left.qualifier, right.qualifier), can_be_na=False
+                )
             base = "float" if "float" in {left.base_type, right.base_type} else left.base_type
             return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
         if node.kind == "UnaryExpr":
@@ -2121,15 +2473,31 @@ class Translator:
             condition = self._infer_type_info(node.child("condition"))
             if_true = self._infer_type_info(node.child("then") or node.child("if_true"))
             if_false = self._infer_type_info(node.child("else") or node.child("if_false"))
-            base = "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
-            return make_type_info(base, join_qualifiers(condition.qualifier, if_true.qualifier, if_false.qualifier), can_be_na=base != "bool")
+            base = (
+                "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
+            )
+            return make_type_info(
+                base,
+                join_qualifiers(condition.qualifier, if_true.qualifier, if_false.qualifier),
+                can_be_na=base != "bool",
+            )
         if node.kind == "TupleExpr":
             items = [self._infer_type_info(item) for item in node.children("elements", "items")]
             qualifier = join_qualifiers(*(item.qualifier for item in items)) if items else "const"
             return make_type_info("tuple", qualifier)
         if node.kind in {"HistoryRefExpr", "HistoryReference", "SubscriptExpr", "IndexExpr"}:
-            base_info = self._infer_type_info(node.child("base") or node.child("object") or node.child("target") or node.child("expression"))
-            return make_type_info(base_info.base_type, "series", is_series=True, can_be_na=base_info.base_type != "bool")
+            base_info = self._infer_type_info(
+                node.child("base")
+                or node.child("object")
+                or node.child("target")
+                or node.child("expression")
+            )
+            return make_type_info(
+                base_info.base_type,
+                "series",
+                is_series=True,
+                can_be_na=base_info.base_type != "bool",
+            )
         if node.kind == "CallExpr":
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
@@ -2137,7 +2505,35 @@ class Translator:
                 return make_type_info("bool", "input", can_be_na=False)
             if chain in {"input.int"}:
                 return make_type_info("int", "input", can_be_na=False)
-            if chain in {"input.float", "ta.ema", "ta.rma", "ta.atr", "ta.rsi", "ta.sma", "ta.highest", "ta.lowest", "ta.change", "ta.stdev", "ta.variance", "ta.dev", "ta.wma", "ta.vwma", "ta.swma", "ta.alma", "ta.bbw", "ta.stoch", "ta.valuewhen", "ta.linreg", "ta.percentrank", "ta.percentile_nearest_rank", "ta.percentile_linear_interpolation", "ta.mom", "ta.roc", "ta.correlation", "ta.vwap"}:
+            if chain in {
+                "input.float",
+                "ta.ema",
+                "ta.rma",
+                "ta.atr",
+                "ta.rsi",
+                "ta.sma",
+                "ta.highest",
+                "ta.lowest",
+                "ta.change",
+                "ta.stdev",
+                "ta.variance",
+                "ta.dev",
+                "ta.wma",
+                "ta.vwma",
+                "ta.swma",
+                "ta.alma",
+                "ta.bbw",
+                "ta.stoch",
+                "ta.valuewhen",
+                "ta.linreg",
+                "ta.percentrank",
+                "ta.percentile_nearest_rank",
+                "ta.percentile_linear_interpolation",
+                "ta.mom",
+                "ta.roc",
+                "ta.correlation",
+                "ta.vwap",
+            }:
                 return make_type_info("float", "series", is_series=chain.startswith("ta."))
             if chain in {"ta.crossover", "ta.crossunder", "ta.cross", "ta.rising", "ta.falling"}:
                 return make_type_info("bool", "series", is_series=True, can_be_na=False)
@@ -2158,7 +2554,9 @@ class Translator:
             if chain in VISUAL_OBJECT_PRODUCERS:
                 return make_type_info("PineObjectId", "series")
             if isinstance(chain, str) and chain.startswith(("array.", "map.", "matrix.")):
-                return make_type_info(chain.split(".", 1)[0], "series", is_series=True, is_history_allowed=False)
+                return make_type_info(
+                    chain.split(".", 1)[0], "series", is_series=True, is_history_allowed=False
+                )
         explicit = self._type_ref_name(node)
         if explicit in REFERENCE_TYPES:
             return make_type_info(str(explicit), "series", is_series=True, is_history_allowed=False)
@@ -2171,7 +2569,9 @@ class Translator:
         name = type_ref.field("name")
         return str(name) if name is not None else None
 
-    def _build_metadata(self, program: ASTProgram, *, title: str, module_name: str) -> dict[str, Any]:
+    def _build_metadata(
+        self, program: ASTProgram, *, title: str, module_name: str
+    ) -> dict[str, Any]:
         declaration = {
             "kind": self.ctx.mode,
             "title": title,
@@ -2191,7 +2591,9 @@ class Translator:
             "used_builtins": sorted(self.ctx.coverage.builtins),
             "node_kind_counts": node_kind_counts(program),
             "unsupported_nodes": unsupported_node_catalog(program),
-            "import_aliases": sorted(self.ctx.import_aliases.values(), key=lambda item: item["alias"]),
+            "import_aliases": sorted(
+                self.ctx.import_aliases.values(), key=lambda item: item["alias"]
+            ),
             "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),
             "diagnostics": [item.to_dict() for item in self.ctx.diagnostics],
             "source_map_file": f"{module_name}.sourcemap.json",

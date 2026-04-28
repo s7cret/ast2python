@@ -41,7 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     smoke_parser = subparsers.add_parser("smoke")
     smoke_parser.add_argument("python_path")
-    smoke_parser.add_argument("--bars", help="JSON or CSV bars file; defaults to two deterministic sample bars")
+    smoke_parser.add_argument(
+        "--bars", help="JSON or CSV bars file; defaults to two deterministic sample bars"
+    )
 
     return parser
 
@@ -131,7 +133,9 @@ def command_translate_many(
         result = translator.translate_file(ast_path, module_name=Path(ast_path).stem)
         paths = result.write_to(output_dir)
         diagnostics = [diagnostic.to_dict() for diagnostic in result.diagnostics]
-        has_error = has_error or any(diagnostic.severity.value == "error" for diagnostic in result.diagnostics)
+        has_error = has_error or any(
+            diagnostic.severity.value == "error" for diagnostic in result.diagnostics
+        )
         modules.append(
             {
                 "input": ast_path,
@@ -151,7 +155,11 @@ def command_coverage(ast_path: str, *, strict: bool) -> int:
     try:
         translator = Translator(strict=strict)
         result = translator.translate_program(program, module_name=Path(ast_path).stem)
-        payload = {**static, **result.coverage, "diagnostics": [item.to_dict() for item in result.diagnostics]}
+        payload = {
+            **static,
+            **result.coverage,
+            "diagnostics": [item.to_dict() for item in result.diagnostics],
+        }
         status = 0
     except UnsupportedNodeError as exc:
         payload = {**static, "ok": False, "error": str(exc)}
@@ -163,6 +171,7 @@ def command_coverage(ast_path: str, *, strict: bool) -> int:
 def _ensure_local_pinelib_importable() -> bool:
     try:
         import pinelib  # noqa: F401
+
         return True
     except ModuleNotFoundError:
         local = Path("[local-home]/pinelib")
@@ -170,6 +179,7 @@ def _ensure_local_pinelib_importable() -> bool:
             sys.path.insert(0, str(local))
             try:
                 import pinelib  # noqa: F401
+
                 return True
             except ModuleNotFoundError:
                 return False
@@ -181,8 +191,24 @@ def _load_bars(path: str | None) -> list[Any]:
 
     if path is None:
         return [
-            Bar(time=1704067200000, open=100.0, high=101.0, low=99.0, close=100.5, volume=10.0, time_close=1704067259999),
-            Bar(time=1704067260000, open=100.5, high=102.0, low=100.0, close=101.5, volume=12.0, time_close=1704067319999),
+            Bar(
+                time=1704067200000,
+                open=100.0,
+                high=101.0,
+                low=99.0,
+                close=100.5,
+                volume=10.0,
+                time_close=1704067259999,
+            ),
+            Bar(
+                time=1704067260000,
+                open=100.5,
+                high=102.0,
+                low=100.0,
+                close=101.5,
+                volume=12.0,
+                time_close=1704067319999,
+            ),
         ]
     bars_path = Path(path)
     if bars_path.suffix.lower() == ".json":
@@ -222,19 +248,45 @@ def command_smoke(python_path: str, *, bars_path: str | None = None) -> int:
     path = Path(python_path)
     py_compile.compile(str(path), doraise=True)
     if not _ensure_local_pinelib_importable():
-        print(json.dumps({"ok": True, "python_path": str(path), "runtime": "skipped", "reason": "pinelib not importable"}, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "python_path": str(path),
+                    "runtime": "skipped",
+                    "reason": "pinelib not importable",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
     from pinelib.core import PineRuntime, SymbolInfo, TimeframeInfo
 
     bars = _load_bars(bars_path)
     klass = _load_generated_class(path)
-    runtime = PineRuntime(symbol_info=SymbolInfo(tickerid="TEST", timezone="UTC"), timeframe=TimeframeInfo.from_string("1"))
+    runtime = PineRuntime(
+        symbol_info=SymbolInfo(tickerid="TEST", timezone="UTC"),
+        timeframe=TimeframeInfo.from_string("1"),
+    )
     for name in ("plot", "plotshape", "plotchar", "hline", "fill", "bgcolor", "barcolor"):
         if not hasattr(runtime.visual, name):
             setattr(runtime.visual, name, lambda *args, **kwargs: None)
     instance = klass(params={}, runtime=runtime)
     snapshots = instance.run(bars)
-    print(json.dumps({"ok": True, "python_path": str(path), "runtime": "executed", "bars": len(bars), "snapshots": len(snapshots)}, indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "python_path": str(path),
+                "runtime": "executed",
+                "bars": len(bars),
+                "snapshots": len(snapshots),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

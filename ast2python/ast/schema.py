@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import copy
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
-import copy
+from typing import Any
 
 from ast2python.diagnostics import SourceLocation
 from ast2python.errors import ValidationError
@@ -90,7 +91,9 @@ class ASTNode:
             "else": ("else", "if_false", "false_expr"),
             "params": ("params", "parameters"),
         }
-        source_key = next((candidate for candidate in aliases.get(key, (key,)) if candidate in self.raw), key)
+        source_key = next(
+            (candidate for candidate in aliases.get(key, (key,)) if candidate in self.raw), key
+        )
         value = self.raw.get(source_key)
         if isinstance(value, dict):
             return ASTNode(value)
@@ -110,7 +113,9 @@ class ASTNode:
             raw_value = self.raw.get(key)
             if isinstance(raw_value, dict):
                 if key == "body" and isinstance(raw_value.get("statements"), list):
-                    values.extend(ASTNode(item) for item in raw_value["statements"] if isinstance(item, dict))
+                    values.extend(
+                        ASTNode(item) for item in raw_value["statements"] if isinstance(item, dict)
+                    )
                 else:
                     values.append(ASTNode(raw_value))
             elif isinstance(raw_value, list):

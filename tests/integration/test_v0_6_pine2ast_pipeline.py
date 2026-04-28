@@ -13,7 +13,9 @@ EXPECTED = ROOT / "tests" / "fixtures" / "expected" / "v0_6"
 
 def test_current_pine2ast_program_fixture_matches_generated_snapshot():
     fixture = PINE2AST_FIXTURES / "current_basic_indicator.ast.json"
-    result = translate_ast(json.loads(fixture.read_text(encoding="utf-8")), module_name="current_basic_indicator")
+    result = translate_ast(
+        json.loads(fixture.read_text(encoding="utf-8")), module_name="current_basic_indicator"
+    )
     assert result.code == (EXPECTED / "current_basic_indicator.py").read_text(encoding="utf-8")
     assert result.metadata["generator_milestone"] == "v1.0.0"
     assert result.metadata["unsupported_nodes"] == []
@@ -27,7 +29,17 @@ def test_pine2ast_inspect_envelope_unwraps_for_cli_translate(tmp_path):
 
     out = tmp_path / "generated"
     proc = subprocess.run(
-        [sys.executable, "-m", "ast2python.cli.main", "translate", str(fixture), "-o", str(out), "--module-name", "p2a_env"],
+        [
+            sys.executable,
+            "-m",
+            "ast2python.cli.main",
+            "translate",
+            str(fixture),
+            "-o",
+            str(out),
+            "--module-name",
+            "p2a_env",
+        ],
         cwd=ROOT,
         check=False,
         text=True,

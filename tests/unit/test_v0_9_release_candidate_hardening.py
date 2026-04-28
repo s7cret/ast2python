@@ -9,7 +9,9 @@ from ast2python.ast.schema import load_ast
 from ast2python.translator import TranslationResult, Translator, translate_ast
 from ast2python.version import __version__
 
-FIXTURE = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json")
+FIXTURE = Path(
+    "[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
+)
 
 
 def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:

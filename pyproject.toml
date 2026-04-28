@@ -28,10 +28,15 @@ target-version = ["py311"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-exclude = ["dist", "build"]
+exclude = ["dist", "build", "tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Golden generated-code snapshots intentionally mirror emitter output byte-for-byte;
+# tests assert exact strings, so lint/format changes belong in the emitter first.
+"tests/fixtures/expected/**/*.py" = ["E501", "F401", "I001", "B905"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

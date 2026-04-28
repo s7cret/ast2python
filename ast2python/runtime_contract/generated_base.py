@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Protocol
+from collections.abc import Iterable
+from typing import Any, Protocol
 
 from ast2python.version import RUNTIME_CONTRACT_VERSION
 
