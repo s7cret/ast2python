@@ -4,10 +4,194 @@
   "language": "pine",
   "language_version": 6,
   "version": 6,
-  "declaration": {"kind":"DeclarationStatement","script_type":"strategy","call":{"kind":"CallExpr","callee":{"kind":"Identifier","name":"strategy"},"arguments":[{"kind":"Argument","name":null,"value":{"kind":"Literal","literal_type":"string","value":"v0.2 Strategy"}},{"kind":"Argument","name":"initial_capital","value":{"kind":"Literal","literal_type":"int","value":50000}},{"kind":"Argument","name":"process_orders_on_close","value":{"kind":"Literal","literal_type":"bool","value":true}}]}},
+  "declaration": {
+    "kind": "DeclarationStatement",
+    "script_type": "strategy",
+    "call": {
+      "kind": "CallExpr",
+      "callee": {
+        "kind": "Identifier",
+        "name": "strategy"
+      },
+      "arguments": [
+        {
+          "kind": "Argument",
+          "name": null,
+          "value": {
+            "kind": "Literal",
+            "literal_type": "string",
+            "value": "v0.2 Strategy"
+          }
+        },
+        {
+          "kind": "Argument",
+          "name": "initial_capital",
+          "value": {
+            "kind": "Literal",
+            "literal_type": "int",
+            "value": 50000
+          }
+        },
+        {
+          "kind": "Argument",
+          "name": "process_orders_on_close",
+          "value": {
+            "kind": "Literal",
+            "literal_type": "bool",
+            "value": true
+          }
+        }
+      ]
+    }
+  },
   "items": [
-    {"kind":"VarDeclaration","source":"sum = 0.0","span":{"start_line":3,"start_col":1,"end_line":3,"end_col":10},"name":"sum","initializer":{"kind":"Literal","literal_type":"float","value":0.0}},
-    {"kind":"ForRangeStructure","source":"for i = 0 to 2","span":{"start_line":4,"start_col":1,"end_line":6,"end_col":1},"variable":"i","start":{"kind":"Literal","literal_type":"int","value":0},"end":{"kind":"Literal","literal_type":"int","value":2},"body":{"kind":"Block","statements":[{"kind":"Reassignment","source":"sum += close[i]","span":{"start_line":5,"start_col":5,"end_line":5,"end_col":20},"op":"+=","target":{"kind":"Identifier","name":"sum"},"value":{"kind":"HistoryRefExpr","base":{"kind":"Identifier","name":"close"},"offset":{"kind":"Identifier","name":"i"}}}] }},
-    {"kind":"IfStructure","source":"if barstate.isconfirmed","span":{"start_line":7,"start_col":1,"end_line":8,"end_col":38},"condition":{"kind":"MemberAccessExpr","member":"isconfirmed","object":{"kind":"Identifier","name":"barstate"}},"then_block":{"kind":"Block","statements":[{"kind":"ExpressionStatement","source":"strategy.entry(\"L\", strategy.long)","span":{"start_line":8,"start_col":5,"end_line":8,"end_col":38},"expression":{"kind":"CallExpr","callee":{"kind":"MemberAccessExpr","member":"entry","object":{"kind":"Identifier","name":"strategy"}},"arguments":[{"kind":"Argument","name":null,"value":{"kind":"Literal","literal_type":"string","value":"L"}},{"kind":"Argument","name":null,"value":{"kind":"MemberAccessExpr","member":"long","object":{"kind":"Identifier","name":"strategy"}}}]}}]}}
-  ]
+    {
+      "kind": "VarDeclaration",
+      "source": "sum = 0.0",
+      "span": {
+        "start_line": 3,
+        "start_col": 1,
+        "end_line": 3,
+        "end_col": 10
+      },
+      "name": "sum",
+      "initializer": {
+        "kind": "Literal",
+        "literal_type": "float",
+        "value": 0.0
+      }
+    },
+    {
+      "kind": "ForRangeStructure",
+      "source": "for i = 0 to 2",
+      "span": {
+        "start_line": 4,
+        "start_col": 1,
+        "end_line": 6,
+        "end_col": 1
+      },
+      "variable": "i",
+      "start": {
+        "kind": "Literal",
+        "literal_type": "int",
+        "value": 0
+      },
+      "end": {
+        "kind": "Literal",
+        "literal_type": "int",
+        "value": 2
+      },
+      "body": {
+        "kind": "Block",
+        "statements": [
+          {
+            "kind": "Reassignment",
+            "source": "sum += close[i]",
+            "span": {
+              "start_line": 5,
+              "start_col": 5,
+              "end_line": 5,
+              "end_col": 20
+            },
+            "op": "+=",
+            "target": {
+              "kind": "Identifier",
+              "name": "sum"
+            },
+            "value": {
+              "kind": "HistoryRefExpr",
+              "base": {
+                "kind": "Identifier",
+                "name": "close"
+              },
+              "offset": {
+                "kind": "Identifier",
+                "name": "i"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "IfStructure",
+      "source": "if barstate.isconfirmed",
+      "span": {
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 8,
+        "end_col": 38
+      },
+      "condition": {
+        "kind": "MemberAccessExpr",
+        "member": "isconfirmed",
+        "object": {
+          "kind": "Identifier",
+          "name": "barstate"
+        }
+      },
+      "then_block": {
+        "kind": "Block",
+        "statements": [
+          {
+            "kind": "ExpressionStatement",
+            "source": "strategy.entry(\"L\", strategy.long)",
+            "span": {
+              "start_line": 8,
+              "start_col": 5,
+              "end_line": 8,
+              "end_col": 38
+            },
+            "expression": {
+              "kind": "CallExpr",
+              "callee": {
+                "kind": "MemberAccessExpr",
+                "member": "entry",
+                "object": {
+                  "kind": "Identifier",
+                  "name": "strategy"
+                }
+              },
+              "arguments": [
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": {
+                    "kind": "Literal",
+                    "literal_type": "string",
+                    "value": "L"
+                  }
+                },
+                {
+                  "kind": "Argument",
+                  "name": null,
+                  "value": {
+                    "kind": "MemberAccessExpr",
+                    "member": "long",
+                    "object": {
+                      "kind": "Identifier",
+                      "name": "strategy"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "producer_metadata": {
+    "contract": "pain.ast_contract.v1",
+    "producer": {
+      "name": "pine2ast",
+      "version": "test-fixture"
+    },
+    "schema_version": "1.0",
+    "pine_language_version": 6,
+    "runtime_contract_profile": "v1.4",
+    "runtime_contract": "runtime_contract_v1_4",
+    "parser_gate": "pass",
+    "semantic_gate": "pass"
+  }
 }

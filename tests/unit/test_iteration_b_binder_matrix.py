@@ -4,7 +4,12 @@ import pytest
 
 from ast2python.binder import BUILTIN_SIGNATURES
 from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError
-from ast2python.translator import translate_ast
+from ast2python.translator import translate_ast as _translate_ast
+from tests.contract_metadata import with_valid_producer_metadata
+
+
+def translate_ast(program, *args, **kwargs):
+    return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 
 def declaration(kind: str = "indicator") -> dict[str, object]:
@@ -70,13 +75,13 @@ def call(chain: str, args: list[dict[str, object]], *, line: int = 3) -> dict[st
 
 
 def program(expr: dict[str, object], *, kind: str = "indicator") -> dict[str, object]:
-    return {
+    return with_valid_producer_metadata({
         "kind": "Program",
         "language": "pine",
         "version": 6,
         "declaration": declaration(kind),
         "items": [{"kind": "ExpressionStatement", "expression": expr}],
-    }
+    })
 
 
 def var(name: str, init: dict[str, object]) -> dict[str, object]:

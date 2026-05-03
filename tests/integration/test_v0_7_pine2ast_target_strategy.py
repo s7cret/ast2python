@@ -9,7 +9,13 @@ import pytest
 
 from ast2python.ast.schema import load_ast
 from ast2python.coverage import static_coverage_report
-from ast2python.translator import translate_ast
+from ast2python.errors import UnsupportedBuiltinError
+from ast2python.translator import translate_ast as _translate_ast
+from tests.contract_metadata import with_valid_producer_metadata
+
+
+def translate_ast(program, *args, **kwargs):
+    return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 PINE2AST = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid")
 
@@ -34,7 +40,19 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
     static = static_coverage_report(program)
     assert static["schema_supported_ratio"] >= 0.98
 
-    result = translate_ast(program, module_name=Path(relative).stem)
+    if relative.startswith("imports/"):
+        with pytest.raises(UnsupportedBuiltinError):
+            translate_ast(program, module_name=Path(relative).stem)
+        result = translate_ast(
+            program,
+            module_name=Path(relative).stem,
+            allow_external_library_stubs=True,
+        )
+        assert result.metadata["parity_safe"] is False
+        assert "external_library_stubs" in result.metadata["unsupported_features"]
+    else:
+        result = translate_ast(program, module_name=Path(relative).stem)
+
     compile(result.code, relative, "exec")
 
     assert result.coverage["source_map_executable_line_ratio"] >= 0.95
@@ -43,15 +61,22 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
 
 
 def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash() -> None:
+    program = load_ast(PINE2AST / "real_world_smoke/14_na_request_financial.ast.json")
+    with pytest.raises(UnsupportedBuiltinError):
+        translate_ast(program, module_name="request_financial")
+
     result = translate_ast(
-        load_ast(PINE2AST / "real_world_smoke/14_na_request_financial.ast.json"),
+        program,
         module_name="request_financial",
+        allow_unsupported_request_stubs=True,
     )
 
     compile(result.code, "request_financial.py", "exec")
     codes = {diagnostic.code for diagnostic in result.diagnostics}
     assert "P2A_UNSUPPORTED_REQUEST" in codes
     assert "request.financial" in result.coverage["builtins"]
+    assert result.metadata["parity_safe"] is False
+    assert "unsupported_request_stub" in result.metadata["unsupported_features"]
 
 
 def test_v0_7_supported_real_fixture_smoke_runs_or_skips_cleanly(tmp_path: Path) -> None:

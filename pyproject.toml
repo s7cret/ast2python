@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ast2python"
-version = "1.0.0"
+version = "2.17.0"
 description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
-  "pinelib>=1.0.1",
-  "pine2ast>=0.3.9",
+  "pinelib>=2.17.0",
+  "pine2ast>=2.17.0",
 ]
 
 [project.scripts]

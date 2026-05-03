@@ -13,6 +13,7 @@ from ast2python.diagnostics import (
     BINDER_SIGNATURE_MISMATCH,
     BINDER_UNSUPPORTED_BUILTIN,
     BOOL_NA_OVERLOAD,
+    CALC_ON_EVERY_TICK_UNSAFE,
     CONTRACT_VERSION_MISMATCH,
     EXTERNAL_LIBRARY_CALL,
     NESTED_REQUEST_SECURITY,
@@ -23,6 +24,7 @@ from ast2python.diagnostics import (
     UNSUPPORTED_DECLARATION_ARG,
     UNSUPPORTED_NODE,
     UNSUPPORTED_REQUEST,
+    VARIP_UNSAFE,
     VISUAL_OBJECT_USED_AS_VALUE,
     WARNING_NESTED_SECURITY,
     Diagnostic,
@@ -221,9 +223,27 @@ class TranslationResult:
 
 
 class Translator:
-    def __init__(self, *, strict: bool = False, emit_source_comments: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        strict: bool = False,
+        emit_source_comments: bool = True,
+        allow_invalid_ast: bool = False,
+        allow_contract_mismatch: bool = False,
+        allow_external_library_stubs: bool = False,
+        allow_unsupported_request_stubs: bool = False,
+        allow_realtime_local_simulation: bool = False,
+    ) -> None:
         self.strict = strict
         self.emit_source_comments = emit_source_comments
+        self.allow_invalid_ast = allow_invalid_ast
+        self.allow_contract_mismatch = allow_contract_mismatch
+        self.allow_external_library_stubs = allow_external_library_stubs
+        self.allow_unsupported_request_stubs = allow_unsupported_request_stubs
+        self.allow_realtime_local_simulation = allow_realtime_local_simulation
+        self.parity_safe = True
+        self.unsupported_features: set[str] = set()
+        self.parity_risks: list[str] = []
         self.ctx = TranslationContext(strict=strict)
         self.emitter = CodeEmitter(self.ctx.source_map, emit_source_comments=emit_source_comments)
         self.global_series: list[tuple[VariableInfo, str]] = []
@@ -245,6 +265,7 @@ class Translator:
         problems = validate_ast(program)
         if problems:
             raise ValidationError("; ".join(problems))
+        self._enforce_frontend_contract(program)
         for _ in program.descendants():
             self.ctx.coverage.seen()
         declaration = program.declaration
@@ -253,6 +274,8 @@ class Translator:
         mode = declaration.field("script_type", default="indicator")
         self.ctx.mode = str(mode)
         title = self._extract_declaration_title(declaration)
+        self._enforce_realtime_boundary(declaration)
+        self._enforce_varip_boundary(program)
         if self.ctx.mode != "strategy":
             self._collect_declaration_metadata(declaration)
         result_module_name = module_name or self.ctx.naming.reserve(title or "generated")
@@ -315,6 +338,128 @@ class Translator:
             "source_map_executable_line_ratio": ratio,
         }
 
+    def _enforce_frontend_contract(self, program: ASTProgram) -> None:
+        frontend_diagnostics = [
+            item
+            for item in program.field("diagnostics", default=[]) or []
+            if isinstance(item, dict)
+            and str(item.get("severity", "")).lower() in {"error", "fatal"}
+        ]
+        if frontend_diagnostics:
+            self.ctx.add_diagnostic(
+                "P2A_FRONTEND_DIAGNOSTIC_BLOCK",
+                "Pine2AST embedded ERROR/FATAL diagnostics block code generation",
+                Severity.ERROR,
+                details={"frontend_diagnostics": frontend_diagnostics},
+            )
+            if not self.allow_invalid_ast:
+                raise ValidationError("Pine2AST ERROR/FATAL diagnostics block code generation")
+            self.parity_safe = False
+            self.parity_risks.append("allow_invalid_ast override used with frontend errors")
+
+        metadata = program.field("producer_metadata")
+        runtime_contract = None
+        contract = None
+        if isinstance(metadata, dict):
+            contract = metadata.get("contract")
+            runtime_contract = metadata.get("runtime_contract") or metadata.get(
+                "runtime_contract_profile"
+            )
+        expected = RUNTIME_CONTRACT_VERSION
+        aliases = {expected, "v1.4", "runtime_contract_v1_4", "runtime_contract_v1.4"}
+        metadata_contract_ok = (
+            isinstance(metadata, dict)
+            and contract == "pain.ast_contract.v1"
+            and runtime_contract in aliases
+        )
+        if not metadata_contract_ok:
+            self.ctx.add_diagnostic(
+                CONTRACT_VERSION_MISMATCH,
+                "Pine2AST producer metadata missing or mismatched contract/runtime profile",
+                Severity.ERROR,
+                details={
+                    "expected_contract": "pain.ast_contract.v1",
+                    "actual_contract": contract,
+                    "expected_runtime_contract": expected,
+                    "actual_runtime_contract": runtime_contract,
+                    "metadata": metadata,
+                },
+            )
+            if not self.allow_contract_mismatch:
+                raise ValidationError("Pine2AST producer metadata missing/mismatched runtime contract")
+            self.parity_safe = False
+            self.parity_risks.append("allow_contract_mismatch override used")
+
+        if metadata_contract_ok:
+            unsafe_gates = {
+                key: metadata.get(key)
+                for key in ("parser_gate", "semantic_gate")
+                if metadata.get(key) != "pass"
+            }
+            if unsafe_gates:
+                self.ctx.add_diagnostic(
+                    "P2A_FRONTEND_GATE_BLOCK",
+                    "Pine2AST producer metadata gate status is not pass",
+                    Severity.ERROR,
+                    details={"gates": unsafe_gates},
+                )
+                if not self.allow_invalid_ast:
+                    raise ValidationError("Pine2AST producer metadata gates are not pass")
+                self.parity_safe = False
+                self.parity_risks.append("allow_invalid_ast override used with non-pass frontend gates")
+
+    def _enforce_realtime_boundary(self, declaration: ASTNode) -> None:
+        if self.ctx.mode != "strategy" or not self._strategy_calc_on_every_tick_enabled(declaration):
+            return
+        self.ctx.add_diagnostic(
+            CALC_ON_EVERY_TICK_UNSAFE,
+            "calc_on_every_tick requires TradingView realtime rollback/varip semantics and is rejected in parity codegen mode",
+            Severity.ERROR,
+            details={"allow_flag": "allow_realtime_local_simulation"},
+        )
+        if not self.allow_realtime_local_simulation:
+            raise ValidationError("calc_on_every_tick is unsupported in parity codegen mode")
+        self.parity_safe = False
+        self.unsupported_features.add("realtime_local_simulation")
+        self.parity_risks.append(
+            "allow_realtime_local_simulation override used; supplied tick mode is local simulation only"
+        )
+
+    def _enforce_varip_boundary(self, program: ASTProgram) -> None:
+        varip_nodes = [
+            node
+            for node in program.descendants()
+            if node.kind == "VarDeclaration" and str(node.field("mode", default="")).lower() == "varip"
+        ]
+        if not varip_nodes:
+            return
+        self.ctx.add_diagnostic(
+            VARIP_UNSAFE,
+            "varip requires TradingView realtime rollback semantics and is rejected in parity codegen mode",
+            Severity.ERROR,
+            details={"allow_flag": "allow_realtime_local_simulation", "count": len(varip_nodes)},
+        )
+        if not self.allow_realtime_local_simulation:
+            raise ValidationError("varip is unsupported without realtime rollback semantics")
+        self.parity_safe = False
+        self.unsupported_features.add("varip_local_simulation")
+        self.parity_risks.append(
+            "allow_realtime_local_simulation override used with varip; state persistence is local simulation only"
+        )
+
+    def _strategy_calc_on_every_tick_enabled(self, declaration: ASTNode) -> bool:
+        call = declaration.child("call")
+        if call is None:
+            return False
+        for name, value_node in self._call_arguments(call):
+            if name != "calc_on_every_tick":
+                continue
+            if value_node.kind == "Literal":
+                return bool(literal_value(value_node))
+            rendered = self.translate_expression(value_node)
+            return rendered == "True"
+        return False
+
     def _emit_module(
         self, program: ASTProgram, declaration: ASTNode, *, title: str, module_name: str
     ) -> None:
@@ -360,6 +505,7 @@ class Translator:
         )
         self.ctx.imports.require_from("pinelib.core", "PineRuntime")
         self.ctx.imports.require_from("pinelib.core", "na")
+        self.ctx.imports.require_from("pinelib.core", "is_na")
         self.ctx.imports.require_from("pinelib.core", "pine_bool")
         for name in (
             "pine_add",
@@ -881,6 +1027,9 @@ class Translator:
                 self.global_series.append((info, self._infer_dtype(initializer)))
             return info
 
+    def _varip_key(self, info: VariableInfo) -> str:
+        return f"{info.scope_id}:{info.pine_name}"
+
     def _emit_var_declaration(self, node: ASTNode) -> None:
         name = str(node.field("name"))
         initializer = node.child("initializer")
@@ -889,9 +1038,28 @@ class Translator:
         if self._is_input_call(initializer):
             return
         info = self._resolve_or_declare_var(node, name, initializer)
+        expr = self.translate_expression(initializer)
         if self.ctx.current_scope.kind == "global":
-            expr = self.translate_expression(initializer)
-            if info.declaration_kind == "var":
+            if info.declaration_kind == "varip":
+                key = self._varip_key(info)
+                self.emitter.line(
+                    f'if not self._var_initialized["{info.py_name}"]:',
+                    loc=node.loc,
+                    source=node.source,
+                )
+                self.emitter.indent()
+                self.emitter.line(
+                    f'self.{info.py_name}.set_current(self.rt.get_varip_state("{key}", lambda: {expr}))'
+                )
+                self.emitter.line(f'self._var_initialized["{info.py_name}"] = True')
+                self.emitter.dedent()
+                self.emitter.line("else:")
+                self.emitter.indent()
+                self.emitter.line(
+                    f'self.{info.py_name}.set_current(self.rt.get_varip_state("{key}", lambda: self.{info.py_name}.current))'
+                )
+                self.emitter.dedent()
+            elif info.declaration_kind == "var":
                 self.emitter.line(
                     f'if not self._var_initialized["{info.py_name}"]:',
                     loc=node.loc,
@@ -906,8 +1074,14 @@ class Translator:
                     f"self.{info.py_name}.set_current({expr})", loc=node.loc, source=node.source
                 )
             return
-        expr = self.translate_expression(initializer)
-        self.emitter.line(f"{info.py_name} = {expr}", loc=node.loc, source=node.source)
+        if info.declaration_kind == "varip":
+            self.emitter.line(
+                f'{info.py_name} = self.rt.get_varip_state("{self._varip_key(info)}", lambda: {expr})',
+                loc=node.loc,
+                source=node.source,
+            )
+        else:
+            self.emitter.line(f"{info.py_name} = {expr}", loc=node.loc, source=node.source)
 
     def _tuple_targets(self, node: ASTNode) -> list[str]:
         raw_targets = (
@@ -971,29 +1145,28 @@ class Translator:
         rhs = self.translate_expression(value)
         if info.is_series:
             if node.field("op") in {":=", "="}:
-                self.emitter.line(
-                    f"self.{info.py_name}.set_current({rhs})", loc=node.loc, source=node.source
-                )
+                value_expr = rhs
             else:
                 operator = str(node.field("op")).replace("=", "")
-                lowered = self._lower_binary_operator(
+                value_expr = self._lower_binary_operator(
                     operator, f"self.{info.py_name}.current", rhs, node
                 )
+            self.emitter.line(
+                f"self.{info.py_name}.set_current({value_expr})", loc=node.loc, source=node.source
+            )
+            if info.declaration_kind == "varip":
                 self.emitter.line(
-                    f"self.{info.py_name}.set_current({lowered})",
-                    loc=node.loc,
-                    source=node.source,
+                    f'self.rt.varip_state["{self._varip_key(info)}"] = self.{info.py_name}.current'
                 )
             return
         if node.field("op") in {":=", "="}:
-            self.emitter.line(f"{info.py_name} = {rhs}", loc=node.loc, source=node.source)
+            value_expr = rhs
         else:
             operator = str(node.field("op")).replace("=", "")
-            self.emitter.line(
-                f"{info.py_name} = {self._lower_binary_operator(operator, info.py_name, rhs, node)}",  # noqa: E501
-                loc=node.loc,
-                source=node.source,
-            )
+            value_expr = self._lower_binary_operator(operator, info.py_name, rhs, node)
+        self.emitter.line(f"{info.py_name} = {value_expr}", loc=node.loc, source=node.source)
+        if info.declaration_kind == "varip":
+            self.emitter.line(f'self.rt.varip_state["{self._varip_key(info)}"] = {info.py_name}')
 
     def _emit_if(self, node: ASTNode) -> None:
         condition = node.child("condition")
@@ -1166,6 +1339,20 @@ class Translator:
         alias = node.field("alias") or node.field("library")
         if alias is None:
             return
+        if not self.allow_external_library_stubs:
+            self.ctx.add_diagnostic(
+                EXTERNAL_LIBRARY_CALL,
+                "external library imports are rejected in parity/default mode",
+                Severity.ERROR,
+                location=node.loc,
+                details={"alias": str(alias), "path": node.field("path")},
+            )
+            raise UnsupportedBuiltinError(
+                "external library imports require allow_external_library_stubs"
+            )
+        self.parity_safe = False
+        self.unsupported_features.add("external_library_stubs")
+        self.parity_risks.append("external library import lowered to recorder stub")
         self.ctx.import_aliases[str(alias)] = {
             "path": node.field("path"),
             "owner": node.field("owner"),
@@ -1589,6 +1776,8 @@ class Translator:
             raise UnsupportedNodeError("Invalid MemberAccessExpr")
         if chain.startswith("syminfo."):
             return f"{runtime_expr}.syminfo.{chain.split('.', 1)[1]}"
+        if chain == "timeframe.period":
+            return f"{runtime_expr}.timeframe.value"
         if chain.startswith("timeframe."):
             return f"{runtime_expr}.timeframe.{chain.split('.', 1)[1]}"
         if chain.startswith("barstate."):
@@ -1601,6 +1790,12 @@ class Translator:
             return f"self.ctx.{chain.split('.', 1)[1]}"
         if chain.startswith("strategy.commission."):
             return repr(chain.rsplit(".", 1)[-1])
+        if chain == "strategy.cash":
+            return '"cash"'
+        if chain == "strategy.percent_of_equity":
+            return '"percent_of_equity"'
+        if chain == "strategy.fixed":
+            return '"fixed"'
         if chain.startswith("strategy.oca."):
             return repr(chain.rsplit(".", 1)[-1])
         if chain.startswith("barmerge."):
@@ -1876,7 +2071,7 @@ class Translator:
         self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False
     ) -> str:
         del runtime_expr
-        severity = Severity.ERROR if (self.strict or force_error) else Severity.WARNING
+        severity = Severity.WARNING if self.allow_unsupported_request_stubs else Severity.ERROR
         self.ctx.add_diagnostic(
             UNSUPPORTED_REQUEST,
             f"{name} is recorded as unsupported by PineLib runtime_contract_v1.4/TZ_02 lowering",
@@ -1884,8 +2079,11 @@ class Translator:
             location=node.loc,
             details={"builtin": name, "forced_error": force_error},
         )
-        if self.strict or force_error:
+        if not self.allow_unsupported_request_stubs:
             raise UnsupportedBuiltinError(name)
+        self.parity_safe = False
+        self.unsupported_features.add("unsupported_request_stub")
+        self.parity_risks.append(f"{name} lowered to na stub")
         self.ctx.coverage.builtin(name)
         return "na"
 
@@ -2086,17 +2284,38 @@ class Translator:
                 extras.append((arg_name, arg))
         return [item for item in ordered if item is not None] + extras
 
+    def _translate_series_source_argument(self, node: ASTNode, *, runtime_expr: str) -> str:
+        """Render a Pine series object for TA helpers that inspect history internally.
+
+        Most expression lowering returns the current scalar value for series identifiers
+        because arithmetic and boolean expressions operate on the active bar. Helpers
+        such as ta.crossover/ta.crossunder need both current and previous values, so
+        passing ``self.fast.current`` loses history and makes every cross false. For
+        plain series identifiers, pass the Series object itself. Complex expressions
+        remain scalar until the lowering pipeline grows expression-series temporaries.
+        """
+        if node.kind == "Identifier":
+            name = str(node.field("name"))
+            if name in BUILTIN_SERIES:
+                return f"{runtime_expr}.{name}"
+            info = self.ctx.resolve_var(name)
+            if info.is_series:
+                return f"self.{info.py_name}"
+        return self.translate_expression(node, runtime_expr=runtime_expr)
+
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
         function_name = name.split(".", 1)[1]
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
-        arguments = [
-            self.translate_expression(arg, runtime_expr=runtime_expr)
-            if arg_name is None or arg_name in parameter_names
-            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
-            for arg_name, arg in self._ordered_call_arguments(name, node)
-        ]
+        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling"}
+        arguments = []
+        for arg_name, arg in self._ordered_call_arguments(name, node):
+            if function_name in history_source_functions and (arg_name is None or arg_name in {"source", "source1", "source2"}):
+                rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
+            else:
+                rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+            arguments.append(rendered if arg_name is None or arg_name in parameter_names else f"{arg_name}={rendered}")
         if function_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, function_name)
             arguments.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
@@ -2595,6 +2814,12 @@ class Translator:
                 self.ctx.import_aliases.values(), key=lambda item: item["alias"]
             ),
             "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),
+            "parity_safe": self.parity_safe,
+            "codegen_safe": not any(d.severity is Severity.ERROR for d in self.ctx.diagnostics),
+            "runtime_contract_safe": self.parity_safe,
+            "unsupported_features": sorted(self.unsupported_features),
+            "parity_risks": self.parity_risks,
+            "producer_metadata": program.field("producer_metadata"),
             "diagnostics": [item.to_dict() for item in self.ctx.diagnostics],
             "source_map_file": f"{module_name}.sourcemap.json",
         }
@@ -2606,8 +2831,21 @@ def translate_ast(
     strict: bool = False,
     emit_source_comments: bool = True,
     module_name: str | None = None,
+    allow_invalid_ast: bool = False,
+    allow_contract_mismatch: bool = False,
+    allow_external_library_stubs: bool = False,
+    allow_unsupported_request_stubs: bool = False,
+    allow_realtime_local_simulation: bool = False,
 ) -> TranslationResult:
-    return Translator(strict=strict, emit_source_comments=emit_source_comments).translate_program(
+    return Translator(
+        strict=strict,
+        emit_source_comments=emit_source_comments,
+        allow_invalid_ast=allow_invalid_ast,
+        allow_contract_mismatch=allow_contract_mismatch,
+        allow_external_library_stubs=allow_external_library_stubs,
+        allow_unsupported_request_stubs=allow_unsupported_request_stubs,
+        allow_realtime_local_simulation=allow_realtime_local_simulation,
+    ).translate_program(
         program,
         module_name=module_name,
     )

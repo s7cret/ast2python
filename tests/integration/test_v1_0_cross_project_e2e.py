@@ -60,7 +60,16 @@ def _pine_to_module(
     out = tmp_path / "generated"
     pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
 
-    parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
+    parse = _run([
+            sys.executable,
+            "-m",
+            "pine2ast",
+            "parse",
+            str(pine),
+            "--json",
+            str(ast_json),
+            "--runtime-contract-v1-4",
+        ])
     assert parse.returncode == 0, parse.stderr + parse.stdout
     assert ast_json.exists()
 
@@ -134,7 +143,16 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
         + "\n",
         encoding="utf-8",
     )
-    parse = _run([sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)])
+    parse = _run([
+            sys.executable,
+            "-m",
+            "pine2ast",
+            "parse",
+            str(pine),
+            "--json",
+            str(ast_json),
+            "--runtime-contract-v1-4",
+        ])
     assert parse.returncode == 0, parse.stderr + parse.stdout
     translate = _run(
         [
@@ -228,7 +246,16 @@ def test_cross_project_request_security_lower_tf_negative_cli_fixtures(tmp_path:
         ast_json = tmp_path / f"{name}.ast.json"
         pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
         parse = _run(
-            [sys.executable, "-m", "pine2ast", "parse", str(pine), "--json", str(ast_json)]
+            [
+            sys.executable,
+            "-m",
+            "pine2ast",
+            "parse",
+            str(pine),
+            "--json",
+            str(ast_json),
+            "--runtime-contract-v1-4",
+        ]
         )
         assert parse.returncode == 0, parse.stderr + parse.stdout
         translate = _run(

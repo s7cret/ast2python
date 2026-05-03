@@ -7,7 +7,12 @@ import pytest
 
 from ast2python.diagnostics import REQUEST_SECURITY_CAPTURE_UNSAFE
 from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError
-from ast2python.translator import translate_ast
+from ast2python.translator import translate_ast as _translate_ast
+from tests.contract_metadata import with_valid_producer_metadata
+
+
+def translate_ast(program, *args, **kwargs):
+    return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 
 def decl(kind="indicator"):
@@ -57,13 +62,13 @@ def call(name, args=None, span=None):
 
 
 def program(items, kind="indicator"):
-    return {
+    return with_valid_producer_metadata({
         "kind": "Program",
         "language": "pine",
         "version": 6,
         "declaration": decl(kind),
         "items": items,
-    }
+    })
 
 
 def test_generated_base_import_and_strategy_phase_contract_full_bar_lifecycle_no_fill():

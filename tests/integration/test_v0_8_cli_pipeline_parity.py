@@ -6,16 +6,31 @@ import sys
 from pathlib import Path
 
 from ast2python.ast.schema import load_ast
-from ast2python.translator import translate_ast
+from ast2python.translator import translate_ast as _translate_ast
+from tests.contract_metadata import with_valid_producer_metadata
+
+
+def translate_ast(program, *args, **kwargs):
+    return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 FIXTURES = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke")
 
 
+def metadata_fixture_copy(src: Path, dst_dir: Path) -> Path:
+    dst = dst_dir / src.name
+    dst.write_text(
+        json.dumps(with_valid_producer_metadata(load_ast(src).raw), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return dst
+
+
 def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path) -> None:
-    inputs = [
+    source_inputs = [
         FIXTURES / "01_ma_indicator.ast.json",
         FIXTURES / "13_input_source_strategy_state.ast.json",
     ]
+    inputs = [metadata_fixture_copy(path, tmp_path) for path in source_inputs]
     proc = subprocess.run(
         [
             sys.executable,

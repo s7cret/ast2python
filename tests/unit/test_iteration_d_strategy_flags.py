@@ -12,6 +12,15 @@ def test_strategy_realtime_and_broker_flags_lower_to_strategy_context_and_run_lo
         "kind": "Program",
         "language": "pine",
         "version": 6,
+        "producer_metadata": {
+            "contract": "pain.ast_contract.v1",
+            "producer": {"name": "pine2ast", "version": "test"},
+            "schema_version": "1.0",
+            "pine_language_version": 6,
+            "runtime_contract": "runtime_contract_v1_4",
+            "parser_gate": "pass",
+            "semantic_gate": "pass",
+        },
         "declaration": {
             "kind": "DeclarationStatement",
             "script_type": "strategy",
@@ -57,7 +66,10 @@ def test_strategy_realtime_and_broker_flags_lower_to_strategy_context_and_run_lo
         },
         "items": [],
     }
-    result = translate_ast(program, module_name="iter_d_flags")
+    result = translate_ast(
+        program, module_name="iter_d_flags", allow_realtime_local_simulation=True
+    )
+    assert result.metadata["parity_safe"] is False
     for expected in (
         "process_orders_on_close=True",
         "calc_on_order_fills=True",

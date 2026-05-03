@@ -14,6 +14,7 @@ from pinelib.request.providers import InMemoryDataProvider  # noqa: E402
 
 from ast2python.errors import TypeResolutionError  # noqa: E402
 from ast2python.translator import translate_ast  # noqa: E402
+from tests.contract_metadata import with_valid_producer_metadata  # noqa: E402
 
 
 def decl(kind: str = "indicator") -> dict:
@@ -64,13 +65,13 @@ def expr(expression: dict) -> dict:
 
 
 def program(items, kind: str = "indicator") -> dict:
-    return {
+    return with_valid_producer_metadata({
         "kind": "Program",
         "language": "pine",
         "version": 6,
         "declaration": decl(kind),
         "items": items,
-    }
+    })
 
 
 def load_generated(code: str, name: str = "generated_contract") -> ModuleType:
@@ -199,6 +200,48 @@ def test_visual_strategy_operator_input_time_and_stateful_ta_smoke_without_attri
     assert ort.series_registry["avg"]._history[1] == 15
 
 
+def test_strategy_default_qty_type_constants_lower_to_runtime_strings():
+    p = with_valid_producer_metadata({
+        "kind": "Program",
+        "language": "pine",
+        "version": 6,
+        "declaration": {
+            "kind": "DeclarationStatement",
+            "script_type": "strategy",
+            "call": {
+                "kind": "CallExpr",
+                "callee": ident("strategy"),
+                "arguments": [
+                    arg(lit("qty contract", "string")),
+                    arg(member("strategy", "cash"), "default_qty_type"),
+                    arg(lit(100), "default_qty_value"),
+                ],
+            },
+        },
+        "items": [],
+    })
+    result = translate_ast(p, module_name="strategy_qty_type_contract")
+
+    assert 'default_qty_type="cash"' in result.code
+    assert "strategy.cash" not in result.code
+
+
+def test_ta_cross_helpers_receive_series_objects_not_current_scalars():
+    p = program(
+        [
+            var("fast", call("ta.sma", [arg(ident("close")), arg(lit(2))])),
+            var("slow", call("ta.sma", [arg(ident("close")), arg(lit(3))])),
+            var("xup", call("ta.crossover", [arg(ident("fast")), arg(ident("slow"))])),
+            var("xdn", call("ta.crossunder", [arg(ident("fast")), arg(ident("slow"))])),
+        ]
+    )
+    result = translate_ast(p, module_name="ta_cross_series_contract")
+
+    assert "crossover(self.fast, self.slow)" in result.code
+    assert "crossunder(self.fast, self.slow)" in result.code
+    assert "crossover(self.fast.current, self.slow.current)" not in result.code
+
+
 def test_bool_na_helpers_are_compile_time_diagnostics():
     p = program(
         [
@@ -208,3 +251,80 @@ def test_bool_na_helpers_are_compile_time_diagnostics():
     )
     with pytest.raises(TypeResolutionError):
         translate_ast(p, module_name="bool_nz_contract")
+
+
+def test_timeframe_period_and_na_time_call_lower_to_runtime_contract():
+    p = program(
+        [
+            var(
+                "in_sess",
+                call(
+                    "na",
+                    [
+                        arg(
+                            call(
+                                "time",
+                                [
+                                    arg(member("timeframe", "period")),
+                                    arg(lit("0930-1600", "string")),
+                                    arg(lit("America/New_York", "string")),
+                                ],
+                            )
+                        )
+                    ],
+                ),
+            )
+        ]
+    )
+    result = translate_ast(p, module_name="timeframe_period_session_contract")
+
+    assert "from pinelib.core import" in result.code and "is_na" in result.code
+    assert "self.rt.timeframe.value" in result.code
+    assert "self.rt.timeframe.period" not in result.code
+
+
+def test_varip_local_simulation_lowers_to_runtime_varip_state_and_executes():
+    p = program(
+        [
+            var("ticks", lit(0), mode="varip"),
+            {"kind": "Reassignment", "target": ident("ticks"), "op": ":=", "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)}},
+        ],
+        kind="strategy",
+    )
+    result = translate_ast(p, module_name="varip_contract", allow_realtime_local_simulation=True)
+    assert "get_varip_state" in result.code
+    assert "self.rt.varip_state" in result.code
+    assert result.metadata["parity_safe"] is False
+    assert "varip_local_simulation" in result.metadata["unsupported_features"]
+    mod = load_generated(result.code, "varip_contract")
+    rt = runtime()
+    script = mod.GeneratedStrategy(runtime=rt)
+    snapshots = script.run(bars())
+    assert [snap["bar_index"] for snap in snapshots] == [0, 1]
+    assert rt.series_registry["ticks"]._history == [1, 2]
+    assert rt.varip_state["global:ticks"] == 2
+
+
+def test_varip_realtime_rollback_checkpoint_preserves_generated_varip_state():
+    p = program(
+        [
+            var("ticks", lit(0), mode="varip"),
+            {"kind": "Reassignment", "target": ident("ticks"), "op": ":=", "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)}},
+        ],
+        kind="strategy",
+    )
+    result = translate_ast(p, module_name="varip_rollback_contract", allow_realtime_local_simulation=True)
+    mod = load_generated(result.code, "varip_rollback_contract")
+    rt = runtime()
+    script = mod.GeneratedStrategy(runtime=rt)
+    bar = bars()[0]
+    rt.begin_realtime_bar(bar)
+    script._process_bar(bar)
+    checkpoint = rt.export_state(include_varip=False)
+
+    script._process_bar(bar)
+    assert rt.varip_state["global:ticks"] == 2
+
+    rt.restore_state(checkpoint)
+    assert rt.varip_state["global:ticks"] == 2
+    assert rt.series_registry["ticks"].current == 1

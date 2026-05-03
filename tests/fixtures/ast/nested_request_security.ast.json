@@ -9,12 +9,19 @@
     "script_type": "indicator",
     "call": {
       "kind": "CallExpr",
-      "callee": { "kind": "Identifier", "name": "indicator" },
+      "callee": {
+        "kind": "Identifier",
+        "name": "indicator"
+      },
       "arguments": [
         {
           "kind": "Argument",
           "name": null,
-          "value": { "kind": "Literal", "literal_type": "string", "value": "Nested Security" }
+          "value": {
+            "kind": "Literal",
+            "literal_type": "string",
+            "value": "Nested Security"
+          }
         }
       ]
     }
@@ -25,11 +32,17 @@
       "name": "x",
       "initializer": {
         "kind": "CallExpr",
-        "span": { "start_line": 3, "start_col": 5 },
+        "span": {
+          "start_line": 3,
+          "start_col": 5
+        },
         "callee": {
           "kind": "MemberAccessExpr",
           "member": "security",
-          "object": { "kind": "Identifier", "name": "request" }
+          "object": {
+            "kind": "Identifier",
+            "name": "request"
+          }
         },
         "arguments": [
           {
@@ -38,24 +51,37 @@
             "value": {
               "kind": "MemberAccessExpr",
               "member": "tickerid",
-              "object": { "kind": "Identifier", "name": "syminfo" }
+              "object": {
+                "kind": "Identifier",
+                "name": "syminfo"
+              }
             }
           },
           {
             "kind": "Argument",
             "name": null,
-            "value": { "kind": "Literal", "literal_type": "string", "value": "D" }
+            "value": {
+              "kind": "Literal",
+              "literal_type": "string",
+              "value": "D"
+            }
           },
           {
             "kind": "Argument",
             "name": null,
             "value": {
               "kind": "CallExpr",
-              "span": { "start_line": 3, "start_col": 36 },
+              "span": {
+                "start_line": 3,
+                "start_col": 36
+              },
               "callee": {
                 "kind": "MemberAccessExpr",
                 "member": "security",
-                "object": { "kind": "Identifier", "name": "request" }
+                "object": {
+                  "kind": "Identifier",
+                  "name": "request"
+                }
               },
               "arguments": [
                 {
@@ -64,18 +90,28 @@
                   "value": {
                     "kind": "MemberAccessExpr",
                     "member": "tickerid",
-                    "object": { "kind": "Identifier", "name": "syminfo" }
+                    "object": {
+                      "kind": "Identifier",
+                      "name": "syminfo"
+                    }
                   }
                 },
                 {
                   "kind": "Argument",
                   "name": null,
-                  "value": { "kind": "Literal", "literal_type": "string", "value": "60" }
+                  "value": {
+                    "kind": "Literal",
+                    "literal_type": "string",
+                    "value": "60"
+                  }
                 },
                 {
                   "kind": "Argument",
                   "name": null,
-                  "value": { "kind": "Identifier", "name": "close" }
+                  "value": {
+                    "kind": "Identifier",
+                    "name": "close"
+                  }
                 }
               ]
             }
@@ -83,5 +119,18 @@
         ]
       }
     }
-  ]
+  ],
+  "producer_metadata": {
+    "contract": "pain.ast_contract.v1",
+    "producer": {
+      "name": "pine2ast",
+      "version": "test-fixture"
+    },
+    "schema_version": "1.0",
+    "pine_language_version": 6,
+    "runtime_contract_profile": "v1.4",
+    "runtime_contract": "runtime_contract_v1_4",
+    "parser_gate": "pass",
+    "semantic_gate": "pass"
+  }
 }

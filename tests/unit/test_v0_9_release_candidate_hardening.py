@@ -8,6 +8,7 @@ import ast2python
 from ast2python.ast.schema import load_ast
 from ast2python.translator import TranslationResult, Translator, translate_ast
 from ast2python.version import __version__
+from tests.contract_metadata import with_valid_producer_metadata
 
 FIXTURE = Path(
     "[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
@@ -29,7 +30,7 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
 
 
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
-    result = translate_ast(load_ast(FIXTURE), module_name="audit_ma")
+    result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
     assert result.metadata["generator_milestone"] == "v1.0.0"
     assert result.metadata["source_map_file"] == "audit_ma.sourcemap.json"
     assert result.metadata["module_name"] == "audit_ma"
@@ -42,7 +43,7 @@ def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
 
 
 def test_v0_9_translation_performance_smoke() -> None:
-    program = load_ast(FIXTURE)
+    program = with_valid_producer_metadata(load_ast(FIXTURE))
     started = time.perf_counter()
     for _ in range(5):
         result = translate_ast(program, module_name="perf_ma")

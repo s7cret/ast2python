@@ -1,7 +1,12 @@
 import pytest
 
 from ast2python.errors import TypeResolutionError
-from ast2python.translator import translate_ast
+from ast2python.translator import translate_ast as _translate_ast
+from tests.contract_metadata import with_valid_producer_metadata
+
+
+def translate_ast(program, *args, **kwargs):
+    return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 
 def decl():
@@ -35,13 +40,13 @@ def arg(value, name=None):
 
 
 def program(items):
-    return {
+    return with_valid_producer_metadata({
         "kind": "Program",
         "language": "pine",
         "version": 6,
         "declaration": decl(),
         "items": items,
-    }
+    })
 
 
 def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():

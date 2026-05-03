@@ -31,13 +31,23 @@ def _unwrap_pine2ast_payload(value: dict[str, Any]) -> dict[str, Any]:
     for key in ("ast", "program"):
         nested = value.get(key)
         if isinstance(nested, dict) and nested.get("kind") == "Program":
-            return nested
+            result = copy.deepcopy(nested)
+            if "producer_metadata" not in result:
+                metadata = value.get("producer_metadata") or value.get("metadata")
+                if isinstance(metadata, dict):
+                    result["producer_metadata"] = metadata
+            return result
     result = value.get("result")
     if isinstance(result, dict):
         for key in ("ast", "program"):
             nested = result.get(key)
             if isinstance(nested, dict) and nested.get("kind") == "Program":
-                return nested
+                unwrapped = copy.deepcopy(nested)
+                if "producer_metadata" not in unwrapped:
+                    metadata = result.get("producer_metadata") or result.get("metadata")
+                    if isinstance(metadata, dict):
+                        unwrapped["producer_metadata"] = metadata
+                return unwrapped
     return value
 
 
