@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ast2python.ast.schema import load_ast
 from ast2python.translator import translate_ast as _translate_ast
+from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
 
@@ -63,7 +64,7 @@ def test_v0_8_runtime_contract_metadata_shape_is_pipeline_stable() -> None:
         load_ast(FIXTURES / "13_input_source_strategy_state.ast.json"), module_name="state_strategy"
     )
     metadata = result.metadata
-    assert metadata["generator_milestone"] == "v1.0.0"
+    assert metadata["generator_milestone"] == f"v{__version__}"
     assert metadata["target_runtime_contract"] == "1.4"
     assert metadata["class_name"] == "GeneratedStrategy"
     assert "strategy.entry" in metadata["used_builtins"]

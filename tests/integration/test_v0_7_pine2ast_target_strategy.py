@@ -11,6 +11,7 @@ from ast2python.ast.schema import load_ast
 from ast2python.coverage import static_coverage_report
 from ast2python.errors import UnsupportedBuiltinError
 from ast2python.translator import translate_ast as _translate_ast
+from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
 
@@ -57,7 +58,7 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
 
     assert result.coverage["source_map_executable_line_ratio"] >= 0.95
     assert expected <= set(result.coverage["builtins"])
-    assert result.metadata["generator_milestone"] == "v1.0.0"
+    assert result.metadata["generator_milestone"] == f"v{__version__}"
 
 
 def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash() -> None:

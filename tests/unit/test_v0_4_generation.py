@@ -2,6 +2,7 @@ import pytest
 
 from ast2python.errors import TypeResolutionError
 from ast2python.translator import translate_ast as _translate_ast
+from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
 
@@ -223,7 +224,7 @@ def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():
     assert "for i in pine_range(0, 2):" in result.code
     assert "max_loop_iterations" in result.code
     assert "break" in result.code and "continue" in result.code
-    assert result.metadata["generator_milestone"] == "v1.0.0"
+    assert result.metadata["generator_milestone"] == f"v{__version__}"
     assert "generation_ratio" in result.coverage
     compile(result.code, "v0_4.py", "exec")
 

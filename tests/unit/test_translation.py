@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from ast2python.diagnostics import WARNING_NESTED_SECURITY
 from ast2python.translator import translate_ast as _translate_ast
+from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
 
@@ -74,7 +75,7 @@ def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     assert input_meta["group"] == "Core"
     assert input_meta["inline"] == "L"
     assert input_meta["tooltip"] == "EMA length"
-    assert result.metadata["generator_milestone"] == "v1.0.0"
+    assert result.metadata["generator_milestone"] == f"v{__version__}"
     assert any(item["pine_line"] == 4 for item in result.source_map)
     compile(result.code, "v0_2_foundation.py", "exec")
 
@@ -240,7 +241,7 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"
-    assert result.metadata["generator_milestone"] == "v1.0.0"
+    assert result.metadata["generator_milestone"] == f"v{__version__}"
     compile(result.code, "v0_3_inputs_time.py", "exec")
 
 

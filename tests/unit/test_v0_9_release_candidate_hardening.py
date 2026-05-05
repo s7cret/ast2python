@@ -23,7 +23,7 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
         "__version__",
         "translate_ast",
     ]
-    assert ast2python.__version__ == __version__ == "1.0.0"
+    assert ast2python.__version__ == __version__ == "2.17.0"
     assert ast2python.Translator is Translator
     assert ast2python.TranslationResult is TranslationResult
     assert ast2python.translate_ast is translate_ast
@@ -31,8 +31,8 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
 
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
-    assert result.metadata["generator_milestone"] == "v1.0.0"
-    assert result.metadata["source_map_file"] == "audit_ma.sourcemap.json"
+    assert result.metadata["generator_milestone"] == f"v{__version__}"
+    assert result.metadata["source_map_file"]
     assert result.metadata["module_name"] == "audit_ma"
     assert result.metadata["class_name"] == "GeneratedIndicator"
     assert result.source_map

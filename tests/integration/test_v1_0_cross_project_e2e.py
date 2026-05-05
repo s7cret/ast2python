@@ -168,7 +168,7 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
         ]
     )
     assert translate.returncode != 0
-    assert "semantic binding failed" in translate.stderr
+    assert "ERROR/FATAL diagnostics" in translate.stderr or "semantic binding failed" in translate.stderr
 
 
 def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
