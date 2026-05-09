@@ -176,8 +176,8 @@ def test_iteration_b_unknown_and_unsupported_builtins_are_explicit() -> None:
 
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(
-            program(call("ta.supertrend", [arg(lit(3.0)), arg(lit(10))])),
-            module_name="unsupported_supertrend",
+            program(call("ta.adx", [arg(lit(14)), arg(lit(14))])),
+            module_name="unsupported_adx",
         )
 
 

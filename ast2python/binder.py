@@ -236,6 +236,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         "ta.falling", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
     ),
     "ta.vwap": S("ta.vwap", (P("source", NUMERIC, "series"),)),
+    "ta.tr": S("tr", (P("handle_na", BOOL, "simple", required=False),)),
     # Known PineLib helpers not safe in current scalar runtime lowering.
     "ta.hma": S(
         "ta.hma",
@@ -249,8 +250,6 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("di_length", frozenset({"int"}), "simple"),
             P("adx_smoothing", frozenset({"int"}), "simple"),
         ),
-        codegen_supported=False,
-        notes="PineLib dmi is batch-only today",
     ),
     "ta.adx": S(
         "ta.adx",
@@ -272,8 +271,6 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("inc", NUMERIC, "simple", required=False),
             P("max", NUMERIC, "simple", required=False),
         ),
-        codegen_supported=False,
-        notes="PineLib sar is batch-only today",
     ),
     # Pine v6: additional TA function signatures.
     "ta.cum": S(
@@ -770,11 +767,13 @@ def _allows_untyped_numeric_parameter(
         return False
     if builtin == "math.sqrt" and expected.name == "number":
         return True
-    return (
-        builtin == "ta.wma"
-        and expected.name in {"source", "length"}
-        and expected.accepted_types <= NUMERIC
-    )
+    if not builtin.startswith("ta."):
+        return False
+    if expected.name in {"source", "source1", "source2", "series"}:
+        return expected.accepted_types <= NUMERIC
+    if expected.name in {"length", "fastlen", "slowlen", "siglen"}:
+        return expected.accepted_types == frozenset({"int"})
+    return False
 
 
 def _parameter_slots(spec: SignatureSpec, arg_count: int) -> tuple[ParameterSpec, ...]:

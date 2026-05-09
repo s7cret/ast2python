@@ -45,7 +45,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -106,6 +106,7 @@ METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
 UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
 ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
+DERIVED_BUILTIN_SERIES = {"hl2", "hlc3", "ohlc4", "hlcc4"}
 LOWER_TF_PURE_CALL_PREFIXES = ("math.",)
 LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
     "int",
@@ -1124,6 +1125,7 @@ class Translator:
         "ta.macd": ("float", "float", "float"),
         "ta.bb": ("float", "float", "float"),  # basis, upper, lower
         "ta.supertrend": ("float", "int"),  # line, direction
+        "ta.dmi": ("float", "float", "float"),  # plus, minus, adx
     }
 
     def _emit_tuple_declaration(self, node: ASTNode) -> None:
@@ -1587,6 +1589,8 @@ class Translator:
         statements = [] if body is None else body.children("statements")
         if not statements:
             expr = node.child("expression") or node.child("result")
+            if expr is None and body is not None and body.kind != "Block":
+                expr = body
             self.emitter.line(
                 f"return {self.translate_expression(expr)}" if expr is not None else "return None"
             )
@@ -2347,6 +2351,8 @@ class Translator:
             name = str(node.field("name"))
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}"
+            if name in DERIVED_BUILTIN_SERIES:
+                return self.translate_expression(node, runtime_expr=runtime_expr)
             info = self.ctx.resolve_var(name)
             if info.is_series:
                 return f"self.{info.py_name}"
@@ -2367,6 +2373,21 @@ class Translator:
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
             arguments.append(rendered if arg_name is None or arg_name in parameter_names else f"{arg_name}={rendered}")
+        if function_name == "dmi":
+            arguments = [
+                f"{runtime_expr}.high.current",
+                f"{runtime_expr}.low.current",
+                f"{runtime_expr}.close.current",
+                *arguments,
+            ]
+        elif function_name == "sar":
+            arguments = [
+                f"{runtime_expr}.high.current",
+                f"{runtime_expr}.low.current",
+                *arguments,
+            ]
+        elif function_name == "tr":
+            arguments = []
         if function_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, function_name)
             arguments.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
@@ -2674,6 +2695,8 @@ class Translator:
                     "series",
                     is_series=True,
                 )
+            if name in DERIVED_BUILTIN_SERIES:
+                return make_type_info("float", "series", is_series=True)
             if name == "bar_index":
                 return make_type_info("int", "series", is_series=True, can_be_na=False)
             if name == "na":
@@ -2801,6 +2824,10 @@ class Translator:
                 "ta.percentile_linear_interpolation",
                 "ta.mom",
                 "ta.roc",
+                "ta.cci",
+                "ta.mfi",
+                "ta.cmo",
+                "ta.tsi",
                 "ta.correlation",
                 "ta.vwap",
             }:

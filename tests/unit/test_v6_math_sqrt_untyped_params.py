@@ -175,3 +175,123 @@ def test_v6_supertrend_lowers_to_runtime_ohlc_tuple(tmp_path: Path) -> None:
             Bar(time=900_000, time_close=1_799_999, open=101, high=106, low=100, close=104, volume=11),
         ]
     )
+
+
+def test_v6_dmi_and_sar_lower_to_runtime_ohlc_inputs(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "dmi_sar_runtime",
+        """
+        //@version=6
+        indicator("dmi sar test")
+        [plus, minus, adx] = ta.dmi(14, 14)
+        sar = ta.sar(0.02, 0.02, 0.2)
+        plot(plus, "PLUS")
+        plot(minus, "MINUS")
+        plot(adx, "ADX")
+        plot(sar, "SAR")
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "dmi_sar_runtime")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import dmi, sar' in code
+    assert 'dmi(self.rt.high.current, self.rt.low.current, self.rt.close.current, 14, 14' in code
+    assert 'sar(self.rt.high.current, self.rt.low.current, 0.02, 0.02, 0.2' in code
+    assert "_plus, _minus, _adx = dmi(" in code
+
+
+def test_v6_ta_tr_lowers_to_runtime_ohlc(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "tr_runtime",
+        """
+        //@version=6
+        indicator("tr test")
+        plot(ta.tr(true), "TR")
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "tr_runtime")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import tr' in code
+    assert 'tr(runtime=self.rt, state_id=' in code
+
+
+def test_v6_ta_sma_accepts_untyped_function_params(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "sma_untyped_params",
+        """
+        //@version=6
+        indicator("sma untyped params")
+        f(src, length) => ta.sma(src, length)
+        plot(f(close, 20))
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "sma_untyped_params")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import sma' in code
+    assert 'sma(src, length, runtime=self.rt, state_id=' in code
+
+
+def test_v6_ta_sma_accepts_derived_builtin_series_source(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "sma_hl2",
+        """
+        //@version=6
+        indicator("sma hl2")
+        x = ta.sma(hl2, 5)
+        plot(x)
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "sma_hl2")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import sma' in code
+    assert 'sma(pine_div(pine_add(self.rt.high.current, self.rt.low.current), 2), 5' in code
+
+
+def test_v6_crossover_accepts_nested_ta_numeric_source(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "crossover_cci",
+        """
+        //@version=6
+        indicator("crossover cci")
+        sig = ta.crossover(ta.cci(hlc3, 20), 0)
+        plot(sig ? 1 : 0)
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "crossover_cci")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import cci, crossover' in code
+    assert 'crossover(cci(' in code
