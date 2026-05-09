@@ -1692,6 +1692,8 @@ class Translator:
         }
         if op in pine_ops:
             return f"{pine_ops[op]}({left}, {right})"
+        if op == "%":
+            return f"({left} % {right})"
         if op == "and":
             return f"(pine_bool({left}) and pine_bool({right}))"
         if op == "or":
