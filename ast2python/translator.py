@@ -2770,6 +2770,31 @@ class Translator:
                 return make_type_info("float", "input")
             if chain in {"na"}:
                 return make_type_info("bool", "simple", can_be_na=False)
+            # nz and fixnan preserve the type of the first argument.
+            if chain in {"nz", "fixnan"}:
+                first_arg = node.child("arguments") or node.child("args")
+                if first_arg is not None:
+                    args = list(first_arg) if hasattr(first_arg, "__iter__") else [first_arg]
+                    if args:
+                        first_type = self._infer_type_info(args[0])
+                        return make_type_info(
+                            first_type.base_type if first_type.base_type not in {"object", "na"} else "float",
+                            "series",
+                            is_series=True,
+                        )
+                return make_type_info("float", "series", is_series=True)
+            # math.* functions all return float series.
+            if chain and chain.startswith("math."):
+                return make_type_info("float", "series", is_series=True)
+            # Type-cast builtins return their respective types.
+            if chain == "int":
+                return make_type_info("int", "series", is_series=True)
+            if chain == "float":
+                return make_type_info("float", "series", is_series=True)
+            if chain == "bool":
+                return make_type_info("bool", "series", is_series=True)
+            if chain == "str":
+                return make_type_info("string", "series", is_series=True)
             if chain in VISUAL_OBJECT_PRODUCERS:
                 return make_type_info("PineObjectId", "series")
             if isinstance(chain, str) and chain.startswith(("array.", "map.", "matrix.")):
