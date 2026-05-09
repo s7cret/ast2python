@@ -142,3 +142,102 @@ plot(x, "CORR")"""
         assert "self.rt.close, self.rt.volume" in src, f"correlation missing both Series args"
         assert "self.rt.close.current," not in src, "correlation got scalar for source1!"
         assert "self.rt.volume.current," not in src, "correlation got scalar for source2!"
+
+    def test_wma_source_is_series_no_runtime(self):
+        """WMA: source=Series (batch mode, no runtime= needed).
+
+        WMA is NOT in STATEFUL_TA_FUNCTIONS (intentionally, to preserve user-defined
+        function inlining for hma pattern). WMA works in batch mode — pinelib wma
+        receives the full Series and computes all values without needing runtime=/state_id=.
+        """
+        code = """//@version=6
+indicator("test")
+plot(ta.wma(close, 20), "WMA")"""
+        src = get_generated_code("test_wma", code)
+        # source must be Series (no .current) — this is the key fix
+        assert "wma(self.rt.close," in src, f"wma missing Series source"
+        assert "wma(self.rt.close.current," not in src, "wma got scalar .current!"
+        # WMA uses batch mode — no runtime=/state_id=
+        assert "runtime=self.rt" not in src, "wma should NOT have runtime= (batch mode)"
+
+    def test_swma_source_is_series_no_runtime(self):
+        """SWMA: source=Series, NO runtime=/state_id= (pinelib swma has no runtime support)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.swma(close), "SWMA")"""
+        src = get_generated_code("test_swma", code)
+        # source must be Series (no .current)
+        assert "swma(self.rt.close" in src, f"swma missing Series source"
+        assert "swma(self.rt.close.current" not in src, "swma got scalar .current!"
+        # must NOT have runtime= (swma pinelib doesn't support it)
+        assert "runtime=self.rt" not in src, "swma should NOT have runtime= argument"
+
+    def test_vwma_source_is_series_with_runtime(self):
+        """VWMA: source=Series (no .current), has runtime= and state_id=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.vwma(close, 20), "VWMA")"""
+        src = get_generated_code("test_vwma", code)
+        assert "vwma(self.rt.close," in src, f"vwma missing Series source"
+        assert "vwma(self.rt.close.current," not in src, "vwma got scalar .current!"
+        assert "runtime=self.rt" in src, "vwma missing runtime= argument"
+        assert 'state_id="' in src, "vwma missing state_id= argument"
+
+    def test_stoch_all_sources_are_series(self):
+        """STOCH: source/high/low all as Series (no .current), has runtime= and state_id=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.stoch(close, high, low, 14), "STOCH")"""
+        src = get_generated_code("test_stoch", code)
+        # all three sources must be Series
+        assert "stoch(self.rt.close," in src, f"stoch missing close source"
+        assert "self.rt.close.current," not in src, "stoch close got .current!"
+        assert "self.rt.high," in src, f"stoch missing high source"
+        assert "self.rt.high.current," not in src, "stoch high got .current!"
+        assert "self.rt.low," in src, f"stoch missing low source"
+        assert "self.rt.low.current," not in src, "stoch low got .current!"
+        assert "runtime=self.rt" in src, "stoch missing runtime= argument"
+        assert 'state_id="' in src, "stoch missing state_id= argument"
+
+    def test_mom_source_is_series_with_runtime(self):
+        """MOM: source=Series, has runtime= and state_id=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.mom(close, 10), "MOM")"""
+        src = get_generated_code("test_mom", code)
+        assert "mom(self.rt.close," in src, f"mom missing Series source"
+        assert "mom(self.rt.close.current," not in src, "mom got scalar .current!"
+        assert "runtime=self.rt" in src, "mom missing runtime= argument"
+        assert 'state_id="' in src, "mom missing state_id= argument"
+
+    def test_roc_source_is_series_with_runtime(self):
+        """ROC: source=Series, has runtime= and state_id=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.roc(close, 10), "ROC")"""
+        src = get_generated_code("test_roc", code)
+        assert "roc(self.rt.close," in src, f"roc missing Series source"
+        assert "roc(self.rt.close.current," not in src, "roc got scalar .current!"
+        assert "runtime=self.rt" in src, "roc missing runtime= argument"
+        assert 'state_id="' in src, "roc missing state_id= argument"
+
+    def test_mfi_source_is_series_with_runtime(self):
+        """MFI: source=Series, has runtime= and state_id=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.mfi(close, 14), "MFI")"""
+        src = get_generated_code("test_mfi", code)
+        assert "mfi(self.rt.close," in src, f"mfi missing Series source"
+        assert "mfi(self.rt.close.current," not in src, "mfi got scalar .current!"
+        assert "runtime=self.rt" in src, "mfi missing runtime= argument"
+        assert 'state_id="' in src, "mfi missing state_id= argument"
+
+    def test_vwap_source_uses_runtime_volume(self):
+        """VWAP: source (hlc3) via runtime, volume from runtime.volume, has runtime=."""
+        code = """//@version=6
+indicator("test")
+plot(ta.vwap(hlc3), "VWAP")"""
+        src = get_generated_code("test_vwap", code)
+        # vwap must have runtime= (volume sourced from runtime.volume)
+        assert "runtime=self.rt" in src, "vwap missing runtime= argument"
+        assert 'state_id="' in src, "vwap missing state_id= argument"

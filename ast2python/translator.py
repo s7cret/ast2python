@@ -2366,14 +2366,14 @@ class Translator:
         canonical_name = name.split(".", 1)[1] if name.startswith("ta.") else function_name
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
-        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars", "highest", "lowest", "stdev", "variance", "dev", "change", "pivothigh", "pivotlow", "correlation"}
+        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars", "highest", "lowest", "stdev", "variance", "dev", "change", "pivothigh", "pivotlow", "correlation", "wma", "swma", "vwma", "stoch", "mom", "roc", "alma", "linreg"}
         arguments = []
         ordered_arguments = self._ordered_call_arguments(name, node)
         for index, (arg_name, arg) in enumerate(ordered_arguments):
             parameter_name = arg_name
             if parameter_name is None and index < len(sig.parameters):
                 parameter_name = sig.parameters[index].name
-            if canonical_name in history_source_functions and parameter_name in {"source", "source1", "source2"}:
+            if canonical_name in history_source_functions and parameter_name in {"source", "source1", "source2", "high", "low", "open", "series"}:
                 rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
