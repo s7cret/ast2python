@@ -258,3 +258,67 @@ def test_v6_switch_default_branch_returns_default_value(tmp_path: Path) -> None:
     runtime = _runtime()
     module.GeneratedIndicator(runtime=runtime).run(_bars())
     assert runtime.series_registry["x"]._history == [3, 3]
+
+
+def test_v6_request_security_daily_close_compile_shape(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "security_close_d",
+        """
+        //@version=6
+        indicator("security close D")
+        x = request.security(syminfo.tickerid, "D", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+        plot(x, "D_CLOSE")
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "security_close_d")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "request_security(self.rt.syminfo.tickerid, 'D'" in code
+    assert "lambda request_rt: request_rt.close.current" in code
+    assert "gaps='barmerge.gaps_off'" in code
+    assert "lookahead='barmerge.lookahead_off'" in code
+
+
+def test_v6_request_security_daily_previous_close_compile_shape(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "security_close_prev_d",
+        """
+        //@version=6
+        indicator("security close prev D")
+        x = request.security(syminfo.tickerid, "D", close[1], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+        plot(x, "D_PREV_CLOSE")
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "security_close_prev_d")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "request_security(self.rt.syminfo.tickerid, 'D'" in code
+    assert "lambda request_rt: request_rt.close[1]" in code
+    assert "gaps='barmerge.gaps_off'" in code
+    assert "lookahead='barmerge.lookahead_off'" in code
+
+
+def test_v6_daily_time_and_time_close_compile_shape(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "time_d",
+        """
+        //@version=6
+        indicator("time D")
+        plot(float(time("D")), "D_TIME")
+        plot(float(time_close("D")), "D_TIME_CLOSE")
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "time_d")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "float(self.rt.timefunc.time('D', runtime=self.rt))" in code
+    assert "float(self.rt.timefunc.time_close('D', runtime=self.rt))" in code
