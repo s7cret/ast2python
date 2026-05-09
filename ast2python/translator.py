@@ -2363,12 +2363,17 @@ class Translator:
         sig = BUILTIN_SIGNATURES[name]
         # Use binder alias (e.g. "ta_range" for "ta.range")
         function_name = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+        canonical_name = name.split(".", 1)[1] if name.startswith("ta.") else function_name
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
         history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars"}
         arguments = []
-        for arg_name, arg in self._ordered_call_arguments(name, node):
-            if function_name in history_source_functions and (arg_name is None or arg_name in {"source", "source1", "source2"}):
+        ordered_arguments = self._ordered_call_arguments(name, node)
+        for index, (arg_name, arg) in enumerate(ordered_arguments):
+            parameter_name = arg_name
+            if parameter_name is None and index < len(sig.parameters):
+                parameter_name = sig.parameters[index].name
+            if canonical_name in history_source_functions and parameter_name in {"source", "source1", "source2"}:
                 rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
@@ -2388,8 +2393,8 @@ class Translator:
             ]
         elif function_name == "tr":
             arguments = []
-        if function_name in STATEFUL_TA_FUNCTIONS:
-            state_id = state_id_for_call(self.ctx, node, function_name)
+        if canonical_name in STATEFUL_TA_FUNCTIONS:
+            state_id = state_id_for_call(self.ctx, node, canonical_name)
             arguments.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(arguments)})"
@@ -2828,6 +2833,7 @@ class Translator:
                 "ta.mfi",
                 "ta.cmo",
                 "ta.tsi",
+                "ta.range",
                 "ta.correlation",
                 "ta.vwap",
             }:

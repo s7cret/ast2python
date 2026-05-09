@@ -228,6 +228,82 @@ def test_v6_ta_tr_lowers_to_runtime_ohlc(tmp_path: Path) -> None:
     assert 'tr(runtime=self.rt, state_id=' in code
 
 
+def test_v6_ta_range_preserves_builtin_series_source(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "ta_range_series_source",
+        """
+        //@version=6
+        indicator("ta range source test")
+        len = input.int(20)
+        x = ta.range(close, len)
+        plot(x, "RANGE")
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "ta_range_series_source")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import ta_range' in code
+    assert 'ta_range(self.rt.close, self.len_.current, runtime=self.rt, state_id=' in code
+    assert 'ta_range(self.rt.close.current' not in code
+
+    spec = importlib.util.spec_from_file_location("ta_range_series_source", py_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["ta_range_series_source"] = module
+    spec.loader.exec_module(module)
+
+    from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo
+
+    runtime = PineRuntime(
+        symbol_info=SymbolInfo("BINANCE:BTCUSDT", mintick=0.01),
+        timeframe=TimeframeInfo.from_string("15"),
+    )
+    script = module.GeneratedIndicator(runtime=runtime)
+    bars = [
+        Bar(
+            time=index * 900_000,
+            time_close=(index + 1) * 900_000 - 1,
+            open=100 + index,
+            high=101 + index,
+            low=99 + index,
+            close=100 + index,
+            volume=10 + index,
+        )
+        for index in range(299)
+    ]
+    script.run(bars)
+
+
+def test_v6_ta_range_nested_in_math_preserves_series_source(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "ta_range_nested_math",
+        """
+        //@version=6
+        indicator("ta range in math")
+        x = math.max(ta.range(close, 20), 0)
+        plot(x, "RANGE_MAX")
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "ta_range_nested_math")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import ta_range' in code
+    assert 'pine_max(ta_range(self.rt.close, 20, runtime=self.rt, state_id=' in code
+    assert 'ta_range(self.rt.close.current' not in code
+
+
 def test_v6_ta_sma_accepts_untyped_function_params(tmp_path: Path) -> None:
     ast_path = _parse_pine(
         tmp_path,
