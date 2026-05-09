@@ -45,7 +45,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -570,7 +570,12 @@ class Translator:
             if chain in {"na", "nz", "fixnan"}:
                 self.ctx.imports.require_from("pinelib.core", "is_na" if chain == "na" else chain)
             if chain.startswith("ta."):
-                self.ctx.imports.require_from("pinelib.ta", chain.split(".", 1)[1])
+                sig = BUILTIN_SIGNATURES.get(chain)
+                if sig is not None:
+                    fn = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+                    self.ctx.imports.require_from("pinelib.ta", fn)
+                else:
+                    self.ctx.imports.require_from("pinelib.ta", chain.split(".", 1)[1])
             elif chain.startswith("math."):
                 self.ctx.imports.require_from("pinelib.math", chain.split(".", 1)[1])
             elif chain.startswith("str."):
@@ -1997,6 +2002,13 @@ class Translator:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
                 pieces.append(rendered if arg_name is None else f"{arg_name}={rendered}")
             return f"{callee_chain}({', '.join(pieces)})"
+        # Type-cast builtins: emit as direct Python builtins
+        if callee_chain in {"int", "float", "bool", "str"}:
+            pieces = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
+            return f"{callee_chain}({', '.join(pieces)})"
         self.ctx.add_diagnostic(
             UNKNOWN_OVERLOAD,
             f"unknown or unsupported call overload: {callee_chain}",
@@ -2341,10 +2353,12 @@ class Translator:
 
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
-        function_name = name.split(".", 1)[1]
+        sig = BUILTIN_SIGNATURES[name]
+        # Use binder alias (e.g. "ta_range" for "ta.range")
+        function_name = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
-        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling"}
+        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars"}
         arguments = []
         for arg_name, arg in self._ordered_call_arguments(name, node):
             if function_name in history_source_functions and (arg_name is None or arg_name in {"source", "source1", "source2"}):
