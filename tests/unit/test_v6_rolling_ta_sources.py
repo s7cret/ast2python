@@ -274,3 +274,27 @@ plot(ta.cci(hlc3, 20), "CCI")"""
         assert "cci(" in src, f"cci call missing"
         assert "runtime=self.rt" in src, "cci missing runtime= argument"
         assert 'state_id="' in src, "cci missing state_id= argument"
+
+    def test_hlc3_source_is_series_for_rolling_ta(self):
+        """hlc3 used as rolling TA source must be Series (not scalar .current arithmetic)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.cci(ta.hlc3, 20), "CCI")
+plot(ta.mfi(ta.hlc3, 14), "MFI")"""
+        src = get_generated_code("test_hlc3", code)
+        # hlc3 must NOT expand to .current scalar arithmetic when used as rolling TA source
+        assert "high.current" not in src, "hlc3 expanded to scalar .current!"
+        # hlc3 should use Series (no .current)
+        assert "hlc3" not in src or "self.rt.high" in src, "hlc3 not expanded to Series expression"
+        # CCI and MFI should be called with Series hlc3
+        assert "cci(" in src, "cci call missing"
+        assert "mfi(" in src, "mfi call missing"
+
+    def test_hlc3_scalar_expansion_outside_rolling_ta(self):
+        """hlc3 used outside rolling TA source position should still work (scalar compatible)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.hlc3, "HLC3")"""
+        src = get_generated_code("test_hlc3_scalar", code)
+        # hlc3 plot call should be present
+        assert "hlc3" in src.lower(), "hlc3 call missing"

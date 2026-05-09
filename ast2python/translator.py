@@ -1869,7 +1869,21 @@ class Translator:
             return f"PineMatrix.{chain.split('.', 1)[1]}"
         if chain.startswith("request."):
             return f"{runtime_expr}.request.{chain.split('.', 1)[1]}"
-        if chain.startswith("math.") or chain.startswith("ta.") or chain.startswith("str."):
+        # Expand ta.hl2, ta.hlc3, ta.ohlc4, ta.hlcc4 as Series expressions for rolling TA sources.
+        if chain.startswith("ta."):
+            member = chain.split(".", 1)[1]
+            if member in DERIVED_BUILTIN_SERIES:
+                if member == "hl2":
+                    return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
+                if member == "hlc3":
+                    return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
+                if member == "ohlc4":
+                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
+                if member == "hlcc4":
+                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
+            # Other ta.* names (ta.sma, ta.ema, etc.) return as-is
+            return chain
+        if chain.startswith("math.") or chain.startswith("str."):
             return chain
         if chain.startswith(VISUAL_OBJECT_METHOD_PREFIXES):
             return chain
@@ -2355,12 +2369,39 @@ class Translator:
         plain series identifiers, pass the Series object itself. Complex expressions
         remain scalar until the lowering pipeline grows expression-series temporaries.
         """
+        # Handle derived builtin series used as function call args (e.g. ta.cci(ta.hlc3, 20)).
+        # These are Call nodes where the callee is a MemberAccess to the ta namespace.
+        if node.kind == "Call":
+            callee = node.child("callee")
+            if callee is not None and callee.kind == "MemberAccess":
+                obj = callee.child("object")
+                member = callee.field("member")
+                if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
+                    # ta.hlc3, ta.hl2, etc. used as source arg → expand to Series expression
+                    if member == "hl2":
+                        return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
+                    if member == "hlc3":
+                        return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
+                    if member == "ohlc4":
+                        return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
+                    if member == "hlcc4":
+                        return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
         if node.kind == "Identifier":
             name = str(node.field("name"))
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}"
             if name in DERIVED_BUILTIN_SERIES:
-                return self.translate_expression(node, runtime_expr=runtime_expr)
+                # For rolling/window TA source arguments, expand to Series expression
+                # (not scalar .current arithmetic). DERIVED_BUILTIN_SERIES need to stay
+                # as Series so that _history() lookback works in rolling TA functions.
+                if name == "hl2":
+                    return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
+                if name == "hlc3":
+                    return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
+                if name == "ohlc4":
+                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
+                if name == "hlcc4":
+                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
             info = self.ctx.resolve_var(name)
             if info.is_series:
                 return f"self.{info.py_name}"
@@ -2753,6 +2794,19 @@ class Translator:
                 return make_type_info("string", "const", can_be_na=False)
             if chain is not None and chain.startswith("color."):
                 return make_type_info("color", "const", can_be_na=False)
+            # Handle ta.hl2, ta.hlc3, ta.ohlc4, ta.hlcc4 used as call arguments (e.g. ta.cci(ta.hlc3, 20)).
+            if chain is not None and chain.startswith("ta."):
+                member = chain.split(".", 1)[1]
+                if member in DERIVED_BUILTIN_SERIES:
+                    return make_type_info("float", "series", is_series=True)
+        if node.kind == "Call":
+            callee = node.child("callee")
+            if callee is not None and callee.kind == "MemberAccess":
+                obj = callee.child("object")
+                member = callee.field("member")
+                if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
+                    # ta.hlc3(), ta.hl2() as explicit function calls → float series
+                    return make_type_info("float", "series", is_series=True)
         if self._is_input_call(node):
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
