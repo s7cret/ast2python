@@ -92,6 +92,7 @@ class TranslationContext:
             is_series=is_series,
             pine_type_source=type_ref,
             can_be_na=type_ref != "bool",
+            origin="untyped_param" if declaration_kind == "param" and type_ref is None else None,
         )
         info = VariableInfo(
             pine_name=name,

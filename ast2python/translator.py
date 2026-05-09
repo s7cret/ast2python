@@ -2833,12 +2833,27 @@ class Translator:
                             is_series=True,
                         )
                 return make_type_info("float", "series", is_series=True)
-            # math.* functions all return float series.
+            if chain in {"math.min", "math.max"}:
+                arg_infos = [
+                    self._infer_type_info(arg) for _, arg in self._call_arguments(node)
+                ]
+                qualifier = join_qualifiers(*(info.qualifier for info in arg_infos))
+                base = "int" if arg_infos and all(info.base_type == "int" for info in arg_infos) else "float"
+                return make_type_info(base, qualifier, is_series=qualifier == "series")
+            # math.* functions return a numeric value with the strongest argument qualifier.
             if chain and chain.startswith("math."):
-                return make_type_info("float", "series", is_series=True)
+                arg_infos = [
+                    self._infer_type_info(arg) for _, arg in self._call_arguments(node)
+                ]
+                qualifier = join_qualifiers(*(info.qualifier for info in arg_infos))
+                return make_type_info("float", qualifier, is_series=qualifier == "series")
             # Type-cast builtins return their respective types.
             if chain == "int":
-                return make_type_info("int", "series", is_series=True)
+                arg_infos = [
+                    self._infer_type_info(arg) for _, arg in self._call_arguments(node)
+                ]
+                qualifier = join_qualifiers(*(info.qualifier for info in arg_infos))
+                return make_type_info("int", qualifier, is_series=qualifier == "series")
             if chain == "float":
                 return make_type_info("float", "series", is_series=True)
             if chain == "bool":

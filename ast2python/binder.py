@@ -763,6 +763,22 @@ def type_matches(actual: str, accepted: frozenset[str]) -> bool:
     return actual == "int" and "float" in accepted
 
 
+def _allows_untyped_numeric_parameter(
+    builtin: str, expected: ParameterSpec, actual: TypeInfo
+) -> bool:
+    # Pine2AST leaves untyped user-function parameters as object/simple. Keep this
+    # escape hatch tied to that origin and to the HMA shape that needs it.
+    if actual.origin != "untyped_param" or actual.base_type != "object" or actual.qualifier != "simple":
+        return False
+    if builtin == "math.sqrt" and expected.name == "number":
+        return True
+    return (
+        builtin == "ta.wma"
+        and expected.name in {"source", "length"}
+        and expected.accepted_types <= NUMERIC
+    )
+
+
 def _parameter_slots(spec: SignatureSpec, arg_count: int) -> tuple[ParameterSpec, ...]:
     if spec.vararg is None:
         return spec.parameters
@@ -811,7 +827,9 @@ def bind_builtin_call(builtin: str, arg_types: list[tuple[str | None, TypeInfo]]
             continue
         used.add(param_index)
         expected = slots[param_index]
-        if not type_matches(actual.base_type, expected.accepted_types):
+        if not type_matches(
+            actual.base_type, expected.accepted_types
+        ) and not _allows_untyped_numeric_parameter(builtin, expected, actual):
             accepted = "/".join(sorted(expected.accepted_types))
             errors.append(f"{builtin}.{expected.name} expects {accepted}, got {actual.base_type}")
         if not qualifier_leq(actual.qualifier, expected.qualifier_max):

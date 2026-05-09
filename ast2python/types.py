@@ -14,6 +14,7 @@ class TypeInfo:
     can_be_na: bool = True
     is_history_allowed: bool = True
     pine_type_source: str | None = None
+    origin: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -23,6 +24,7 @@ class TypeInfo:
             "can_be_na": self.can_be_na,
             "is_history_allowed": self.is_history_allowed,
             "pine_type_source": self.pine_type_source,
+            "origin": self.origin,
         }
 
 
@@ -61,6 +63,7 @@ def make_type_info(
     can_be_na: bool = True,
     is_history_allowed: bool = True,
     pine_type_source: str | None = None,
+    origin: str | None = None,
 ) -> TypeInfo:
     normalized_type = normalize_type(base_type)
     return TypeInfo(
@@ -70,4 +73,5 @@ def make_type_info(
         can_be_na=can_be_na,
         is_history_allowed=is_history_allowed,
         pine_type_source=pine_type_source,
+        origin=origin,
     )
