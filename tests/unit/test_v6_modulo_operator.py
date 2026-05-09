@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import subprocess
 import sys
@@ -9,6 +10,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+sys.path.insert(0, str(ROOT.parent / "pinelib"))
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo  # noqa: E402
 
 
 def _env() -> dict[str, str]:
@@ -73,6 +78,28 @@ def _translate_ast(tmp_path: Path, ast_path: Path, module_name: str) -> Path:
     assert translate.returncode == 0, translate.stderr + translate.stdout
     payload = json.loads(translate.stdout)
     return Path(payload["paths"]["python"])
+
+
+def _load_generated(py_path: Path, module_name: str):
+    spec = importlib.util.spec_from_file_location(module_name, py_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _runtime() -> PineRuntime:
+    return PineRuntime(
+        SymbolInfo(tickerid="AAPL", timezone="UTC", session="0000-2359"),
+        TimeframeInfo.from_string("1"),
+    )
+
+
+def _bars() -> list[Bar]:
+    return [
+        Bar(time=0, time_close=59_999, open=10, high=11, low=9, close=10, volume=100),
+        Bar(time=60_000, time_close=119_999, open=20, high=21, low=19, close=20, volume=200),
+    ]
 
 
 def test_v6_modulo_operator_generates_valid_python(tmp_path: Path) -> None:
@@ -169,3 +196,65 @@ def test_v6_strategy_entry_accepts_dynamic_named_comment(tmp_path: Path) -> None
         "self.ctx.entry('S', \"short\", comment=pine_add('P4_SHORT_', self.engine.current)"
         in code
     )
+
+
+def test_v6_switch_signal_uses_case_body_values_and_executes(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "switch_signal_test",
+        """
+        //@version=6
+        strategy("switch signal test")
+        engine = input.string("Debug", options=["SuperTrend", "Debug"])
+        sigDebugLong = bar_index % 2 == 0
+        sigStLong = close > open
+        longSignal = switch engine
+            "SuperTrend" => sigStLong
+            "Debug" => sigDebugLong
+        if longSignal
+            strategy.entry("L", strategy.long)
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "switch_signal_test")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "self.long_signal.set_current(" in code
+    assert "self.sig_st_long.current if self.engine.current == 'SuperTrend'" in code
+    assert "self.sig_debug_long.current if self.engine.current == 'Debug'" in code
+    assert "na if self.engine.current == 'SuperTrend'" not in code
+
+    module = _load_generated(py_path, "switch_signal_test")
+    runtime = _runtime()
+    module.GeneratedStrategy(runtime=runtime).run(_bars())
+    assert runtime.series_registry["long_signal"]._history == [True, False]
+
+
+def test_v6_switch_default_branch_returns_default_value(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "switch_default_test",
+        """
+        //@version=6
+        indicator("switch default test")
+        engine = input.string("X")
+        x = switch engine
+            "A" => 1
+            "B" => 2
+            => 3
+        plot(x)
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "switch_default_test")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "self.x.set_current((1 if self.engine.current == 'A' else" in code
+    assert "2 if self.engine.current == 'B' else 3" in code
+
+    module = _load_generated(py_path, "switch_default_test")
+    runtime = _runtime()
+    module.GeneratedIndicator(runtime=runtime).run(_bars())
+    assert runtime.series_registry["x"]._history == [3, 3]

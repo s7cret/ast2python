@@ -1647,7 +1647,13 @@ class Translator:
         for case in self._switch_cases(node):
             cond = self._case_condition(case)
             expr = case.child("expression") or case.child("result")
-            body_expr = self._block_expression(self._case_body(case), runtime_expr=runtime_expr)
+            body = self._case_body(case)
+            if body is None:
+                body_expr = None
+            elif body.kind == "Block":
+                body_expr = self._block_expression(body, runtime_expr=runtime_expr)
+            else:
+                body_expr = self.translate_expression(body, runtime_expr=runtime_expr)
             value = (
                 self.translate_expression(expr, runtime_expr=runtime_expr)
                 if expr is not None
