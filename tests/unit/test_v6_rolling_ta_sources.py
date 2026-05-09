@@ -241,3 +241,36 @@ plot(ta.vwap(hlc3), "VWAP")"""
         # vwap must have runtime= (volume sourced from runtime.volume)
         assert "runtime=self.rt" in src, "vwap missing runtime= argument"
         assert 'state_id="' in src, "vwap missing state_id= argument"
+
+
+
+    def test_alma_source_is_series_no_runtime(self):
+        """ALMA: source=Series, NO runtime= (batch mode works; alma NOT in STATEFUL_TA_FUNCTIONS)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.alma(close, 20, 0.85, 6), "ALMA")"""
+        src = get_generated_code("test_alma", code)
+        assert "alma(self.rt.close," in src, f"alma missing Series source"
+        assert "alma(self.rt.close.current," not in src, "alma got scalar .current!"
+        assert "runtime=self.rt" not in src, "alma should NOT have runtime= (batch mode)"
+
+    def test_linreg_source_is_series_no_runtime(self):
+        """LINREG: source=Series, NO runtime= (batch mode works; linreg NOT in STATEFUL_TA_FUNCTIONS)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.linreg(close, 20, 0), "LINREG")"""
+        src = get_generated_code("test_linreg", code)
+        assert "linreg(self.rt.close," in src, f"linreg missing Series source"
+        assert "linreg(self.rt.close.current," not in src, "linreg got scalar .current!"
+        assert "runtime=self.rt" not in src, "linreg should NOT have runtime= (batch mode)"
+
+    def test_cci_source_is_series_with_runtime(self):
+        """CCI: source=Series, has runtime= and state_id= (in STATEFUL_TA_FUNCTIONS)."""
+        code = """//@version=6
+indicator("test")
+plot(ta.cci(hlc3, 20), "CCI")"""
+        src = get_generated_code("test_cci", code)
+        # hlc3 maps to a Series; cci gets runtime=/state_id=
+        assert "cci(" in src, f"cci call missing"
+        assert "runtime=self.rt" in src, "cci missing runtime= argument"
+        assert 'state_id="' in src, "cci missing state_id= argument"
