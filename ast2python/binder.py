@@ -277,6 +277,55 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         codegen_supported=False,
         notes="PineLib sar is batch-only today",
     ),
+    # Pine v6: additional TA function signatures.
+    "ta.cum": S(
+        "cum",
+        (P("source", NUMERIC, "series"),),
+    ),
+    "ta.range": S(
+        "ta_range",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+        ),
+    ),
+    "ta.cmo": S(
+        "cmo",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+        ),
+    ),
+    "ta.tsi": S(
+        "tsi",
+        (
+            P("source", NUMERIC, "series"),
+            P("shortLength", frozenset({"int"}), "simple"),
+            P("longLength", frozenset({"int"}), "simple"),
+        ),
+    ),
+    "ta.cci": S(
+        "ta.cci",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+        ),
+    ),
+    "ta.mfi": S(
+        "ta.mfi",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+        ),
+    ),
+    "ta.highestbars": S(
+        "highestbars",
+        (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple")),
+    ),
+    "ta.lowestbars": S(
+        "lowestbars",
+        (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple")),
+    ),
     # math namespace exposed by PineLib and lowered as direct calls.
     **{
         f"math.{name}": S(f"math.{name}", (P("number", NUMERIC, "series"),))
@@ -319,6 +368,11 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("seed", frozenset({"int"}), "simple", required=False),
         ),
     ),
+    # Type-cast builtins (used in Pine v6 with explicit casts).
+    "int": S("int", (P("value", NUMERIC_OR_BOOL, "series"),)),
+    "float": S("float", (P("value", NUMERIC_OR_BOOL, "series"),)),
+    "bool": S("bool", (P("value", ANY, "series"),)),
+    "str": S("str", (P("value", ANY, "series"),)),
     # str namespace exposed by PineLib.
     "str.tostring": S(
         "str.tostring", (P("value", ANY, "series"), P("format", STRING, "simple", required=False))
