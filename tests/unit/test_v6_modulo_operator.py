@@ -119,3 +119,24 @@ def test_v6_modulo_operator_in_bool_expressions(tmp_path: Path) -> None:
         "pine_eq((self.rt.bar_index_series.current % self.debug_flip_bars.current), "
         "floor(pine_div(self.debug_flip_bars.current, 2)))" in code
     )
+
+
+def test_v6_strategy_close_accepts_named_comment(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "strategy_close_comment_test",
+        """
+        //@version=6
+        strategy("strategy close comment test")
+        if bar_index % 2 == 0
+            strategy.entry("L", strategy.long)
+        else
+            strategy.close("L", comment="close long")
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "strategy_close_comment_test")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert "self.ctx.close('L', comment='close long'" in code
