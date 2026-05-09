@@ -2366,7 +2366,7 @@ class Translator:
         canonical_name = name.split(".", 1)[1] if name.startswith("ta.") else function_name
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
-        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars"}
+        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars", "highest", "lowest", "stdev", "variance", "dev", "change", "pivothigh", "pivotlow", "correlation"}
         arguments = []
         ordered_arguments = self._ordered_call_arguments(name, node)
         for index, (arg_name, arg) in enumerate(ordered_arguments):
