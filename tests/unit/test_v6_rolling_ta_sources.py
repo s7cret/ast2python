@@ -284,11 +284,11 @@ plot(ta.mfi(ta.hlc3, 14), "MFI")"""
         src = get_generated_code("test_hlc3", code)
         # hlc3 must NOT expand to .current scalar arithmetic when used as rolling TA source
         assert "high.current" not in src, "hlc3 expanded to scalar .current!"
-        # hlc3 should use Series (no .current)
-        assert "hlc3" not in src or "self.rt.high" in src, "hlc3 not expanded to Series expression"
-        # CCI and MFI should be called with Series hlc3
-        assert "cci(" in src, "cci call missing"
-        assert "mfi(" in src, "mfi call missing"
+        # hlc3 should use hlc3_series(_RuntimeDerivedSeries) for proper _history lookback
+        assert "hlc3_series(" in src, "hlc3 not expanded to hlc3_series() call"
+        # CCI and MFI should be called with hlc3_series(rt)
+        assert "cci(hlc3_series(" in src, "cci call missing hlc3_series"
+        assert "mfi(hlc3_series(" in src, "mfi call missing hlc3_series"
 
     def test_hlc3_scalar_expansion_outside_rolling_ta(self):
         """hlc3 used outside rolling TA source position should still work (scalar compatible)."""

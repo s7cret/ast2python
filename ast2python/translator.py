@@ -562,6 +562,10 @@ class Translator:
                 chain = member_chain(node)
                 if chain is not None and chain.startswith("color."):
                     self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
+                if chain is not None and chain.startswith("ta."):
+                    member = chain.split(".", 1)[1]
+                    if member in DERIVED_BUILTIN_SERIES:
+                        self.ctx.imports.require_from("pinelib.ta", f"{member}_series")
             if node.kind != "CallExpr":
                 continue
             callee = node.child("callee")
@@ -571,12 +575,17 @@ class Translator:
             if chain in {"na", "nz", "fixnan"}:
                 self.ctx.imports.require_from("pinelib.core", "is_na" if chain == "na" else chain)
             if chain.startswith("ta."):
-                sig = BUILTIN_SIGNATURES.get(chain)
-                if sig is not None:
-                    fn = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
-                    self.ctx.imports.require_from("pinelib.ta", fn)
+                member = chain.split(".", 1)[1]
+                if member in DERIVED_BUILTIN_SERIES:
+                    # ta.hl2, ta.hlc3, ta.ohlc4, ta.hlcc4 → need _series variant for rolling TA
+                    self.ctx.imports.require_from("pinelib.ta", f"{member}_series")
                 else:
-                    self.ctx.imports.require_from("pinelib.ta", chain.split(".", 1)[1])
+                    sig = BUILTIN_SIGNATURES.get(chain)
+                    if sig is not None:
+                        fn = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+                        self.ctx.imports.require_from("pinelib.ta", fn)
+                    else:
+                        self.ctx.imports.require_from("pinelib.ta", member)
             elif chain.startswith("math."):
                 self.ctx.imports.require_from("pinelib.math", chain.split(".", 1)[1])
             elif chain.startswith("str."):
@@ -1869,18 +1878,13 @@ class Translator:
             return f"PineMatrix.{chain.split('.', 1)[1]}"
         if chain.startswith("request."):
             return f"{runtime_expr}.request.{chain.split('.', 1)[1]}"
-        # Expand ta.hl2, ta.hlc3, ta.ohlc4, ta.hlcc4 as Series expressions for rolling TA sources.
+        # Expand ta.hl2, ta.hlc3, ta.ohlc4, ta.hlcc4 using _RuntimeDerivedSeries.
         if chain.startswith("ta."):
             member = chain.split(".", 1)[1]
             if member in DERIVED_BUILTIN_SERIES:
-                if member == "hl2":
-                    return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
-                if member == "hlc3":
-                    return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
-                if member == "ohlc4":
-                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
-                if member == "hlcc4":
-                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
+                series_fn = f"{member}_series"
+                self.ctx.imports.require_from("pinelib.ta", series_fn)
+                return f"{series_fn}({runtime_expr})"
             # Other ta.* names (ta.sma, ta.ema, etc.) return as-is
             return chain
         if chain.startswith("math.") or chain.startswith("str."):
@@ -2377,31 +2381,20 @@ class Translator:
                 obj = callee.child("object")
                 member = callee.field("member")
                 if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
-                    # ta.hlc3, ta.hl2, etc. used as source arg → expand to Series expression
-                    if member == "hl2":
-                        return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
-                    if member == "hlc3":
-                        return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
-                    if member == "ohlc4":
-                        return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
-                    if member == "hlcc4":
-                        return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
+                    # ta.hlc3, ta.hl2, etc. → use _RuntimeDerivedSeries for proper lookback
+                    series_fn = f"{member}_series"
+                    self.ctx.imports.require_from("pinelib.ta", series_fn)
+                    return f"{series_fn}({runtime_expr})"
         if node.kind == "Identifier":
             name = str(node.field("name"))
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}"
             if name in DERIVED_BUILTIN_SERIES:
-                # For rolling/window TA source arguments, expand to Series expression
-                # (not scalar .current arithmetic). DERIVED_BUILTIN_SERIES need to stay
-                # as Series so that _history() lookback works in rolling TA functions.
-                if name == "hl2":
-                    return f"pine_div(pine_add({runtime_expr}.high, {runtime_expr}.low), 2)"
-                if name == "hlc3":
-                    return f"pine_div(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), 3)"
-                if name == "ohlc4":
-                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open, {runtime_expr}.high), {runtime_expr}.low), {runtime_expr}.close), 4)"
-                if name == "hlcc4":
-                    return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high, {runtime_expr}.low), {runtime_expr}.close), {runtime_expr}.close), 4)"
+                # For rolling/window TA source arguments, use _RuntimeDerivedSeries.
+                # This properly implements _history lookback for rolling TA functions.
+                series_fn = f"{name}_series"
+                self.ctx.imports.require_from("pinelib.ta", series_fn)
+                return f"{series_fn}({runtime_expr})"
             info = self.ctx.resolve_var(name)
             if info.is_series:
                 return f"self.{info.py_name}"
