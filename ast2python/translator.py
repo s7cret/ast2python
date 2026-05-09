@@ -496,6 +496,19 @@ class Translator:
         if self.ctx.mode != "library":
             self.emitter.line()
             self._emit_process_bar(program)
+            # Emit _init_series after processing bar so global_series is complete
+            self.emitter.line()
+            self.emitter.line("def _init_series(self):")
+            self.emitter.indent()
+            if not self.global_series:
+                self.emitter.line("pass")
+            for info, dtype in self.global_series:
+                self.emitter.line(
+                    f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")'
+                )
+                self.emitter.line(f'self._var_initialized["{info.py_name}"] = False')
+            self.emitter.dedent()
+            self.emitter.line()
         self.emitter.dedent()
 
     def _declare_base_imports(self) -> None:
@@ -601,7 +614,6 @@ class Translator:
         self.emitter.line("self.alert_conditions = []")
         self.emitter.line("self.external_library_calls = []")
         self.emitter.line("self.visual_calls = []")
-        self.emitter.line("self._init_series()")
         self.emitter.line("self._init_inputs()")
         self.emitter.dedent()
         self.emitter.line()
@@ -654,17 +666,6 @@ class Translator:
         self.emitter.line("return self.rt.visual.set(args[0], **attrs)")
         self.emitter.dedent()
         self.emitter.line("return None")
-        self.emitter.dedent()
-        self.emitter.line()
-        self.emitter.line("def _init_series(self):")
-        self.emitter.indent()
-        if not self.global_series:
-            self.emitter.line("pass")
-        for info, dtype in self.global_series:
-            self.emitter.line(
-                f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")'
-            )
-            self.emitter.line(f'self._var_initialized["{info.py_name}"] = False')
         self.emitter.dedent()
         self.emitter.line()
         self.emitter.line("def _init_inputs(self):")
@@ -827,6 +828,12 @@ class Translator:
     def _emit_process_bar(self, program: ASTProgram) -> None:
         self.emitter.line("def _process_bar(self, bar):")
         self.emitter.indent()
+        # Call _init_series on first bar so global_series is complete
+        self.emitter.line("if not getattr(self, '_series_initialized', False):")
+        self.emitter.indent()
+        self.emitter.line("self._init_series()")
+        self.emitter.line("self._series_initialized = True")
+        self.emitter.dedent()
         if not program.items:
             self.emitter.line("pass")
         for item in program.items:
@@ -1099,9 +1106,19 @@ class Translator:
                     targets.append(str(target.field("name")))
                 elif target.kind in {"Discard", "TupleDiscard"}:
                     targets.append("_")
+                elif target.kind == "TupleTarget":
+                    # Pine v6 uses TupleTarget for tuple destructuring: [a, b] = ta.macd(...)
+                    targets.append(str(target.field("name")))
                 else:
                     raise UnsupportedNodeError(f"Unsupported tuple target: {target.kind}")
         return targets
+
+    # Known tuple-returning builtins and their element types (index -> type)
+    # Used for tuple destructuring type extraction: [a, b] = ta.macd(...) -> a:float, b:float
+    TUPLE_RETURNING_BUILTINS: dict[str, tuple[str, ...]] = {
+        "ta.macd": ("float", "float", "float"),
+        "ta.bb": ("float", "float", "float"),  # basis, upper, lower
+    }
 
     def _emit_tuple_declaration(self, node: ASTNode) -> None:
         initializer = node.child("initializer") or node.child("value")
@@ -1110,6 +1127,13 @@ class Translator:
         targets = self._tuple_targets(node)
         if not targets:
             raise UnsupportedNodeError("TupleDeclaration has no targets")
+        # Determine tuple element types for type metadata
+        tuple_element_types: list[str] | None = None
+        if initializer.kind == "CallExpr":
+            callee = initializer.child("callee")
+            chain = member_chain(callee) if callee else None
+            if chain in self.TUPLE_RETURNING_BUILTINS:
+                tuple_element_types = list(self.TUPLE_RETURNING_BUILTINS[chain])
         temp_names: list[str] = []
         assignments: list[tuple[VariableInfo | None, str]] = []
         for index, name in enumerate(targets, start=1):
@@ -1118,6 +1142,18 @@ class Translator:
                 assignments.append((None, temp_names[-1]))
                 continue
             info = self._resolve_or_declare_var(node, name, initializer)
+            # Extract element type from known tuple-returning builtins
+            if tuple_element_types is not None and index <= len(tuple_element_types):
+                elem_base = tuple_element_types[index - 1]
+                info.type_info = make_type_info(elem_base, "series", is_series=True)
+                self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                    info.type_info.to_dict()
+                )
+                # Override dtype in global_series to the element type, not tuple
+                for i, (gs_info, gs_dtype) in enumerate(self.global_series):
+                    if gs_info is info:
+                        self.global_series[i] = (info, elem_base)
+                        break
             temp = f"_{info.py_name}"
             temp_names.append(temp)
             assignments.append((info, temp))
