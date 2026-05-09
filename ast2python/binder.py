@@ -264,8 +264,6 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "ta.supertrend": S(
         "ta.supertrend",
         (P("factor", NUMERIC, "series"), P("atrPeriod", frozenset({"int"}), "simple")),
-        codegen_supported=False,
-        notes="PineLib supertrend is batch-only today",
     ),
     "ta.sar": S(
         "ta.sar",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import subprocess
 import sys
@@ -122,3 +123,55 @@ def test_v6_math_sqrt_rejects_explicit_string_literal(tmp_path: Path) -> None:
     translate = _translate_ast(tmp_path, ast_path, "bad_sqrt_string")
     assert translate.returncode != 0
     assert "math.sqrt semantic binding failed" in translate.stderr
+
+
+def test_v6_supertrend_lowers_to_runtime_ohlc_tuple(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "supertrend_runtime",
+        """
+        //@version=6
+        indicator("supertrend test")
+        [st, dir] = ta.supertrend(3.0, 10)
+        plot(st, "ST")
+        plot(dir, "DIR")
+        """,
+    )
+
+    translate = _translate_ast(tmp_path, ast_path, "supertrend_runtime")
+    assert translate.returncode == 0, translate.stderr + translate.stdout
+    payload = json.loads(translate.stdout)
+    py_path = Path(payload["paths"]["python"])
+    meta_path = Path(payload["paths"]["metadata"])
+
+    code = py_path.read_text(encoding="utf-8")
+    compile(code, str(py_path), "exec")
+    assert 'from pinelib.ta import supertrend' in code
+    assert 'supertrend(3.0, 10, runtime=self.rt, state_id=' in code
+    assert "_st, _dir_ = supertrend(" in code
+    assert "self.st.set_current(_st)" in code
+    assert "self.dir_.set_current(_dir_)" in code
+
+    metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert metadata["types"]["global:st"]["base_type"] == "float"
+    assert metadata["types"]["global:dir"]["base_type"] == "int"
+
+    spec = importlib.util.spec_from_file_location("supertrend_runtime", py_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["supertrend_runtime"] = module
+    spec.loader.exec_module(module)
+
+    from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo
+
+    runtime = PineRuntime(
+        symbol_info=SymbolInfo("BINANCE:BTCUSDT", mintick=0.01),
+        timeframe=TimeframeInfo.from_string("15"),
+    )
+    script = module.GeneratedIndicator(runtime=runtime)
+    script.run(
+        [
+            Bar(time=0, time_close=899_999, open=100, high=105, low=99, close=101, volume=10),
+            Bar(time=900_000, time_close=1_799_999, open=101, high=106, low=100, close=104, volume=11),
+        ]
+    )

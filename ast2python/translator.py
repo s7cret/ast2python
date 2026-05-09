@@ -1123,6 +1123,7 @@ class Translator:
     TUPLE_RETURNING_BUILTINS: dict[str, tuple[str, ...]] = {
         "ta.macd": ("float", "float", "float"),
         "ta.bb": ("float", "float", "float"),  # basis, upper, lower
+        "ta.supertrend": ("float", "int"),  # line, direction
     }
 
     def _emit_tuple_declaration(self, node: ASTNode) -> None:
