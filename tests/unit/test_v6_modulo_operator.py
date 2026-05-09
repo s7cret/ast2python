@@ -140,3 +140,32 @@ def test_v6_strategy_close_accepts_named_comment(tmp_path: Path) -> None:
 
     compile(code, str(py_path), "exec")
     assert "self.ctx.close('L', comment='close long'" in code
+
+
+def test_v6_strategy_entry_accepts_dynamic_named_comment(tmp_path: Path) -> None:
+    ast_path = _parse_pine(
+        tmp_path,
+        "strategy_entry_comment_test",
+        """
+        //@version=6
+        strategy("strategy entry comment test")
+        engine = input.string("X")
+        if bar_index % 2 == 0
+            strategy.entry("L", strategy.long, comment="P4_LONG_" + engine)
+        else
+            strategy.entry("S", strategy.short, comment="P4_SHORT_" + engine)
+        """,
+    )
+
+    py_path = _translate_ast(tmp_path, ast_path, "strategy_entry_comment_test")
+    code = py_path.read_text(encoding="utf-8")
+
+    compile(code, str(py_path), "exec")
+    assert (
+        "self.ctx.entry('L', \"long\", comment=pine_add('P4_LONG_', self.engine.current)"
+        in code
+    )
+    assert (
+        "self.ctx.entry('S', \"short\", comment=pine_add('P4_SHORT_', self.engine.current)"
+        in code
+    )
