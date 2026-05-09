@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+"""Run Stage C P4 with a minimal same-symbol 15m -> D data provider."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import importlib.util
+import json
+import math
+import os
+import subprocess
+import sys
+import traceback
+from collections import defaultdict
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path("[local-home]")
+WORKSPACE = ROOT / "[workspace-root]/workspace/btcusdt_v6_stage_c_current"
+AST2PYTHON = ROOT / "ast2python"
+PINE2AST = ROOT / "pine2ast"
+PINELIB = ROOT / "pinelib"
+PYTHON = PINE2AST / ".venv/bin/python"
+DAY_MS = 86_400_000
+M15_MS = 15 * 60 * 1000
+
+for repo in (AST2PYTHON, PINE2AST, PINELIB):
+    sys.path.insert(0, str(repo))
+
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na, na  # noqa: E402
+from pinelib.request import InMemoryDataProvider  # noqa: E402
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pine", default=str(WORKSPACE / "02_PINE/oracle_max_part4_mtf_strategy.pine"))
+    parser.add_argument("--tv-csv", default=str(WORKSPACE / "00_INPUT/tv_pine_oracle_max_v6.csv"))
+    parser.add_argument("--out-dir", required=True)
+    parser.add_argument("--symbol", default="BINANCE:BTCUSDT")
+    parser.add_argument("--chart-timeframe", default="15")
+    parser.add_argument(
+        "--engine",
+        default=None,
+        help="Optional engine input override. Use 'None' to isolate MTF plots from strategy orders.",
+    )
+    parser.add_argument("--compare-dir", default=str(WORKSPACE / "04_COMPARE"))
+    return parser.parse_args()
+
+
+def run_cmd(cmd: list[str], *, cwd: Path, log_path: Path) -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(str(p) for p in (AST2PYTHON, PINE2AST, PINELIB))
+    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+    if proc.returncode != 0:
+        raise RuntimeError(f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr}")
+
+
+def to_float(value: str | None) -> float:
+    if value in (None, ""):
+        return math.nan
+    return float(value)
+
+
+def load_15m_bars(path: Path) -> list[Bar]:
+    bars: list[Bar] = []
+    with path.open(newline="", encoding="utf-8-sig") as fh:
+        for row in csv.DictReader(fh):
+            raw_time = int(float(row["time"]))
+            time_ms = raw_time * 1000 if raw_time < 10_000_000_000 else raw_time
+            volume_raw = row.get("volume") or row.get("Volume") or row.get("P1_SRC_VOLUME") or "0"
+            bars.append(
+                Bar(
+                    time=time_ms,
+                    time_close=time_ms + M15_MS - 1,
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=float(volume_raw or 0.0),
+                )
+            )
+    return bars
+
+
+def aggregate_daily(bars: list[Bar]) -> list[Bar]:
+    buckets: dict[int, list[Bar]] = defaultdict(list)
+    for bar in bars:
+        buckets[(bar.time // DAY_MS) * DAY_MS].append(bar)
+
+    daily: list[Bar] = []
+    for day_open in sorted(buckets):
+        group = buckets[day_open]
+        daily.append(
+            Bar(
+                time=day_open,
+                time_close=day_open + DAY_MS - 1,
+                open=group[0].open,
+                high=max(bar.high for bar in group),
+                low=min(bar.low for bar in group),
+                close=group[-1].close,
+                volume=sum(bar.volume for bar in group),
+            )
+        )
+    return daily
+
+
+def import_generated(path: Path) -> Any:
+    spec = importlib.util.spec_from_file_location("oracle_v6_p4_mtf", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot import generated module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def value_to_cell(value: Any) -> str:
+    if value is None or is_na(value):
+        return ""
+    if isinstance(value, bool):
+        return "1.0" if value else "0.0"
+    if isinstance(value, int | float):
+        if isinstance(value, float) and math.isnan(value):
+            return ""
+        return repr(float(value))
+    return str(value)
+
+
+def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str, str]]]:
+    events = script.visual_calls
+    if not bars:
+        return [], []
+    if len(events) % len(bars) != 0:
+        raise RuntimeError(f"visual event count {len(events)} is not divisible by bars {len(bars)}")
+    per_bar = len(events) // len(bars)
+    first_chunk = events[:per_bar]
+    columns = [str(event["args"][1]) for event in first_chunk if event.get("name") == "plot"]
+    rows: list[dict[str, str]] = []
+    for index, bar in enumerate(bars):
+        row: dict[str, str] = {
+            "time": str(bar.time // 1000),
+            "open": repr(bar.open),
+            "high": repr(bar.high),
+            "low": repr(bar.low),
+            "close": repr(bar.close),
+            "volume": repr(bar.volume),
+        }
+        chunk = events[index * per_bar : (index + 1) * per_bar]
+        for event in chunk:
+            if event.get("name") != "plot":
+                continue
+            row[str(event["args"][1])] = value_to_cell(event["args"][0])
+        rows.append(row)
+    return ["time", "open", "high", "low", "close", "volume", *columns], rows
+
+
+def write_csv(path: Path, header: list[str], rows: list[dict[str, str]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=header, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def compare_p4(tv_csv: Path, py_csv: Path, compare_root: Path) -> dict[str, Any]:
+    with tv_csv.open(newline="", encoding="utf-8-sig") as fh:
+        tv_rows = list(csv.DictReader(fh))
+        tv_header = tv_rows[0].keys() if tv_rows else []
+    with py_csv.open(newline="", encoding="utf-8") as fh:
+        py_rows = list(csv.DictReader(fh))
+        py_header = py_rows[0].keys() if py_rows else []
+
+    py_by_time = {row["time"]: row for row in py_rows}
+    joined = [(row, py_by_time[row["time"]]) for row in tv_rows if row.get("time") in py_by_time]
+    columns = sorted(col for col in tv_header if col.startswith("P4_") and col in py_header)
+    result: dict[str, Any] = {"joined_rows": len(joined), "columns": columns, "warmups": {}}
+
+    for warmup in (0, 50, 250):
+        out_dir = compare_root / f"official_compare_p4_mtf_warmup_{warmup}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        summary_rows: list[dict[str, Any]] = []
+        mismatch_rows: list[dict[str, Any]] = []
+        sample = joined[warmup:]
+        for col in columns:
+            bad = 0
+            max_diff = 0.0
+            for tv_row, py_row in sample:
+                tv_raw = tv_row.get(col, "")
+                py_raw = py_row.get(col, "")
+                tv_empty = tv_raw in ("", None)
+                py_empty = py_raw in ("", None)
+                diff = 0.0
+                matched = tv_empty and py_empty
+                if not matched and tv_empty != py_empty:
+                    matched = False
+                    diff = math.inf
+                elif not matched:
+                    tv_val = to_float(tv_raw)
+                    py_val = to_float(py_raw)
+                    diff = abs(tv_val - py_val)
+                    matched = math.isclose(tv_val, py_val, rel_tol=1e-9, abs_tol=1e-6)
+                if not matched:
+                    bad += 1
+                    max_diff = math.inf if diff == math.inf else max(max_diff, diff)
+                    if len(mismatch_rows) < 500:
+                        mismatch_rows.append(
+                            {
+                                "time": tv_row["time"],
+                                "column": col,
+                                "tv": tv_raw,
+                                "py": py_raw,
+                                "diff": "inf" if diff == math.inf else repr(diff),
+                            }
+                        )
+            summary_rows.append(
+                {
+                    "column": col,
+                    "rows": len(sample),
+                    "bad": bad,
+                    "max_diff": "inf" if max_diff == math.inf else repr(max_diff),
+                    "status": "MATCH" if bad == 0 else "MISMATCH",
+                }
+            )
+
+        write_csv(
+            out_dir / "oracle_compare_summary.csv",
+            ["column", "rows", "bad", "max_diff", "status"],
+            summary_rows,
+        )
+        write_csv(
+            out_dir / "oracle_compare_mismatches.csv",
+            ["time", "column", "tv", "py", "diff"],
+            mismatch_rows,
+        )
+        bad_columns = sum(1 for row in summary_rows if row["bad"])
+        result["warmups"][str(warmup)] = {
+            "path": str(out_dir),
+            "columns": len(summary_rows),
+            "bad_columns": bad_columns,
+        }
+    return result
+
+
+def main() -> int:
+    args = parse_args()
+    pine_path = Path(args.pine)
+    tv_csv = Path(args.tv_csv)
+    out_dir = Path(args.out_dir)
+    logs_dir = out_dir / "logs"
+    modules_dir = out_dir / "modules/p4"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    modules_dir.mkdir(parents=True, exist_ok=True)
+
+    ast_path = out_dir / "oracle_v6_p4.ast.json"
+    generated_py = modules_dir / "oracle_v6_p4.py"
+
+    run_cmd(
+        [str(PYTHON), "-m", "pine2ast", "parse", str(pine_path), "--json", str(ast_path), "--runtime-contract-v1-4"],
+        cwd=PINE2AST,
+        log_path=logs_dir / "p4_parse.log",
+    )
+    run_cmd(
+        [
+            str(PYTHON),
+            "-m",
+            "ast2python.cli.main",
+            "translate",
+            str(ast_path),
+            "-o",
+            str(modules_dir),
+            "--module-name",
+            "oracle_v6_p4",
+            "--allow-invalid-ast",
+        ],
+        cwd=AST2PYTHON,
+        log_path=logs_dir / "p4_translate.log",
+    )
+
+    bars = load_15m_bars(tv_csv)
+    daily_bars = aggregate_daily(bars)
+    provider = InMemoryDataProvider(
+        {
+            (args.symbol, args.chart_timeframe): bars,
+            (args.symbol, "D"): daily_bars,
+        }
+    )
+    runtime = PineRuntime(
+        SymbolInfo(tickerid=args.symbol, timezone="UTC", session="0000-2359"),
+        TimeframeInfo.from_string(args.chart_timeframe),
+        data_provider=provider,
+    )
+    module = import_generated(generated_py)
+    params = {"engine": args.engine} if args.engine is not None else {}
+    script = module.GeneratedStrategy(params=params, runtime=runtime)
+
+    execute_status: dict[str, Any]
+    try:
+        snapshots = script.run(bars)
+        header, rows = visual_rows(script, bars)
+        generated_csv = out_dir / "generated_oracle_v6_BTCUSDT_15m_p4_mtf.csv"
+        write_csv(generated_csv, header, rows)
+        execute_status = {
+            "status": "OK",
+            "rows": len(rows),
+            "snapshots": len(snapshots),
+            "generated_csv": str(generated_csv),
+            "plot_cols": len([col for col in header if col.startswith("P4_")]),
+        }
+    except Exception as exc:  # pragma: no cover - artifact runner path
+        (logs_dir / "p4_execute.stderr").write_text(traceback.format_exc(), encoding="utf-8")
+        execute_status = {"status": "FAIL", "error": repr(exc), "traceback": str(logs_dir / "p4_execute.stderr")}
+
+    daily_rows = [
+        {
+            "time": str(bar.time),
+            "time_iso": datetime.fromtimestamp(bar.time / 1000, UTC).isoformat(),
+            "time_close": str(bar.time_close or ""),
+            "open": repr(bar.open),
+            "high": repr(bar.high),
+            "low": repr(bar.low),
+            "close": repr(bar.close),
+            "volume": repr(bar.volume),
+        }
+        for bar in daily_bars
+    ]
+    write_csv(
+        out_dir / "daily_bars.csv",
+        ["time", "time_iso", "time_close", "open", "high", "low", "close", "volume"],
+        daily_rows,
+    )
+
+    compare: dict[str, Any] | None = None
+    if execute_status["status"] == "OK":
+        compare = compare_p4(tv_csv, Path(execute_status["generated_csv"]), Path(args.compare_dir))
+
+    summary = {
+        "parse": "OK",
+        "translate": "OK",
+        "execute": execute_status,
+        "daily_bars": {
+            "count": len(daily_bars),
+            "first": daily_rows[0] if daily_rows else None,
+            "last": daily_rows[-1] if daily_rows else None,
+        },
+        "provider_keys": sorted(f"{symbol}:{tf}" for symbol, tf in provider._bars_by_key),  # noqa: SLF001
+        "compare": compare,
+    }
+    (out_dir / "p4_mtf_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if execute_status["status"] == "OK" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
