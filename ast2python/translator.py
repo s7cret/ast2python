@@ -252,6 +252,7 @@ class Translator:
         self.var_flags: list[VariableInfo] = []
         self.functions: set[str] = set()
         self.methods: set[str] = set()
+        self._temp_series_index: int = 0
 
     def translate_file(
         self, path: str | Path, *, module_name: str | None = None
@@ -2382,7 +2383,8 @@ class Translator:
         such as ta.crossover/ta.crossunder need both current and previous values, so
         passing ``self.fast.current`` loses history and makes every cross false. For
         plain series identifiers, pass the Series object itself. Complex expressions
-        remain scalar until the lowering pipeline grows expression-series temporaries.
+        (Call, BinaryExpr, UnaryExpr, etc.) are materialized into a temp Series so
+        that rolling/window TA functions receive a proper Series rather than a scalar.
         """
         # Handle derived builtin series used as function call args (e.g. ta.cci(ta.hlc3, 20)).
         # These are Call nodes where the callee is a MemberAccess to the ta namespace.
@@ -2396,6 +2398,16 @@ class Translator:
                     series_fn = f"{member}_series"
                     self.ctx.imports.require_from("pinelib.ta", series_fn)
                     return f"{series_fn}({runtime_expr})"
+            # Non-derived builtin Call (e.g. ta.wma(close, 10)) used as source arg:
+            # materialize into a temp Series so the caller receives Series, not scalar.
+            expr_str = self.translate_expression(node, runtime_expr=runtime_expr)
+            self._temp_series_index += 1
+            temp_name = f"__tmp_{self._temp_series_index}"
+            temp_ident = f"self.{temp_name}"
+            # Declare the temp series inline; it persists on self across bars.
+            self.emitter.line(f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')")
+            self.emitter.line(f"{temp_ident}.set_current({expr_str})")
+            return temp_ident
         if node.kind == "Identifier":
             name = str(node.field("name"))
             if name in BUILTIN_SERIES:
@@ -2409,6 +2421,15 @@ class Translator:
             info = self.ctx.resolve_var(name)
             if info.is_series:
                 return f"self.{info.py_name}"
+        # BinaryExpr, UnaryExpr, or other complex expression: materialize into a temp Series.
+        if node.kind in ("BinaryExpr", "UnaryExpr"):
+            expr_str = self.translate_expression(node, runtime_expr=runtime_expr)
+            self._temp_series_index += 1
+            temp_name = f"__tmp_{self._temp_series_index}"
+            temp_ident = f"self.{temp_name}"
+            self.emitter.line(f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')")
+            self.emitter.line(f"{temp_ident}.set_current({expr_str})")
+            return temp_ident
         return self.translate_expression(node, runtime_expr=runtime_expr)
 
     def _translate_ta_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:

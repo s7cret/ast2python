@@ -365,3 +365,83 @@ plot(f(close, 20), "F")"""
         assert "self.f(self.rt.close.current," not in src, "f received scalar .current!"
         # length is a literal scalar, no .current
         assert "self.f(self.rt.close, 20)" in src, f"f call wrong: {src}"
+
+    def test_computed_source_wma_materializes_temp_series(self):
+        """Test 1: ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4)
+
+        The computed binary expression MUST be materialized into a temp Series
+        before being passed to the outer wma. The generated code must NOT pass
+        a scalar expression directly to wma().
+        """
+        code = """//@version=6
+indicator("computed source wma")
+raw = 2.0 * ta.wma(close, 10) - ta.wma(close, 20)
+plot(ta.wma(raw, 4), "HMA_RAW_WMA")"""
+        src = get_generated_code("test_computed_src_wma", code)
+        # Must have a set_current for the raw expression
+        assert ".set_current(" in src, "no set_current found — computed source not materialized!"
+        # The outer wma must receive a temp Series (contains "__tmp_"), not a scalar expression
+        import re
+        # Find all wma(...) calls and check that sources are NOT raw scalar expressions
+        wma_calls = re.findall(r'wma\([^)]+\)', src)
+        for call in wma_calls:
+            # A temp Series source should look like wma(self.__tmp_N, ...) not wma(2.0 * wma(...), ...)
+            assert "2.0 * wma(" not in call, (
+                f"Outer wma received scalar expression directly: {call}"
+            )
+
+    def test_inline_computed_source_wma_materializes_temp(self):
+        """Test 2: ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4) inline.
+
+        The final wma must receive a temp Series, not an inline scalar expression.
+        """
+        code = """//@version=6
+indicator("inline computed source wma")
+plot(ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4), "HMA_INLINE")"""
+        src = get_generated_code("test_inline_computed_wma", code)
+        # The inline expression must be materialized
+        assert ".set_current(" in src, "no set_current — inline computed source not materialized!"
+        # Must NOT have wma() called with a scalar BinaryExpr directly
+        import re
+        # Extract the wma call with 4-arg signature (source, length)
+        wma_pattern = re.findall(r'wma\(self\.__tmp_\d+, 4', src)
+        assert len(wma_pattern) >= 1, (
+            f"Outer wma with sqrt_len=4 not found using temp Series. Generated:\n{src}"
+        )
+
+    def test_user_defined_hma_wrapper_materializes_raw(self):
+        """Test 3: User-defined HMA wrapper with ta.wma(raw_expr, sqrtLen).
+
+        The generated hma() function must materialize the raw expression into
+        a temp Series before the final wma call.
+        """
+        code = """//@version=6
+indicator("hma wrapper")
+hma(src, length) =>
+    half = int(math.round(length / 2.0))
+    sqrtLen = int(math.round(math.sqrt(length)))
+    ta.wma(2.0 * ta.wma(src, half) - ta.wma(src, length), sqrtLen)
+plot(hma(close, 20), "HMA")"""
+        src = get_generated_code("test_hma_wrapper_mat", code)
+        # hma function must have set_current for the raw expression
+        assert ".set_current(" in src, "hma function missing set_current — raw not materialized!"
+        # Final wma inside hma must use a temp Series, not inline scalar
+        import re
+        # The wma call inside hma() should use self.__tmp_N as source
+        hma_wma_calls = re.findall(r'wma\(self\.__tmp_\d+, \w+\)', src)
+        assert len(hma_wma_calls) >= 1, (
+            f"hma inner wma not using temp Series. Generated:\n{src}"
+        )
+
+    def test_direct_series_source_not_wrapped_unnecessarily(self):
+        """Test 4 (negative): Direct series source must NOT be wrapped unnecessarily.
+
+        plot(ta.wma(close, 20)) must generate wma(self.rt.close, 20, ...)
+        NOT wma(self.__tmp_N, 20) with a set_current.
+        """
+        code = """//@version=6
+indicator("direct series wma")
+plot(ta.wma(close, 20), "WMA")"""
+        src = get_generated_code("test_direct_wma", code)
+        # Must use direct Series, not a temp
+        assert "wma(self.rt.close, 20)" in src, f"wma should use direct Series close: {src}"
