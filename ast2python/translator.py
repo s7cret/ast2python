@@ -1957,6 +1957,18 @@ class Translator:
             return None
         return self.translate_expression(expression, runtime_expr=runtime_expr)
 
+    def _translate_user_func_arg(self, arg: ASTNode, runtime_expr: str) -> str:
+        """Render a user-defined function argument, preserving Series for bare BUILTIN_SERIES.
+
+        When a BUILTIN_SERIES identifier (close/high/low/etc.) is passed as a bare
+        argument to a user-defined function, render it as self.rt.close (Series)
+        instead of self.rt.close.current (scalar), so rolling/window TA inside the
+        wrapper receives the full Series.
+        """
+        if arg.kind == "Identifier" and str(arg.field("name")) in BUILTIN_SERIES:
+            return f"{runtime_expr}.{arg.field('name')}"
+        return self.translate_expression(arg, runtime_expr=runtime_expr)
+
     def _translate_call(self, node: ASTNode, *, runtime_expr: str) -> str:
         callee = node.child("callee")
         if callee is None:
@@ -2021,16 +2033,10 @@ class Translator:
         ):
             return self._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in self.functions:
-            pieces = [
-                self.translate_expression(arg, runtime_expr=runtime_expr)
-                for _, arg in self._call_arguments(node)
-            ]
+            pieces = [self._translate_user_func_arg(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
         if callee_chain in self.methods:
-            pieces = [
-                self.translate_expression(arg, runtime_expr=runtime_expr)
-                for _, arg in self._call_arguments(node)
-            ]
+            pieces = [self._translate_user_func_arg(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
         if callee_chain and callee_chain[:1].isupper():
             pieces = []

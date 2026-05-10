@@ -326,3 +326,42 @@ plot(ta.sma(hl2, 10), "SMA_HL2")"""
         assert "hl2_series(self.rt)" in src, "hl2_series(rt) not in code"
         # sma call must use hl2_series
         assert "sma(hl2_series(" in src, "sma call missing hl2_series"
+
+    def test_user_defined_hma_wrapper_preserves_series(self):
+        """User-defined HMA wrapper: close must be passed as Series, not .current scalar.
+
+        Bug: ast2python was generating self.hma(self.rt.close.current, ...)
+        which passes a scalar float to hma(), causing hma() to return close (not an MA).
+        Fix: when a BUILTIN_SERIES identifier is passed as a bare arg to a user-defined
+        function, render it as self.rt.close (Series), not self.rt.close.current.
+        """
+        code = """//@version=6
+indicator("test")
+hma(src, length) =>
+    half = math.max(1, int(math.round(length / 2.0)))
+    sqrtLen = math.max(1, int(math.round(math.sqrt(length))))
+    ta.wma(2.0 * ta.wma(src, half) - ta.wma(src, length), sqrtLen)
+plot(hma(close, 19), "HMA")"""
+        src = get_generated_code("test_hma_wrapper", code)
+        # hma wrapper call must receive Series close (no .current)
+        assert "self.hma(self.rt.close," in src, (
+            f"hma wrapper did not receive Series close: {src}"
+        )
+        # Must NOT receive .current scalar
+        assert "self.hma(self.rt.close.current," not in src, (
+            "hma wrapper received scalar .current — wrong!"
+        )
+
+    def test_user_defined_function_with_scalar_and_series_params(self):
+        """User-defined function with mixed scalar+series params: series stays Series."""
+        code = """//@version=6
+indicator("test")
+f(src, length) =>
+    ta.sma(src, length)
+plot(f(close, 20), "F")"""
+        src = get_generated_code("test_mixed_params", code)
+        # close must be Series, not .current
+        assert "self.f(self.rt.close," in src, f"f did not receive Series close"
+        assert "self.f(self.rt.close.current," not in src, "f received scalar .current!"
+        # length is a literal scalar, no .current
+        assert "self.f(self.rt.close, 20)" in src, f"f call wrong: {src}"
