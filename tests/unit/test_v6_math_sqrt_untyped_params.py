@@ -346,8 +346,10 @@ def test_v6_ta_sma_accepts_derived_builtin_series_source(tmp_path: Path) -> None
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import sma' in code
-    assert 'sma(pine_div(pine_add(self.rt.high.current, self.rt.low.current), 2), 5' in code
+    # hl2 is a DERIVED_BUILTIN_SERIES used as SMA source → hl2_series must be imported
+    assert 'from pinelib.ta import' in code and 'sma' in code and 'hl2_series' in code
+    # hl2 should use _RuntimeDerivedSeries for proper runtime semantics
+    assert 'hl2_series(self.rt)' in code
 
 
 def test_v6_crossover_accepts_nested_ta_numeric_source(tmp_path: Path) -> None:

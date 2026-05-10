@@ -566,6 +566,11 @@ class Translator:
                     member = chain.split(".", 1)[1]
                     if member in DERIVED_BUILTIN_SERIES:
                         self.ctx.imports.require_from("pinelib.ta", f"{member}_series")
+            # Scan for bare DERIVED_BUILTIN_SERIES identifiers (e.g., hlc3 in ta.cci(hlc3, 20))
+            if node.kind == "Identifier":
+                name = str(node.field("name"))
+                if name in DERIVED_BUILTIN_SERIES:
+                    self.ctx.imports.require_from("pinelib.ta", f"{name}_series")
             if node.kind != "CallExpr":
                 continue
             callee = node.child("callee")
@@ -2415,7 +2420,25 @@ class Translator:
             parameter_name = arg_name
             if parameter_name is None and index < len(sig.parameters):
                 parameter_name = sig.parameters[index].name
-            if canonical_name in history_source_functions and parameter_name in {"source", "source1", "source2", "high", "low", "open", "series"}:
+            # Check if arg is a DERIVED_BUILTIN_SERIES identifier or ta.* call
+            is_derived_series_arg = False
+            if arg.kind == "Identifier":
+                is_derived_series_arg = str(arg.field("name")) in DERIVED_BUILTIN_SERIES
+            elif arg.kind == "Call":
+                callee = arg.child("callee")
+                if callee is not None and callee.kind == "MemberAccess":
+                    obj = callee.child("object")
+                    member = callee.field("member")
+                    is_derived_series_arg = (
+                        obj is not None
+                        and str(obj.field("name")) == "ta"
+                        and member in DERIVED_BUILTIN_SERIES
+                    )
+            is_source_param = parameter_name in {"source", "source1", "source2", "high", "low", "open", "series"}
+            # Use _translate_series_source_argument for rolling functions' source args,
+            # OR when the arg itself is a DERIVED_BUILTIN_SERIES (hl2/hlc3/etc)
+            # used as any function's source param
+            if (canonical_name in history_source_functions or is_derived_series_arg) and is_source_param:
                 rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)

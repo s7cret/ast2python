@@ -298,3 +298,31 @@ plot(ta.hlc3, "HLC3")"""
         src = get_generated_code("test_hlc3_scalar", code)
         # hlc3 plot call should be present
         assert "hlc3" in src.lower(), "hlc3 call missing"
+
+    def test_bare_hlc3_as_rolling_ta_source_imports_hlc3_series(self):
+        """Bare hlc3 identifier used as TA source arg must import and use hlc3_series."""
+        code = """//@version=6
+indicator("test")
+plot(ta.cci(hlc3, 20), "CCI")"""
+        src = get_generated_code("test_bare_hlc3", code)
+        # Must import hlc3_series
+        assert "hlc3_series" in src, "hlc3_series not imported"
+        # Must use hlc3_series(rt) in the call
+        assert "hlc3_series(self.rt)" in src, "hlc3_series(rt) not in code"
+        # Must NOT expand to scalar .current arithmetic
+        assert "high.current" not in src and "low.current" not in src, "bare hlc3 expanded to .current!"
+        # cci call must use hlc3_series
+        assert "cci(hlc3_series(" in src, "cci call missing hlc3_series"
+
+    def test_bare_hl2_as_sma_source_imports_hl2_series(self):
+        """Bare hl2 identifier used as SMA source arg must import and use hl2_series."""
+        code = """//@version=6
+indicator("test")
+plot(ta.sma(hl2, 10), "SMA_HL2")"""
+        src = get_generated_code("test_bare_hl2", code)
+        # Must import hl2_series
+        assert "hl2_series" in src, "hl2_series not imported"
+        # Must use hl2_series(rt) in the call
+        assert "hl2_series(self.rt)" in src, "hl2_series(rt) not in code"
+        # sma call must use hl2_series
+        assert "sma(hl2_series(" in src, "sma call missing hl2_series"
