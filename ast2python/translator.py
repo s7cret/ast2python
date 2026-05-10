@@ -2464,8 +2464,14 @@ class Translator:
             is_source_param = parameter_name in {"source", "source1", "source2", "high", "low", "open", "series"}
             # Use _translate_series_source_argument for rolling functions' source args,
             # OR when the arg itself is a DERIVED_BUILTIN_SERIES (hl2/hlc3/etc)
-            # used as any function's source param
-            if (canonical_name in history_source_functions or is_derived_series_arg) and is_source_param:
+            # used as any function's source param,
+            # OR for barssince/valuewhen condition/source args (need Series for history search)
+            needs_series_arg = (
+                (canonical_name in history_source_functions or is_derived_series_arg) and is_source_param
+            ) or (
+                canonical_name in {"barssince", "valuewhen"} and parameter_name in {"condition", "source"}
+            )
+            if needs_series_arg:
                 rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
