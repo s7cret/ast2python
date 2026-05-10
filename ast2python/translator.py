@@ -1991,6 +1991,8 @@ class Translator:
             )
         if callee_chain in DATE_HELPERS:
             return self._translate_date_helper_call(callee_chain, node, runtime_expr=runtime_expr)
+        if callee_chain == "timestamp":
+            return self._translate_timestamp_call(node)
         if callee_chain in {"time", "time_close"}:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain in {"na", "nz", "fixnan"}:
@@ -2227,6 +2229,52 @@ class Translator:
         args.append(f"runtime={runtime_expr}")
         self.ctx.coverage.builtin(name)
         return f"{runtime_expr}.timefunc.{name}({', '.join(args)})"
+
+    def _translate_timestamp_call(self, node: ASTNode) -> str:
+        """Lower Pine timestamp("YYYY-MM-DD HH:MM:SS +ZZZZ") to Unix milliseconds integer."""
+        arguments = self._call_arguments(node)
+        if not arguments:
+            raise UnsupportedBuiltinError("timestamp requires at least one argument")
+        arg_name, arg_expr = arguments[0]
+        if arg_name is not None:
+            raise UnsupportedBuiltinError(
+                "timestamp does not support named arguments"
+            )
+        # Translate the argument to get the rendered string
+        rendered = self.translate_expression(arg_expr)
+        # Extract the string literal value
+        literal_value = self._literal_or_rendered(arg_expr, rendered)
+        if not isinstance(literal_value, str):
+            raise UnsupportedBuiltinError(
+                f"timestamp argument must be a string literal, got {type(literal_value).__name__}"
+            )
+        # Parse the Pine timestamp string format: "YYYY-MM-DD HH:MM:SS +ZZZZ"
+        # Also support: "YYYY-MM-DDTHH:MM:SS+ZZZZ" (ISO variant)
+        # and "YYYY-MM-DD HH:MM +ZZZZ" (no seconds)
+        unix_ms = self._parse_pine_timestamp(literal_value)
+        self.ctx.coverage.builtin("timestamp")
+        return str(unix_ms)
+
+    def _parse_pine_timestamp(self, s: str) -> int:
+        """Parse Pine timestamp string to Unix milliseconds."""
+        from datetime import datetime, timezone
+
+        # Try formats in order of specificity
+        formats = [
+            "%Y-%m-%d %H:%M:%S %z",  # "2026-05-07 20:45:00 +0000"
+            "%Y-%m-%dT%H:%M:%S%z",   # "2026-05-07T20:45:00+0000"
+            "%Y-%m-%d %H:%M %z",      # "2026-05-07 20:45 +0000"
+        ]
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(s, fmt)
+                return int(dt.timestamp() * 1000)
+            except ValueError:
+                continue
+        raise UnsupportedBuiltinError(
+            f"timestamp: unsupported date format {s!r}. "
+            "Supported: \"YYYY-MM-DD HH:MM:SS +ZZZZ\", \"YYYY-MM-DDTHH:MM:SS+ZZZZ\", \"YYYY-MM-DD HH:MM +ZZZZ\""
+        )
 
     def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
