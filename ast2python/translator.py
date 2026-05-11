@@ -703,10 +703,38 @@ class Translator:
             # set_current with a scalar. This avoids the na-at-init problem because
             # the Series reference itself (not its current value) is used.
             if dtype == "source":
-                # Strip .current from default to get the Series reference
-                # e.g., "self.rt.close.current" -> "self.rt.close"
-                source_ref = default.replace(".current", "") if isinstance(default, str) else default
-                self.emitter.line(f'self.{info.py_name} = {source_ref}')
+                # Detect derived builtin series (hl2, hlc3, ohlc4, hlcc4) by their
+                # characteristic scalar expansion patterns (pine_add of rt.*.current).
+                # We check for the pattern where high.current, low.current, close.current
+                # appear together, indicating hlc3 or similar.
+                if isinstance(default, str) and "pine_add" in default and "rt." in default:
+                    # Check which derived builtin: hlc3 has high+low+close, hl2 has high+low only
+                    has_high = "rt.high" in default or "rt.high.current" in default
+                    has_low = "rt.low" in default or "rt.low.current" in default
+                    has_close = "rt.close" in default or "rt.close.current" in default
+                    has_open = "rt.open" in default or "rt.open.current" in default
+                    if has_high and has_low and has_close and has_open:
+                        series_expr = "ohlc4_series(self.rt)"
+                    elif has_high and has_low and has_close:
+                        series_expr = "hlc3_series(self.rt)"
+                    elif has_high and has_low:
+                        series_expr = "hl2_series(self.rt)"
+                    elif has_high and has_close:
+                        series_expr = "hlcc4_series(self.rt)"
+                    else:
+                        series_expr = None
+                    if series_expr:
+                        self.emitter.line(f"self.{info.py_name} = {series_expr}")
+                    else:
+                        # Fallback: strip .current and hope for the best
+                        source_ref = default.replace(".current", "") if isinstance(default, str) else default
+                        self.emitter.line(f'self.{info.py_name} = {source_ref}')
+                elif isinstance(default, str) and ".current" in default:
+                    # Simple case: self.rt.close.current -> self.rt.close
+                    source_ref = default.replace(".current", "")
+                    self.emitter.line(f'self.{info.py_name} = {source_ref}')
+                else:
+                    self.emitter.line(f'self.{info.py_name} = {default}')
             else:
                 self.emitter.line(
                     f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'  # noqa: E501
