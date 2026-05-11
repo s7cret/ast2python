@@ -699,9 +699,18 @@ class Translator:
             self.emitter.line(
                 f'self.{info.py_name} = self.rt.series("{info.py_name}", dtype="{dtype}")'
             )
-            self.emitter.line(
-                f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'  # noqa: E501
-            )
+            # For source inputs, bind directly to the Series reference instead of using
+            # set_current with a scalar. This avoids the na-at-init problem because
+            # the Series reference itself (not its current value) is used.
+            if dtype == "source":
+                # Strip .current from default to get the Series reference
+                # e.g., "self.rt.close.current" -> "self.rt.close"
+                source_ref = default.replace(".current", "") if isinstance(default, str) else default
+                self.emitter.line(f'self.{info.py_name} = {source_ref}')
+            else:
+                self.emitter.line(
+                    f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'  # noqa: E501
+                )
         self.emitter.dedent()
         self.emitter.line()
         self.emitter.line("def _input_value(self, name, default, schema):")

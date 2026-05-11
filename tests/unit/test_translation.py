@@ -237,7 +237,9 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
         "self.rt.timefunc.time_close('60', session=self.sess.current, runtime=self.rt"
         in result.code
     )
-    assert 'self.src.set_current(self._input_value("src", self.rt.close.current' in result.code
+    # For source inputs, the generated code now uses direct Series reference
+    # instead of set_current with a scalar value
+    assert 'self.src = self.rt.close' in result.code
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"
