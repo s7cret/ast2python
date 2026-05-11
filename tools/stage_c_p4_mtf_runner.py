@@ -30,8 +30,144 @@ M15_MS = 15 * 60 * 1000
 for repo in (AST2PYTHON, PINE2AST, PINELIB):
     sys.path.insert(0, str(repo))
 
+from dataclasses import dataclass, field
 from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na, na  # noqa: E402
 from pinelib.request import InMemoryDataProvider  # noqa: E402
+
+# Long OHLCV for prehistory loading
+LONG_OHLCV = ROOT / "[workspace-root]/workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv"
+
+
+@dataclass
+class MTFPrehistoryConfig:
+    """Configuration for MTF prehistory loading."""
+    requested_timeframe: str = "D"
+    warmup_bars: int = 250
+    include_previous_confirmed: bool = True
+
+
+# Timeframe periods in milliseconds
+TF_PERIODS = {
+    "1": 60_000,
+    "5": 300_000,
+    "15": 900_000,
+    "60": 3_600_000,
+    "240": 14_400_000,
+    "D": 86_400_000,
+    "W": 604_800_000,
+}
+
+
+def calculate_mtf_prehistory_start(
+    target_start_ms: int,
+    requested_timeframe: str,
+    warmup_bars: int,
+    include_previous_confirmed: bool,
+) -> int:
+    """
+    Calculate the start timestamp for MTF prehistory loading.
+    
+    Args:
+        target_start_ms: Chart start timestamp in ms
+        requested_timeframe: HTF to load (e.g., "D", "60")
+        warmup_bars: Number of HTF bars to load before target
+        include_previous_confirmed: Include previous confirmed HTF bar
+    
+    Returns:
+        Start timestamp in ms for loading base bars
+    """
+    tf_period = TF_PERIODS.get(requested_timeframe, 86_400_000)
+    
+    # Calculate how many bars we need
+    bars_needed = warmup_bars + (1 if include_previous_confirmed else 0)
+    
+    # Calculate prehistory duration in ms
+    prehistory_ms = bars_needed * tf_period
+    
+    # For D bars, we need to extend to full day boundaries
+    # because we aggregate from 15m bars
+    # Each D bar needs 96 x 15m bars = 86,400,000 ms
+    if requested_timeframe == "D":
+        # We load 15m bars, so extend by full days
+        # The prehistory in days = bars_needed * D period / DAY_MS
+        days_needed = bars_needed
+        prehistory_ms = days_needed * 86_400_000
+    
+    return target_start_ms - prehistory_ms
+
+
+def load_with_mtf_prehistory(
+    symbol: str,
+    base_tf: str,
+    target_start_ms: int,
+    target_end_ms: int,
+    config: MTFPrehistoryConfig,
+) -> dict[str, list[Bar]]:
+    """
+    Load base timeframe bars plus aggregated HTF bars with prehistory.
+    
+    Args:
+        symbol: Trading symbol
+        base_tf: Base timeframe (e.g., "15")
+        target_start_ms: Target window start in ms
+        target_end_ms: Target window end in ms
+        config: MTF prehistory configuration
+    
+    Returns:
+        Dict with "base" and "htf" keys containing bars
+    """
+    # Calculate prehistory start
+    prehistory_start = calculate_mtf_prehistory_start(
+        target_start_ms,
+        config.requested_timeframe,
+        config.warmup_bars,
+        config.include_previous_confirmed,
+    )
+    
+    # Load 15m bars from long OHLCV
+    all_bars = []
+    if LONG_OHLCV.exists():
+        with LONG_OHLCV.open(newline="", encoding="utf-8-sig") as fh:
+            for row in csv.DictReader(fh):
+                raw_time = int(float(row["time"]))
+                time_ms = raw_time * 1000 if raw_time < 10_000_000_000 else raw_time
+                
+                # Only load bars within our range
+                if time_ms < prehistory_start:
+                    continue
+                if time_ms > target_end_ms:
+                    break
+                
+                all_bars.append(
+                    Bar(
+                        time=time_ms,
+                        time_close=time_ms + M15_MS - 1,
+                        open=float(row["open"]),
+                        high=float(row["high"]),
+                        low=float(row["low"]),
+                        close=float(row["close"]),
+                        volume=float(row.get("volume", 0) or 0),
+                    )
+                )
+    
+    if not all_bars:
+        raise ValueError(f"No bars loaded from {LONG_OHLCV}")
+    
+    # Aggregate to D bars if needed
+    if config.requested_timeframe == "D":
+        daily_bars = aggregate_daily(all_bars)
+    else:
+        daily_bars = []
+    
+    # Extract chart bars (within target window)
+    chart_bars = [b for b in all_bars if b.time >= target_start_ms]
+    
+    return {
+        "base": chart_bars,
+        "htf": daily_bars,
+        "all_15m": all_bars,
+        "d_bars": daily_bars,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,6 +183,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional engine input override. Use 'None' to isolate MTF plots from strategy orders.",
     )
     parser.add_argument("--compare-dir", default=str(WORKSPACE / "04_COMPARE"))
+    parser.add_argument(
+        "--mtf-warmup",
+        type=int,
+        default=None,
+        help="MTF prehistory warmup bars (e.g., 250). If set, uses long OHLCV for auto prehistory.",
+    )
     return parser.parse_args()
 
 
@@ -279,14 +421,45 @@ def main() -> int:
         log_path=logs_dir / "p4_translate.log",
     )
 
-    bars = load_15m_bars(tv_csv)
-    daily_bars = aggregate_daily(bars)
-    provider = InMemoryDataProvider(
-        {
-            (args.symbol, args.chart_timeframe): bars,
-            (args.symbol, "D"): daily_bars,
-        }
-    )
+    # Load bars - either with MTF prehistory or simple TV CSV
+    if args.mtf_warmup is not None:
+        # Use MTF prehistory loader
+        mtf_config = MTFPrehistoryConfig(
+            requested_timeframe="D",
+            warmup_bars=args.mtf_warmup,
+            include_previous_confirmed=True,
+        )
+        # Get target window from TV CSV
+        tv_bars = load_15m_bars(tv_csv)
+        target_start = tv_bars[0].time
+        target_end = tv_bars[-1].time_close or tv_bars[-1].time
+        
+        # Load with prehistory
+        loaded = load_with_mtf_prehistory(
+            args.symbol,
+            args.chart_timeframe,
+            target_start,
+            target_end,
+            mtf_config,
+        )
+        bars = loaded["base"]  # Chart bars within target window
+        daily_bars = loaded["d_bars"]  # Aggregated D bars
+        provider = InMemoryDataProvider(
+            {
+                (args.symbol, args.chart_timeframe): bars,
+                (args.symbol, "D"): daily_bars,
+            }
+        )
+    else:
+        # Simple mode - just TV CSV bars
+        bars = load_15m_bars(tv_csv)
+        daily_bars = aggregate_daily(bars)
+        provider = InMemoryDataProvider(
+            {
+                (args.symbol, args.chart_timeframe): bars,
+                (args.symbol, "D"): daily_bars,
+            }
+        )
     runtime = PineRuntime(
         SymbolInfo(tickerid=args.symbol, timezone="UTC", session="0000-2359"),
         TimeframeInfo.from_string(args.chart_timeframe),
