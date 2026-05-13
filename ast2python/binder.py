@@ -729,6 +729,24 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     ),
     "array.size": S("array.size", (P("id", REFERENCE, "series"),)),
     "array.copy": S("array.copy", (P("id", REFERENCE, "series"),)),
+    "array.shift": S(
+        "array.shift",
+        (
+            P("id", REFERENCE, "series"),
+            P("index", frozenset({"int"}), "series", required=False),
+        ),
+    ),
+    "array.sort": S(
+        "array.sort",
+        (
+            P("id", REFERENCE, "series"),
+            P("order", frozenset({"string"}), "simple", required=False),
+        ),
+    ),
+    "array.avg": S("array.avg", (P("id", REFERENCE, "series"),)),
+    "array.sum": S("array.sum", (P("id", REFERENCE, "series"),)),
+    "array.min": S("array.min", (P("id", REFERENCE, "series"),)),
+    "array.max": S("array.max", (P("id", REFERENCE, "series"),)),
     "map.new": S("map.new", ()),
     "map.put": S(
         "map.put",
