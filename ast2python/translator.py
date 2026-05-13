@@ -106,6 +106,7 @@ METHOD_DECLARATIONS = {"MethodDeclaration", "MethodDecl"}
 UDT_DECLARATIONS = {"TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration"}
 ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
+TIME_COMPONENT_BUILTINS = {"year", "month", "dayofmonth", "dayofweek", "hour", "minute", "second"}
 DERIVED_BUILTIN_SERIES = {"hl2", "hlc3", "ohlc4", "hlcc4"}
 LOWER_TF_PURE_CALL_PREFIXES = ("math.",)
 LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
@@ -1213,6 +1214,9 @@ class Translator:
                         expr_chain = member_chain(expr_callee) if expr_callee else None
                         if expr_chain in self.TUPLE_RETURNING_BUILTINS:
                             tuple_element_types = list(self.TUPLE_RETURNING_BUILTINS[expr_chain])
+                    elif expr_arg.kind == "TupleExpr":
+                        # [open, high, low, close] in request.security — each is a series float
+                        tuple_element_types = ["float"] * len(expr_arg.children("elements"))
         temp_names: list[str] = []
         assignments: list[tuple[VariableInfo | None, str]] = []
         for index, name in enumerate(targets, start=1):
@@ -1236,11 +1240,32 @@ class Translator:
             temp = f"_{info.py_name}"
             temp_names.append(temp)
             assignments.append((info, temp))
-        self.emitter.line(
-            f"{', '.join(temp_names)} = {self.translate_expression(initializer)}",
-            loc=node.loc,
-            source=node.source,
+        # Check if this is a request.security call returning a tuple (na-check needed)
+        is_req_security_tuple = (
+            initializer.kind == "CallExpr"
+            and member_chain(initializer.child("callee")) == "request.security"
+            and tuple_element_types is not None
         )
+        rendered_expr = self.translate_expression(initializer)
+        if is_req_security_tuple:
+            # Guard against na: request.security can return PineNASentinel when
+            # no data is available, which is not iterable and can't be unpacked.
+            na_tuple_str = f"({', '.join(['na'] * len(temp_names))},)"
+            self.emitter.line(f"_req_sec_result = {rendered_expr}")
+            self.emitter.line(f"if is_na(_req_sec_result):")
+            self.emitter.indent()
+            self.emitter.line(f"{', '.join(temp_names)} = {na_tuple_str}")
+            self.emitter.dedent()
+            self.emitter.line("else:")
+            self.emitter.indent()
+            self.emitter.line(f"{', '.join(temp_names)} = _req_sec_result")
+            self.emitter.dedent()
+        else:
+            self.emitter.line(
+                f"{', '.join(temp_names)} = {rendered_expr}",
+                loc=node.loc,
+                source=node.source,
+            )
         for target_info, temp in assignments:
             if target_info is None:
                 continue
@@ -1792,9 +1817,16 @@ class Translator:
                 raise UnsupportedNodeError("BinaryExpr requires left and right operands")
             self._reject_visual_value(left_node)
             self._reject_visual_value(right_node)
+            left_type = self._infer_type_info(left_node)
+            right_type = self._infer_type_info(right_node)
             left = self.translate_expression(left_node, runtime_expr=runtime_expr)
             right = self.translate_expression(right_node, runtime_expr=runtime_expr)
             op = str(node.field("op"))
+            # For string comparisons with == or !=, use native Python equality
+            if op in ("==", "!=") and (
+                left_type.base_type == "string" or right_type.base_type == "string"
+            ):
+                return f"({left} {op} {right})"
             return self._lower_binary_operator(op, left, right, node)
         if node.kind == "UnaryExpr":
             operand_node = node.child("operand")
@@ -1886,6 +1918,8 @@ class Translator:
             return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open.current, {runtime_expr}.high.current), {runtime_expr}.low.current), {runtime_expr}.close.current), 4)"  # noqa: E501
         if name == "hlcc4":
             return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"  # noqa: E501
+        if name in TIME_COMPONENT_BUILTINS:
+            return f"{runtime_expr}.timefunc.{name}()"
         info = self.ctx.resolve_var(name)
         if info.is_series:
             return f"self.{info.py_name}.current"
@@ -2338,15 +2372,20 @@ class Translator:
     def _translate_timestamp_components(
         self, timezone_str: str, components: list[tuple[str | None, ASTNode]]
     ) -> str:
-        """Handle timestamp("TZ", year, month, day, hour, minute, second)."""
+        """Handle timestamp("TZ", year, month, day, hour, minute, second).
+
+        If all components are integer literals, evaluate at compile time.
+        Otherwise generate a runtime call to timefunc.timestamp_components().
+        """
         from datetime import datetime, timezone as tz_module
-        # Validate we have enough components
-        if len(components) < 6:
+        # Validate we have enough components (5 required: year,month,day,hour,minute; 6th=second is optional)
+        if len(components) < 5:
             raise UnsupportedBuiltinError(
-                f"timestamp with timezone requires 7 arguments (timezone, year, month, day, hour, minute, second), got {len(components) + 1}"
+                f"timestamp with timezone requires at least 6 arguments (timezone, year, month, day, hour, minute), got {len(components) + 1}"
             )
-        # Extract component values (they should all be integer literals)
+        # Collect component values and track if any are runtime expressions
         component_values = []
+        all_literal = True
         for i, (name, node) in enumerate(components[:6]):
             if name is not None:
                 raise UnsupportedBuiltinError(
@@ -2354,35 +2393,46 @@ class Translator:
                 )
             rendered = self.translate_expression(node)
             val = self._literal_or_rendered(node, rendered)
-            if not isinstance(val, (int, float)):
-                raise UnsupportedBuiltinError(
-                    f"timestamp component {i} must be an integer, got {type(val).__name__}"
-                )
-            component_values.append(int(val))
-        year, month, day, hour, minute, second = component_values
-        # Validate timezone string is supported
-        tz_map = {
-            "UTC": tz_module.utc,
-        }
-        # For other timezones, try to handle them or default to UTC
-        tz = tz_map.get(timezone_str)
-        if tz is None:
-            # Try using zoneinfo if available, otherwise fall back to UTC
+            if isinstance(val, (int, float)):
+                component_values.append(int(val))
+            else:
+                all_literal = False
+                # For runtime expressions, we need the rendered expression
+                # Strip quotes if it's a string literal (e.g., 'self.rt.timefunc.year()')
+                component_values.append(rendered)
+        # Pad with 0 for missing optional second argument
+        while len(component_values) < 6:
+            component_values.append(0)
+
+        if all_literal:
+            # All components are integers — evaluate at compile time
+            year, month, day, hour, minute, second = component_values
+            tz_map = {"UTC": tz_module.utc}
+            tz = tz_map.get(timezone_str)
+            if tz is None:
+                try:
+                    from zoneinfo import ZoneInfo
+                    tz = ZoneInfo(timezone_str)
+                except (ImportError, KeyError):
+                    tz = tz_module.utc
             try:
-                from zoneinfo import ZoneInfo
-                tz = ZoneInfo(timezone_str)
-            except (ImportError, KeyError):
-                # Unknown timezone, default to UTC
-                tz = tz_module.utc
-        try:
-            dt = datetime(year, month, day, hour, minute, second, tzinfo=tz)
-            unix_ms = int(dt.timestamp() * 1000)
-        except (ValueError, OSError) as e:
-            raise UnsupportedBuiltinError(
-                f"timestamp: invalid date/time components: {e}"
-            )
-        self.ctx.coverage.builtin("timestamp")
-        return str(unix_ms)
+                dt = datetime(year, month, day, hour, minute, second, tzinfo=tz)
+                unix_ms = int(dt.timestamp() * 1000)
+            except (ValueError, OSError) as e:
+                raise UnsupportedBuiltinError(
+                    f"timestamp: invalid date/time components: {e}"
+                )
+            self.ctx.coverage.builtin("timestamp")
+            return str(unix_ms)
+        else:
+            # Runtime expressions — generate runtime call
+            # Components are: year, month, day, hour, minute, second (0 if missing)
+            # Pad remaining with 0
+            while len(component_values) < 6:
+                component_values.append(0)
+            args = [f"{timezone_str!r}"] + [str(c) for c in component_values[:6]]
+            self.ctx.coverage.builtin("timestamp")
+            return f"self.rt.timefunc.timestamp_components({', '.join(args)})"
 
     def _parse_pine_timestamp(self, s: str) -> int:
         """Parse Pine timestamp string to Unix milliseconds."""
@@ -2909,9 +2959,12 @@ class Translator:
         metadata = {
             "pine_name": declaration.field("name"),
             "py_name": py_name,
-            "type": {"timeframe": "string", "session": "string", "time": "int"}.get(
-                info_type, info_type
-            ),
+            "type": {
+                "timeframe": "string",
+                "session": "string",
+                "time": "int",
+                "symbol": "string",  # symbol name is a string for request.security
+            }.get(info_type, info_type),
             "qualifier": "input",
             "default": default_value,
             "title": None,
@@ -2991,6 +3044,17 @@ class Translator:
                         return make_type_info(
                             info.type_info.base_type, "input", can_be_na=info.type_info.can_be_na
                         )
+                    # If type_info is "object" (e.g. from `na` initializer) but a concrete
+                    # type_ref was declared (e.g. "float" from `var float x = na`), use
+                    # the declared type_ref so that math/series bindings succeed.
+                    if (
+                        info.type_info.base_type == "object"
+                        and info.type_ref is not None
+                        and info.type_ref not in {"line", "label", "box", "table", "PineObjectId", "array", "matrix", "map"}
+                    ):
+                        return make_type_info(
+                            info.type_ref, info.qualifier, is_series=info.is_series
+                        )
                     return info.type_info
                 if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
                     return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
@@ -3052,9 +3116,12 @@ class Translator:
             if chain is None:
                 return make_type_info("object", "input")
             info_type = chain.split(".", 1)[1]
-            base = {"timeframe": "string", "session": "string", "time": "int"}.get(
-                info_type, info_type
-            )
+            base = {
+                "timeframe": "string",
+                "session": "string",
+                "time": "int",
+                "symbol": "string",  # symbol name is a string for request.security
+            }.get(info_type, info_type)
             # time(timeframe) and time_close(timeframe) return series, not input
             if info_type in ("time", "time_close") and self._call_arguments(node):
                 return make_type_info(base, "series", is_series=True, can_be_na=True)
