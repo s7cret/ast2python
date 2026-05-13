@@ -138,6 +138,7 @@ INPUT_CALLS = {
     "input.session",
     "input.source",
     "input.time",
+    "input.symbol",
 }
 STRATEGY_CALLS_P0 = {
     "strategy.entry",
@@ -1064,7 +1065,7 @@ class Translator:
         initializer: ASTNode | None = None,
     ) -> VariableInfo:
         try:
-            return self.ctx.resolve_var(name)
+            info = self.ctx.resolve_var(name)
         except ScopeResolutionError:
             is_global = self.ctx.current_scope.kind == "global"
             info = self.ctx.declare_var(
@@ -1091,6 +1092,14 @@ class Translator:
             if is_global:
                 self.global_series.append((info, self._infer_dtype(initializer)))
             return info
+        # Variable already exists: re-infer type from initializer to handle
+        # tuple-target pre-declaration (which sets wrong type before tuple unpacking)
+        if initializer is not None:
+            info.type_info = self._infer_type_info(initializer)
+            self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
+                info.type_info.to_dict()
+            )
+        return info
 
     def _varip_key(self, info: VariableInfo) -> str:
         return f"{info.scope_id}:{info.pine_name}"
@@ -1194,6 +1203,16 @@ class Translator:
             chain = member_chain(callee) if callee else None
             if chain in self.TUPLE_RETURNING_BUILTINS:
                 tuple_element_types = list(self.TUPLE_RETURNING_BUILTINS[chain])
+            elif chain == "request.security":
+                # request.security(sym, tf, tuple_returning_expr) — unwrap inner expr
+                args = self._call_arguments(initializer)
+                if len(args) >= 3:
+                    expr_arg = args[2][1]
+                    if expr_arg.kind == "CallExpr":
+                        expr_callee = expr_arg.child("callee")
+                        expr_chain = member_chain(expr_callee) if expr_callee else None
+                        if expr_chain in self.TUPLE_RETURNING_BUILTINS:
+                            tuple_element_types = list(self.TUPLE_RETURNING_BUILTINS[expr_chain])
         temp_names: list[str] = []
         assignments: list[tuple[VariableInfo | None, str]] = []
         for index, name in enumerate(targets, start=1):
@@ -1955,6 +1974,15 @@ class Translator:
             name = str(base.field("name"))
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}[{offset}]"
+            # Handle derived builtin series with history (e.g. hl2[1], hlc3[2])
+            if name == "hl2":
+                return f"pine_div(pine_add({runtime_expr}.high[{offset}], {runtime_expr}.low[{offset}]), 2)"
+            if name == "hlc3":
+                return f"pine_div(pine_add(pine_add({runtime_expr}.high[{offset}], {runtime_expr}.low[{offset}]), {runtime_expr}.close[{offset}]), 3)"
+            if name == "ohlc4":
+                return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.open[{offset}], {runtime_expr}.high[{offset}]), {runtime_expr}.low[{offset}]), {runtime_expr}.close[{offset}]), 4)"
+            if name == "hlcc4":
+                return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high[{offset}], {runtime_expr}.low[{offset}]), {runtime_expr}.close[{offset}]), {runtime_expr}.close[{offset}]), 4)"
             info = self.ctx.resolve_var(name)
             if info.type_info is not None and info.type_info.base_type in {
                 "array",
@@ -2268,7 +2296,12 @@ class Translator:
         return f"{runtime_expr}.timefunc.{name}({', '.join(args)})"
 
     def _translate_timestamp_call(self, node: ASTNode) -> str:
-        """Lower Pine timestamp("YYYY-MM-DD HH:MM:SS +ZZZZ") to Unix milliseconds integer."""
+        """Lower Pine timestamp() to Unix milliseconds integer.
+
+        Handles two forms:
+          1. timestamp("YYYY-MM-DD HH:MM:SS +ZZZZ")
+          2. timestamp("UTC", year, month, day, hour, minute, second)
+        """
         arguments = self._call_arguments(node)
         if not arguments:
             raise UnsupportedBuiltinError("timestamp requires at least one argument")
@@ -2281,6 +2314,16 @@ class Translator:
         rendered = self.translate_expression(arg_expr)
         # Extract the string literal value
         literal_value = self._literal_or_rendered(arg_expr, rendered)
+
+        # Multi-argument form: timestamp("UTC", year, month, day, hour, minute, second)
+        # or timestamp("America/New_York", year, month, day, hour, minute, second)
+        if len(arguments) > 1:
+            if not isinstance(literal_value, str):
+                raise UnsupportedBuiltinError(
+                    f"timestamp first argument must be a timezone string, got {type(literal_value).__name__}"
+                )
+            return self._translate_timestamp_components(literal_value, arguments[1:])
+
         if not isinstance(literal_value, str):
             raise UnsupportedBuiltinError(
                 f"timestamp argument must be a string literal, got {type(literal_value).__name__}"
@@ -2289,6 +2332,55 @@ class Translator:
         # Also support: "YYYY-MM-DDTHH:MM:SS+ZZZZ" (ISO variant)
         # and "YYYY-MM-DD HH:MM +ZZZZ" (no seconds)
         unix_ms = self._parse_pine_timestamp(literal_value)
+        self.ctx.coverage.builtin("timestamp")
+        return str(unix_ms)
+
+    def _translate_timestamp_components(
+        self, timezone_str: str, components: list[tuple[str | None, ASTNode]]
+    ) -> str:
+        """Handle timestamp("TZ", year, month, day, hour, minute, second)."""
+        from datetime import datetime, timezone as tz_module
+        # Validate we have enough components
+        if len(components) < 6:
+            raise UnsupportedBuiltinError(
+                f"timestamp with timezone requires 7 arguments (timezone, year, month, day, hour, minute, second), got {len(components) + 1}"
+            )
+        # Extract component values (they should all be integer literals)
+        component_values = []
+        for i, (name, node) in enumerate(components[:6]):
+            if name is not None:
+                raise UnsupportedBuiltinError(
+                    "timestamp component arguments must be positional"
+                )
+            rendered = self.translate_expression(node)
+            val = self._literal_or_rendered(node, rendered)
+            if not isinstance(val, (int, float)):
+                raise UnsupportedBuiltinError(
+                    f"timestamp component {i} must be an integer, got {type(val).__name__}"
+                )
+            component_values.append(int(val))
+        year, month, day, hour, minute, second = component_values
+        # Validate timezone string is supported
+        tz_map = {
+            "UTC": tz_module.utc,
+        }
+        # For other timezones, try to handle them or default to UTC
+        tz = tz_map.get(timezone_str)
+        if tz is None:
+            # Try using zoneinfo if available, otherwise fall back to UTC
+            try:
+                from zoneinfo import ZoneInfo
+                tz = ZoneInfo(timezone_str)
+            except (ImportError, KeyError):
+                # Unknown timezone, default to UTC
+                tz = tz_module.utc
+        try:
+            dt = datetime(year, month, day, hour, minute, second, tzinfo=tz)
+            unix_ms = int(dt.timestamp() * 1000)
+        except (ValueError, OSError) as e:
+            raise UnsupportedBuiltinError(
+                f"timestamp: invalid date/time components: {e}"
+            )
         self.ctx.coverage.builtin("timestamp")
         return str(unix_ms)
 
@@ -2336,11 +2428,14 @@ class Translator:
             return f"PineArray({args[0] if args else 'None'})" if len(args) == 1 else "PineArray()"
         if namespace == "array" and method == "from":
             return f"PineArray([{', '.join(args)}])"
+        # Handle array.new_float, array.new_int, array.new_bool, array.new_string, array.new_color
+        if namespace == "array" and method in ("new_float", "new_int", "new_bool", "new_string", "new_color"):
+            return f"PineArray.{method}({', '.join(args)})"
         if namespace == "map" and method == "new":
             return "PineMap()"
         if namespace == "matrix" and method == "new":
             return f"PineMatrix({', '.join(args)})"
-        if method in {"push", "set", "put", "remove"} and args:
+        if method in {"push", "set", "put", "remove", "shift", "avg", "sum", "min", "max", "sort"} and args:
             return f"{args[0]}.{method}({', '.join(args[1:])})"
         if method in {"get", "size", "copy"} and args:
             if method == "size":
@@ -2912,6 +3007,10 @@ class Translator:
             }:
                 return make_type_info("string", "const", can_be_na=False)
             if chain is not None and chain.startswith("syminfo."):
+                member = chain.split(".", 1)[1]
+                # syminfo.mintick and syminfo.pointvalue are float, rest are string
+                if member in ("mintick", "pointvalue"):
+                    return make_type_info("float", "simple", can_be_na=False)
                 return make_type_info("string", "simple", can_be_na=False)
             if chain is not None and chain.startswith(
                 (
@@ -2941,6 +3040,12 @@ class Translator:
                 if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
                     # ta.hlc3(), ta.hl2() as explicit function calls → float series
                     return make_type_info("float", "series", is_series=True)
+            # Handle time() and time_close() function calls (e.g. time("D"), time_close("W"))
+            # These return int series, not input
+            if callee is not None and callee.kind == "Identifier":
+                fn_name = str(callee.field("name"))
+                if fn_name in ("time", "time_close") and self._call_arguments(node):
+                    return make_type_info("int", "series", is_series=True, can_be_na=True)
         if self._is_input_call(node):
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
@@ -2950,6 +3055,9 @@ class Translator:
             base = {"timeframe": "string", "session": "string", "time": "int"}.get(
                 info_type, info_type
             )
+            # time(timeframe) and time_close(timeframe) return series, not input
+            if info_type in ("time", "time_close") and self._call_arguments(node):
+                return make_type_info(base, "series", is_series=True, can_be_na=True)
             return make_type_info(base, "input", can_be_na=base != "bool")
         if node.kind == "BinaryExpr":
             left = self._infer_type_info(node.child("left"))
@@ -3042,10 +3150,25 @@ class Translator:
                 return make_type_info("tuple", "series", is_series=True)
             if chain == "request.security_lower_tf":
                 return make_type_info("array", "series", is_series=True, is_history_allowed=False)
+            # request.security returns the same type as its expression argument (arg index 2)
+            if chain == "request.security" and self._call_arguments(node):
+                args = self._call_arguments(node)
+                if len(args) >= 3:
+                    expr_node = args[2][1]
+                    expr_callee = expr_node.child("callee") if expr_node.kind == "CallExpr" else None
+                    expr_chain = member_chain(expr_callee) if expr_callee else None
+                    if expr_chain in self.TUPLE_RETURNING_BUILTINS:
+                        # request.security with a tuple-returning builtin expression preserves tuple type
+                        return make_type_info("tuple", "series", is_series=True, can_be_na=True)
+                    expr_type = self._infer_type_info(expr_node)
+                    return make_type_info(expr_type.base_type, "series", is_series=True, can_be_na=expr_type.can_be_na)
             if chain in {"input.string", "input.timeframe", "input.session"}:
                 return make_type_info("string", "input", can_be_na=False)
             if chain == "input.time":
                 return make_type_info("int", "input", can_be_na=False)
+            # time() and time_close() with a timeframe arg return int series, not input
+            if chain in ("time", "time_close") and self._call_arguments(node):
+                return make_type_info("int", "series", is_series=True, can_be_na=True)
             if chain == "input.source":
                 return make_type_info("float", "input")
             if chain in {"na"}:

@@ -192,7 +192,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         (
             P("source", NUMERIC, "series"),
             P("length", frozenset({"int"}), "simple"),
-            P("offset", frozenset({"int"}), "simple"),
+            P("offset", frozenset({"int"}), "simple", required=False),
         ),
     ),
     "ta.percentrank": S(
@@ -241,8 +241,6 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "ta.hma": S(
         "ta.hma",
         (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple")),
-        codegen_supported=False,
-        notes="PineLib hma is batch-only today",
     ),
     "ta.dmi": S(
         "ta.dmi",
@@ -444,6 +442,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("qty", NUMERIC, "series", required=False),
             P("limit", NUMERIC, "series", required=False),
             P("stop", NUMERIC, "series", required=False),
+            P("comment", STRING, "simple", required=False),
             P("oca_name", STRING, "simple", required=False),
             P("oca_type", STRING, "simple", required=False),
         ),
@@ -462,6 +461,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("trail_price", NUMERIC, "series", required=False),
             P("trail_points", NUMERIC, "series", required=False),
             P("trail_offset", NUMERIC, "series", required=False),
+            P("comment", STRING, "simple", required=False),
             P("oca_name", STRING, "simple", required=False),
             P("oca_type", STRING, "simple", required=False),
         ),
