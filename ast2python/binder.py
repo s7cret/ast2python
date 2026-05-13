@@ -442,7 +442,6 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("qty", NUMERIC, "series", required=False),
             P("limit", NUMERIC, "series", required=False),
             P("stop", NUMERIC, "series", required=False),
-            P("comment", STRING, "simple", required=False),
             P("oca_name", STRING, "simple", required=False),
             P("oca_type", STRING, "simple", required=False),
         ),
@@ -681,6 +680,41 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     # Reference helpers lowered to PineLib reference containers.
     "array.new": S("array.new", (P("initial_value", ANY, "series", required=False),)),
     "array.from": S("array.from", (), min_varargs=0, vararg=P("value", ANY, "series")),
+    "array.new_float": S(
+        "array.new_float",
+        (
+            P("initial", ANY, "series", required=False),
+            P("max_size", frozenset({"int"}), "simple", required=False),
+        ),
+    ),
+    "array.new_int": S(
+        "array.new_int",
+        (
+            P("initial", ANY, "series", required=False),
+            P("max_size", frozenset({"int"}), "simple", required=False),
+        ),
+    ),
+    "array.new_bool": S(
+        "array.new_bool",
+        (
+            P("initial", ANY, "series", required=False),
+            P("max_size", frozenset({"int"}), "simple", required=False),
+        ),
+    ),
+    "array.new_string": S(
+        "array.new_string",
+        (
+            P("initial", ANY, "series", required=False),
+            P("max_size", frozenset({"int"}), "simple", required=False),
+        ),
+    ),
+    "array.new_color": S(
+        "array.new_color",
+        (
+            P("initial", ANY, "series", required=False),
+            P("max_size", frozenset({"int"}), "simple", required=False),
+        ),
+    ),
     "array.push": S("array.push", (P("id", REFERENCE, "series"), P("value", ANY, "series"))),
     "array.get": S(
         "array.get", (P("id", REFERENCE, "series"), P("index", frozenset({"int"}), "series"))
