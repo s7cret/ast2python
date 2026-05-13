@@ -442,6 +442,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("qty", NUMERIC, "series", required=False),
             P("limit", NUMERIC, "series", required=False),
             P("stop", NUMERIC, "series", required=False),
+            P("comment", STRING, "simple", required=False),
             P("oca_name", STRING, "simple", required=False),
             P("oca_type", STRING, "simple", required=False),
         ),
