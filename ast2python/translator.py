@@ -1910,6 +1910,11 @@ class Translator:
             return f"{runtime_expr}.bar_index_series.current"
         if name == "na":
             return "na"
+        # group is a Pinescript built-in: group name of current input context.
+        # In standalone expression (e.g. "group == group") it checks if group is set.
+        # Return empty string as placeholder — no input context in generated code.
+        if name == "group":
+            return '""'
         if name == "hl2":
             return f"pine_div(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), 2)"
         if name == "hlc3":
@@ -1919,7 +1924,7 @@ class Translator:
         if name == "hlcc4":
             return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"  # noqa: E501
         if name in TIME_COMPONENT_BUILTINS:
-            return f"{runtime_expr}.timefunc.{name}()"
+            return f"{runtime_expr}.timefunc.{name}(runtime={runtime_expr})"
         info = self.ctx.resolve_var(name)
         if info.is_series:
             return f"self.{info.py_name}.current"
