@@ -484,6 +484,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         ),
         allow_extra_named=frozenset({"comment"}),
     ),
+    "strategy": S("strategy", ()),
     "strategy.cancel": S("strategy.cancel", (P("id", STRING, "simple"),)),
     "strategy.cancel_all": S("strategy.cancel_all", ()),
     # strategy.closedtrades namespace — index-based trade history accessor
