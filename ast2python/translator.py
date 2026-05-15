@@ -1961,6 +1961,8 @@ class Translator:
             return '"long"'
         if chain == "strategy.short":
             return '"short"'
+        if chain.startswith("strategy.direction."):
+            return repr(chain.rsplit(".", 1)[-1])
         if chain.startswith("strategy.") and chain.split(".", 1)[1] in STRATEGY_READONLY_FIELDS:
             return f"self.ctx.{chain.split('.', 1)[1]}"
         if chain.startswith("strategy.commission."):
