@@ -1932,6 +1932,10 @@ class Translator:
             return f"pine_div(pine_add(pine_add(pine_add({runtime_expr}.high.current, {runtime_expr}.low.current), {runtime_expr}.close.current), {runtime_expr}.close.current), 4)"  # noqa: E501
         if name in TIME_COMPONENT_BUILTINS:
             return f"{runtime_expr}.timefunc.{name}(runtime={runtime_expr})"
+        # strategy is a builtin namespace object — use self.rt.strategy for member access.
+        # In strategy mode, the runtime provides self.rt.strategy which has .long/.short/etc.
+        if name == "strategy":
+            return f"{runtime_expr}.strategy"
         info = self.ctx.resolve_var(name)
         if info.is_series:
             return f"self.{info.py_name}.current"
