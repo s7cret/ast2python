@@ -477,10 +477,86 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         ),
     ),
     "strategy.close_all": S(
-        "strategy.close_all", (P("immediately", BOOL, "simple", required=False),)
+        "strategy.close_all",
+        (
+            P("immediately", BOOL, "simple", required=False),
+            P("comment", STRING, "simple", required=False),
+        ),
+        allow_extra_named=frozenset({"comment"}),
     ),
     "strategy.cancel": S("strategy.cancel", (P("id", STRING, "simple"),)),
     "strategy.cancel_all": S("strategy.cancel_all", ()),
+    # strategy.closedtrades namespace — index-based trade history accessor
+    "strategy.closedtrades.entry_price": S(
+        "strategy.closedtrades.entry_price",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.exit_price": S(
+        "strategy.closedtrades.exit_price",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.entry_time": S(
+        "strategy.closedtrades.entry_time",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.exit_time": S(
+        "strategy.closedtrades.exit_time",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.profit": S(
+        "strategy.closedtrades.profit",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.size": S(
+        "strategy.closedtrades.size",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.max_drawdown": S(
+        "strategy.closedtrades.max_drawdown",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.max_runup": S(
+        "strategy.closedtrades.max_runup",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    # strategy.opentrades namespace
+    "strategy.opentrades.entry_price": S(
+        "strategy.opentrades.entry_price",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.profit": S(
+        "strategy.opentrades.profit",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.size": S(
+        "strategy.opentrades.size",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.max_drawdown": S(
+        "strategy.opentrades.max_drawdown",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.max_runup": S(
+        "strategy.opentrades.max_runup",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    # strategy.risk namespace
+    "strategy.risk.allow_entry_in": S(
+        "strategy.risk.allow_entry_in",
+        (P("direction", STRING, "simple"),),
+    ),
+    "strategy.risk.max_drawdown": S(
+        "strategy.risk.max_drawdown",
+        (P("value", NUMERIC, "simple"), P("type", STRING, "simple")),
+    ),
+    "strategy.risk.max_intraday_loss": S(
+        "strategy.risk.max_intraday_loss",
+        (P("value", NUMERIC, "simple"), P("type", STRING, "simple")),
+    ),
+    "strategy.risk.max_position_size": S(
+        "strategy.risk.max_position_size",
+        (P("value", NUMERIC, "simple"), P("type", STRING, "simple")),
+    ),
     # Visual recorder calls. Optional style/text/color args are admitted only by name.
     "plot": S(
         "plot",

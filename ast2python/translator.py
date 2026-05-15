@@ -45,7 +45,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -108,6 +108,7 @@ ENUM_DECLARATIONS = {"EnumDeclaration", "EnumDecl"}
 BUILTIN_SERIES = {"open", "high", "low", "close", "volume", "time", "time_close"}
 TIME_COMPONENT_BUILTINS = {"year", "month", "dayofmonth", "dayofweek", "hour", "minute", "second"}
 DERIVED_BUILTIN_SERIES = {"hl2", "hlc3", "ohlc4", "hlcc4"}
+ATR_SHORTHANDS = {"ta.atr20": 20, "ta.atr30": 30, "ta.atr50": 50}
 LOWER_TF_PURE_CALL_PREFIXES = ("math.",)
 LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
     "int",
@@ -1827,6 +1828,12 @@ class Translator:
                 left_type.base_type == "string" or right_type.base_type == "string"
             ):
                 return f"({left} {op} {right})"
+            # Also handle when both sides are string literals (including empty strings)
+            if op in ("==", "!=") and left == right and (
+                (left.startswith("(") and left.endswith(")")) or
+                left in ('""', "''")
+            ):
+                return f"({left} {op} {right})"
             return self._lower_binary_operator(op, left, right, node)
         if node.kind == "UnaryExpr":
             operand_node = node.child("operand")
@@ -1986,6 +1993,12 @@ class Translator:
                 series_fn = f"{member}_series"
                 self.ctx.imports.require_from("pinelib.ta", series_fn)
                 return f"{series_fn}({runtime_expr})"
+            # ta.atr20/30/50 are Pine built-in shorthands for ta.atr(20/30/50)
+            if chain in ATR_SHORTHANDS:
+                period = ATR_SHORTHANDS[chain]
+                self.ctx.imports.require_from("pinelib.ta", "atr")
+                state_id = state_id_for_call(self.ctx, node, f"atr_{period}")
+                return f"atr({period}, runtime={runtime_expr}, state_id=\"{state_id}\")"
             # Other ta.* names (ta.sma, ta.ema, etc.) return as-is
             return chain
         if chain.startswith("math.") or chain.startswith("str."):
@@ -2510,6 +2523,22 @@ class Translator:
         return f"{runtime_expr}.timefunc.{func_name}({', '.join(args)})"
 
     def _translate_strategy_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        # Handle strategy.closedtrades.xxx(index) -> self.ctx.closedtrades_xxx(index)
+        if name.startswith("strategy.closedtrades.") or name.startswith("strategy.opentrades."):
+            parts = name.split(".")
+            ns = parts[1]  # "closedtrades" or "opentrades"
+            method = parts[2]  # e.g. "entry_price"
+            args = [self.translate_expression(arg, runtime_expr=runtime_expr)
+                    for _, arg in self._call_arguments(node)]
+            self.ctx.coverage.builtin(name)
+            return f"self.ctx.{ns}_{method}({', '.join(args)})"
+        # Handle strategy.risk.xxx -> self.ctx.risk_xxx(...)
+        if name.startswith("strategy.risk."):
+            method = name.split(".", 2)[2]  # e.g. "allow_entry_in"
+            args = [self.translate_expression(arg, runtime_expr=runtime_expr)
+                    for _, arg in self._call_arguments(node)]
+            self.ctx.coverage.builtin(name)
+            return f"self.ctx.risk_{method}({', '.join(args)})"
         if name not in STRATEGY_CALLS_P0:
             self.ctx.add_diagnostic(
                 UNKNOWN_OVERLOAD,
