@@ -321,6 +321,10 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("length", frozenset({"int"}), "simple"),
         ),
     ),
+    "ta.median": S(
+        "ta.median",
+        (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple")),
+    ),
     "ta.tsi": S(
         "tsi",
         (
@@ -328,6 +332,10 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("shortLength", frozenset({"int"}), "simple"),
             P("longLength", frozenset({"int"}), "simple"),
         ),
+    ),
+    "ta.mode": S(
+        "ta.mode",
+        (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple")),
     ),
     "ta.cci": S(
         "ta.cci",
