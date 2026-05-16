@@ -3297,7 +3297,11 @@ class Translator:
             if chain in {"ta.bb", "ta.macd"}:
                 return make_type_info("tuple", "series", is_series=True)
             if chain == "request.security_lower_tf":
-                return make_type_info("array", "series", is_series=True, is_history_allowed=False)
+                return make_type_info("array", "series", is_history_allowed=False)
+            # request.financial/economic/currency_rate/earnings/dividends/splits
+            # all return float series (financial/economic data is time-series)
+            if chain and chain.startswith("request."):
+                return make_type_info("float", "series", is_series=True)
             # request.security returns the same type as its expression argument (arg index 2)
             if chain == "request.security" and self._call_arguments(node):
                 args = self._call_arguments(node)
