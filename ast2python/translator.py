@@ -1978,9 +1978,15 @@ class Translator:
         if chain.startswith("barmerge."):
             return repr(chain)
         if chain.startswith(
-            ("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_", "format.")
+            (
+                "display.", "currency.", "location.", "shape.", "size.", "position.",
+                "plot.style_", "format.",
+            )
         ):
             return repr(chain)
+        if chain.startswith("extend."):
+            # Strip prefix: extend.none -> "none", extend.right -> "right"
+            return repr(chain.split(".", 1)[1])
         if chain.startswith("color."):
             self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
             return f"pine_color.{chain.split('.', 1)[1]}"
@@ -3097,6 +3103,10 @@ class Translator:
                     # If type_info is "object" (e.g. from `na` initializer) but a concrete
                     # type_ref was declared (e.g. "float" from `var float x = na`), use
                     # the declared type_ref so that math/series bindings succeed.
+                    # NOTE: visual-object type_refs (line/label/box/table/PineObjectId) are
+                    # excluded from this branch so they fall through to the dedicated
+                    # PineObjectId branch below (line 3109). This preserves correct binding
+                    # for visual method calls (line.set_xy1, label.set_text, etc.).
                     if (
                         info.type_info.base_type == "object"
                         and info.type_ref is not None
@@ -3105,9 +3115,11 @@ class Translator:
                         return make_type_info(
                             info.type_ref, info.qualifier, is_series=info.is_series
                         )
+                    # Visual object types (line/label/box/table): use PineObjectId base type
+                    # so that binding for visual methods (line.set_xy1, etc.) succeeds.
+                    if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
+                        return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
                     return info.type_info
-                if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                    return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
                 return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
             except ScopeResolutionError:
                 return make_type_info("object", "simple")

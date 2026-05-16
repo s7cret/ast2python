@@ -1018,9 +1018,13 @@ def bind_builtin_call(builtin: str, arg_types: list[tuple[str | None, TypeInfo]]
         errors.append(
             f"{builtin} expects at least {max(required, spec.min_varargs)} arguments, got {len(arg_types)}"  # noqa: E501
         )
-    if spec.vararg is None and len(arg_types) > len(spec.parameters):
+    # Only count non-extra named args toward the limit; extra named args
+    # (in allow_extra_named) are intentionally excluded from parameter count.
+    extra_named = spec.allow_extra_named or frozenset()
+    non_extra_count = sum(1 for arg_name, _ in arg_types if arg_name not in extra_named)
+    if spec.vararg is None and non_extra_count > len(spec.parameters):
         errors.append(
-            f"{builtin} expects at most {len(spec.parameters)} arguments, got {len(arg_types)}"
+            f"{builtin} expects at most {len(spec.parameters)} arguments, got {len(arg_types)}"  # noqa: E501
         )
     name_to_index = {param.name: index for index, param in enumerate(spec.parameters)}
     slots = _parameter_slots(spec, len(arg_types))
