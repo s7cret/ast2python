@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import ast as pyast
 import json
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any, NoReturn
 
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
@@ -45,7 +44,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -1189,6 +1188,7 @@ class Translator:
         "ta.bb": ("float", "float", "float"),  # basis, upper, lower
         "ta.supertrend": ("float", "int"),  # line, direction
         "ta.dmi": ("float", "float", "float"),  # plus, minus, adx
+        "ta.kc": ("float", "float", "float"),  # basis, upper, lower
     }
 
     def _emit_tuple_declaration(self, node: ASTNode) -> None:
@@ -1978,7 +1978,7 @@ class Translator:
         if chain.startswith("barmerge."):
             return repr(chain)
         if chain.startswith(
-            ("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_")
+            ("display.", "currency.", "location.", "shape.", "size.", "position.", "plot.style_", "format.")
         ):
             return repr(chain)
         if chain.startswith("color."):
@@ -2605,6 +2605,11 @@ class Translator:
             )
             raise UnsupportedBuiltinError(name)
         errors = bind_builtin_call(name, arg_types)
+        # DEBUG
+        import sys
+        if name == "str.endswith":
+            print(f"DEBUG str.endswith: arg_types={[(a, t.to_dict()) for a, t in arg_types]}", file=sys.stderr)
+            print(f"DEBUG str.endswith: errors={errors!r}", file=sys.stderr)
         if not errors:
             return
         self.ctx.add_diagnostic(
@@ -2617,6 +2622,11 @@ class Translator:
                 "arg_types": [info.to_dict() | {"name": arg_name} for arg_name, info in arg_types],
             },
         )
+        import os
+        if os.environ.get("DEBUG_BIND"):
+            os.makedirs("/tmp/debug_dir", exist_ok=True)
+            with open("/tmp/debug_dir/bind_trace.txt", "a") as f:
+                f.write(f"_bind_or_raise({name}) errors={errors!r}\n")
         if name in BUILTIN_SIGNATURES and not BUILTIN_SIGNATURES[name].codegen_supported:
             raise UnsupportedBuiltinError(name)
         raise TypeResolutionError(f"{name} semantic binding failed")
@@ -3126,6 +3136,7 @@ class Translator:
                     "size.",
                     "position.",
                     "plot.style_",
+                    "format.",
                 )
             ):
                 return make_type_info("string", "const", can_be_na=False)
@@ -3173,6 +3184,13 @@ class Translator:
             if op in {"and", "or", "==", "!=", ">", ">=", "<", "<="}:
                 return make_type_info(
                     "bool", join_qualifiers(left.qualifier, right.qualifier), can_be_na=False
+                )
+            # String concatenation: if either side is string, result is string
+            if op == "+" and (
+                left.base_type == "string" or right.base_type == "string"
+            ):
+                return make_type_info(
+                    "string", join_qualifiers(left.qualifier, right.qualifier)
                 )
             base = "float" if "float" in {left.base_type, right.base_type} else left.base_type
             return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
@@ -3247,8 +3265,19 @@ class Translator:
                 "ta.range",
                 "ta.correlation",
                 "ta.vwap",
+                "ta.kc",
+                "ta.kcw",
+                "ta.wpr",
             }:
                 return make_type_info("float", "series", is_series=chain.startswith("ta."))
+            if chain == "str.tonumber":
+                return make_type_info("float", "series", is_series=True)
+            if chain in {"str.tostring", "str.substring", "str.lower", "str.upper", "str.replace", "str.format"}:
+                return make_type_info("string", "series", is_series=True)
+            if chain in {"str.contains", "str.startswith", "str.endswith"}:
+                return make_type_info("bool", "series", is_series=True)
+            if chain in {"str.length", "str.pos"}:
+                return make_type_info("int", "series", is_series=True)
             if chain in {"ta.crossover", "ta.crossunder", "ta.cross", "ta.rising", "ta.falling"}:
                 return make_type_info("bool", "series", is_series=True, can_be_na=False)
             if chain == "ta.barssince":

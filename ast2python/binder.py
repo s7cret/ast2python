@@ -136,6 +136,38 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "ta.dev": S(
         "ta.dev", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
     ),
+    # ta.wpr (Williams %R)
+    "ta.wpr": S(
+        "ta.wpr", (P("length", frozenset({"int"}), "simple"),)
+    ),
+    # ta.kc / ta.kcw (Keltner Channels)
+    "ta.kc": S(
+        "ta.kc",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+            P("mult", NUMERIC, "simple"),
+            P("usesource", NUMERIC, "simple", required=False),
+            P("scaletype", NUMERIC, "simple", required=False),
+        ),
+    ),
+    "ta.kcw": S(
+        "ta.kcw",
+        (
+            P("source", NUMERIC, "series"),
+            P("length", frozenset({"int"}), "simple"),
+            P("mult", NUMERIC, "simple"),
+            P("usesource", NUMERIC, "simple", required=False),
+            P("scaletype", NUMERIC, "simple", required=False),
+        ),
+    ),
+    # matrix.rows / matrix.cols
+    "matrix.rows": S(
+        "matrix.rows", (P("id", ANY, "simple"),)
+    ),
+    "matrix.cols": S(
+        "matrix.cols", (P("id", ANY, "simple"),)
+    ),
     "ta.wma": S(
         "ta.wma", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
     ),
@@ -370,19 +402,19 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "str.tostring": S(
         "str.tostring", (P("value", ANY, "series"), P("format", STRING, "simple", required=False))
     ),
-    "str.tonumber": S("str.tonumber", (P("string", STRING, "series"),)),
-    "str.contains": S("str.contains", (P("source", STRING, "series"), P("str", STRING, "simple"))),
+    "str.tonumber": S("str.tonumber", (P("string", ANY, "series"),)),
+    "str.contains": S("str.contains", (P("source", ANY, "series"), P("str", ANY, "series"))),
     "str.startswith": S(
-        "str.startswith", (P("source", STRING, "series"), P("str", STRING, "simple"))
+        "str.startswith", (P("source", ANY, "series"), P("str", ANY, "series"))
     ),
-    "str.endswith": S("str.endswith", (P("source", STRING, "series"), P("str", STRING, "simple"))),
-    "str.lower": S("str.lower", (P("source", STRING, "series"),)),
-    "str.upper": S("str.upper", (P("source", STRING, "series"),)),
-    "str.length": S("str.length", (P("source", STRING, "series"),)),
+    "str.endswith": S("str.endswith", (P("source", ANY, "series"), P("str", ANY, "series"))),
+    "str.lower": S("str.lower", (P("source", ANY, "series"),)),
+    "str.upper": S("str.upper", (P("source", ANY, "series"),)),
+    "str.length": S("str.length", (P("source", ANY, "series"),)),
     "str.substring": S(
         "str.substring",
         (
-            P("source", STRING, "series"),
+            P("source", ANY, "series"),
             P("begin_pos", frozenset({"int"}), "simple"),
             P("end_pos", frozenset({"int"}), "simple", required=False),
         ),
@@ -390,11 +422,22 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "str.replace": S(
         "str.replace",
         (
-            P("source", STRING, "series"),
-            P("target", STRING, "simple"),
-            P("replacement", STRING, "simple"),
+            P("source", ANY, "series"),
+            P("target", ANY, "simple"),
+            P("replacement", ANY, "simple"),
             P("occurrence", frozenset({"int"}), "simple", required=False),
         ),
+    ),
+    "str.pos": S(
+        "str.pos",
+        (
+            P("source", ANY, "series"),
+            P("str", ANY, "series"),
+        ),
+    ),
+    "str.format": S(
+        "str.format",
+        (P("format", STRING, "simple"), P("arg1", ANY, "series", required=False)),
     ),
     # requests lowered by AST2Python.
     "request.security": S(
@@ -716,6 +759,55 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         ),
     ),
     "box.delete": S("box.delete", (P("id", OBJECT_ID, "series"),)),
+    "box.set_right": S(
+        "box.set_right",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("right", frozenset({"int"}), "series"),
+        ),
+    ),
+    "box.set_left": S(
+        "box.set_left",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("left", frozenset({"int"}), "series"),
+        ),
+    ),
+    "box.set_top": S(
+        "box.set_top",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("top", NUMERIC, "series"),
+        ),
+    ),
+    "box.set_bottom": S(
+        "box.set_bottom",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("bottom", NUMERIC, "series"),
+        ),
+    ),
+    "label.set_text": S(
+        "label.set_text",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("text", STRING, "series"),
+        ),
+    ),
+    "label.set_y": S(
+        "label.set_y",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("y", NUMERIC, "series"),
+        ),
+    ),
+    "label.set_color": S(
+        "label.set_color",
+        (
+            P("id", OBJECT_ID, "series"),
+            P("color", STRING, "simple", required=False),
+        ),
+    ),
     "table.new": S(
         "table.new",
         (
