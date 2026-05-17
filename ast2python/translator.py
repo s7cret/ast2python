@@ -3281,6 +3281,8 @@ class Translator:
                 "ta.kc",
                 "ta.kcw",
                 "ta.wpr",
+                "ta.cum",
+                "ta.sar",
             }:
                 return make_type_info("float", "series", is_series=chain.startswith("ta."))
             if chain == "str.tonumber":
