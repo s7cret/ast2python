@@ -2612,11 +2612,6 @@ class Translator:
             )
             raise UnsupportedBuiltinError(name)
         errors = bind_builtin_call(name, arg_types)
-        # DEBUG
-        import sys
-        if name == "str.endswith":
-            print(f"DEBUG str.endswith: arg_types={[(a, t.to_dict()) for a, t in arg_types]}", file=sys.stderr)
-            print(f"DEBUG str.endswith: errors={errors!r}", file=sys.stderr)
         if not errors:
             return
         self.ctx.add_diagnostic(
@@ -3241,6 +3236,14 @@ class Translator:
         if node.kind == "CallExpr":
             callee = node.child("callee")
             chain = None if callee is None else member_chain(callee)
+            # na is a Literal(literal_type='na') in Pine, not an Identifier.
+            # Handle it here so the na() type inference works correctly.
+            if callee is not None and callee.kind == "Literal" and callee.field("literal_type") == "na":
+                args = self._call_arguments(node)
+                if args:
+                    first_type = self._infer_type_info(args[0][1])
+                    return make_type_info("bool", first_type.qualifier, can_be_na=False)
+                return make_type_info("bool", "simple", can_be_na=False)
             if chain in {"input.bool"}:
                 return make_type_info("bool", "input", can_be_na=False)
             if chain in {"input.int"}:
@@ -3283,6 +3286,8 @@ class Translator:
                 "ta.wpr",
                 "ta.cum",
                 "ta.sar",
+                "ta.pivothigh",
+                "ta.pivotlow",
             }:
                 return make_type_info("float", "series", is_series=chain.startswith("ta."))
             if chain == "str.tonumber":
@@ -3327,6 +3332,10 @@ class Translator:
             if chain == "input.source":
                 return make_type_info("float", "input")
             if chain in {"na"}:
+                args = self._call_arguments(node)
+                if args:
+                    first_type = self._infer_type_info(args[0][1])
+                    return make_type_info("bool", first_type.qualifier, can_be_na=False)
                 return make_type_info("bool", "simple", can_be_na=False)
             # nz and fixnan preserve the type of the first argument.
             if chain in {"nz", "fixnan"}:
