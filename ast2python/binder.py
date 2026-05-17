@@ -25,7 +25,7 @@ class SignatureSpec:
 
 
 NUMERIC = frozenset({"int", "float", "source"})
-NUMERIC_OR_BOOL = frozenset({"int", "float", "bool"})
+NUMERIC_OR_BOOL = frozenset({"int", "float", "bool", "source"})
 STRING = frozenset({"string"})
 BOOL = frozenset({"bool"})
 OBJECT_ID = frozenset({"PineObjectId", "line", "label", "box", "table"})
