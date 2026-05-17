@@ -2516,6 +2516,9 @@ class Translator:
             return "PineMap()"
         if namespace == "matrix" and method == "new":
             return f"PineMatrix({', '.join(args)})"
+        # matrix.rows / matrix.cols / matrix.columns — access as property, not method call
+        if namespace == "matrix" and method in ("rows", "cols", "columns"):
+            return f"{args[0]}.{method}"
         if method in {"push", "set", "put", "remove", "shift", "avg", "sum", "min", "max", "sort"} and args:
             return f"{args[0]}.{method}({', '.join(args[1:])})"
         if method in {"get", "size", "copy"} and args:
@@ -3392,6 +3395,12 @@ class Translator:
             # array.copy returns a copy of the array reference.
             if chain == "array.copy":
                 return make_type_info("array", "series", is_series=True, is_history_allowed=False)
+            # matrix.get returns a scalar float series (element at row/col) — supports history.
+            if chain == "matrix.get":
+                return make_type_info("float", "series", is_series=True, is_history_allowed=True)
+            # map.get returns a scalar float series (value for key) — supports history.
+            if chain == "map.get":
+                return make_type_info("float", "series", is_series=True, is_history_allowed=True)
             if isinstance(chain, str) and chain.startswith(("array.", "map.", "matrix.")):
                 return make_type_info(
                     chain.split(".", 1)[0], "series", is_series=True, is_history_allowed=False

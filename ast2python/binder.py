@@ -161,12 +161,22 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("scaletype", NUMERIC, "simple", required=False),
         ),
     ),
-    # matrix.rows / matrix.cols
+    # matrix.rows / matrix.cols / matrix.columns
     "matrix.rows": S(
-        "matrix.rows", (P("id", ANY, "simple"),)
+        "matrix.rows", (P("id", REFERENCE, "series"),)
     ),
     "matrix.cols": S(
-        "matrix.cols", (P("id", ANY, "simple"),)
+        "matrix.cols", (P("id", REFERENCE, "series"),)
+    ),
+    "matrix.columns": S(
+        "matrix.columns", (P("id", REFERENCE, "series"),)
+    ),
+    # map.contains / map.size
+    "map.contains": S(
+        "map.contains", (P("id", REFERENCE, "series"), P("key", ANY, "series"))
+    ),
+    "map.size": S(
+        "map.size", (P("id", REFERENCE, "series"),)
     ),
     "ta.wma": S(
         "ta.wma", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
