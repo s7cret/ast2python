@@ -3379,6 +3379,19 @@ class Translator:
                 return make_type_info("string", "series", is_series=True)
             if chain in VISUAL_OBJECT_PRODUCERS:
                 return make_type_info("PineObjectId", "series")
+            # Explicit array method type inference — before the catch-all.
+            # array.size returns int series (the array length).
+            if chain == "array.size":
+                return make_type_info("int", "series", is_series=True)
+            # array.get returns the element at index — a float scalar series.
+            if chain == "array.get":
+                return make_type_info("float", "series", is_series=True)
+            # array.from returns a new array reference.
+            if chain == "array.from":
+                return make_type_info("array", "series", is_series=True, is_history_allowed=False)
+            # array.copy returns a copy of the array reference.
+            if chain == "array.copy":
+                return make_type_info("array", "series", is_series=True, is_history_allowed=False)
             if isinstance(chain, str) and chain.startswith(("array.", "map.", "matrix.")):
                 return make_type_info(
                     chain.split(".", 1)[0], "series", is_series=True, is_history_allowed=False
