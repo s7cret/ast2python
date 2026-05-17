@@ -67,7 +67,10 @@ def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     )
     assert "from pinelib import color as pine_color" in result.code
     assert "from pinelib.ta import bb" in result.code
-    assert "_basis, _upper, _lower = bb(self.rt.close.current, self.len_.current, 2)" in result.code
+    assert (
+        '_basis, _upper, _lower = bb(self.rt.close.current, self.len_.current, 2, runtime=self.rt, state_id="L4_C25_bb_1")'
+        in result.code
+    )
     assert "self.prev.set_current(self.basis[1])" in result.code
     assert "pine_color.aqua" in result.code
     input_meta = result.metadata["inputs"][0]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast as pyast
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, NoReturn
 
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
