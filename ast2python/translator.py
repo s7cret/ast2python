@@ -665,7 +665,7 @@ class Translator:
         self.emitter.line("def _visual_call(self, name, *args, source_map=None, **kwargs):")
         self.emitter.indent()
         self.emitter.line(
-            "self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})"  # noqa: E501
+            "self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map, 'time': self.rt.current_bar.time if self.rt.current_bar else 0})"  # noqa: E501
         )
         self.emitter.line("if name.endswith('.new'):")
         self.emitter.indent()
