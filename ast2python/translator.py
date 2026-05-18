@@ -637,7 +637,7 @@ class Translator:
         self.emitter.line("self.alerts = []")
         self.emitter.line("self.alert_conditions = []")
         self.emitter.line("self.external_library_calls = []")
-        self.emitter.line("self.visual_calls = []")
+
         self.emitter.line("self._init_inputs()")
         self.emitter.dedent()
         self.emitter.line()
@@ -665,7 +665,7 @@ class Translator:
         self.emitter.line("def _visual_call(self, name, *args, source_map=None, **kwargs):")
         self.emitter.indent()
         self.emitter.line(
-            "self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map, 'time': self.rt.current_bar.time if self.rt.current_bar else 0})"  # noqa: E501
+            "self.rt.plot_recorder.record(bar_time=self.rt.current_bar.time if self.rt.current_bar else 0, bar_index=self.rt.bar_index, name=name, value=args[0] if args else None, title=args[1] if len(args) > 1 else kwargs.get('title', ''), kwargs=kwargs)"  # noqa: E501
         )
         self.emitter.line("if name.endswith('.new'):")
         self.emitter.indent()

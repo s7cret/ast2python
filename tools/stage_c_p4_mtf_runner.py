@@ -271,15 +271,34 @@ def value_to_cell(value: Any) -> str:
     return str(value)
 
 
+from pinelib.plot import PlotRecorder
+
 def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str, str]]]:
-    events = script.visual_calls
+    recorder = script.rt.plot_recorder
+    if isinstance(recorder, PlotRecorder):
+        records = recorder.get_records()
+    else:
+        records = script.visual_calls  # legacy fallback
     if not bars:
         return [], []
-    if len(events) % len(bars) != 0:
-        raise RuntimeError(f"visual event count {len(events)} is not divisible by bars {len(bars)}")
-    per_bar = len(events) // len(bars)
-    first_chunk = events[:per_bar]
-    columns = [str(event["args"][1]) for event in first_chunk if event.get("name") == "plot"]
+    if len(records) % len(bars) != 0:
+        raise RuntimeError(f"visual event count {len(records)} is not divisible by bars {len(bars)}")
+    per_bar = len(records) // len(bars)
+    first_chunk = records[:per_bar]
+    # Support both PlotRecord (new) and dict (legacy)
+    def get_title(rec):
+        if hasattr(rec, 'title'):
+            return str(rec.title)
+        return str(rec.get("args", ())[1] if len(rec.get("args", ())) > 1 else rec.get("kwargs", {}).get("title", ""))
+    def get_name(rec):
+        if hasattr(rec, 'name'):
+            return rec.name
+        return rec.get("name", "")
+    def get_value(rec):
+        if hasattr(rec, 'value'):
+            return rec.value
+        return rec.get("args", ())[0] if rec.get("args") else None
+    columns = [get_title(r) for r in first_chunk if get_name(r) == "plot"]
     rows: list[dict[str, str]] = []
     for index, bar in enumerate(bars):
         row: dict[str, str] = {
@@ -290,11 +309,11 @@ def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str,
             "close": repr(bar.close),
             "volume": repr(bar.volume),
         }
-        chunk = events[index * per_bar : (index + 1) * per_bar]
-        for event in chunk:
-            if event.get("name") != "plot":
+        chunk = records[index * per_bar : (index + 1) * per_bar]
+        for rec in chunk:
+            if get_name(rec) != "plot":
                 continue
-            row[str(event["args"][1])] = value_to_cell(event["args"][0])
+            row[get_title(rec)] = value_to_cell(get_value(rec))
         rows.append(row)
     return ["time", "open", "high", "low", "close", "volume", *columns], rows
 
