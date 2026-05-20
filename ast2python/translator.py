@@ -45,7 +45,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",

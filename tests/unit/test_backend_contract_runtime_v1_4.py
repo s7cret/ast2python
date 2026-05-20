@@ -237,8 +237,9 @@ def test_ta_cross_helpers_receive_series_objects_not_current_scalars():
     )
     result = translate_ast(p, module_name="ta_cross_series_contract")
 
-    assert "crossover(self.fast, self.slow)" in result.code
-    assert "crossunder(self.fast, self.slow)" in result.code
+    assert "crossover(self.fast, self.slow, runtime=self.rt" in result.code
+    assert "crossunder(self.fast, self.slow, runtime=self.rt" in result.code
+    assert "state_id=" in result.code
     assert "crossover(self.fast.current, self.slow.current)" not in result.code
 
 
