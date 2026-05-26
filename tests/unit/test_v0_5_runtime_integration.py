@@ -116,6 +116,100 @@ def test_date_helpers_lower_to_runtime_timefunc():
     assert {"year", "minute"}.issubset(set(result.metadata["used_builtins"]))
 
 
+def test_history_reference_over_runtime_ta_call_materializes_expression_series():
+    p = program(
+        [
+            {
+                "kind": "ExpressionStatement",
+                "span": {"start_line": 3, "start_col": 1},
+                "expression": call(
+                    "plot",
+                    [
+                        arg(
+                            {
+                                "kind": "HistoryRefExpr",
+                                "span": {"start_line": 3, "start_col": 6},
+                                "base": call(
+                                    "ta.rsi",
+                                    [arg(ident("close")), arg(lit(14))],
+                                    span={"start_line": 3, "start_col": 6},
+                                ),
+                                "offset": lit(1),
+                            }
+                        ),
+                        arg(lit("RSI_prev", "string")),
+                    ],
+                    span={"start_line": 3, "start_col": 1},
+                ),
+            }
+        ]
+    )
+    result = translate_ast(p, module_name="expr_history_rsi")
+    assert "self.rt.expr_history(rsi(" in result.code
+    assert ".history(rsi(" not in result.code
+    assert 'state_id="L3_C6_expr_history_1"' in result.code
+    compile(result.code, "expr_history_rsi.py", "exec")
+
+
+def test_history_reference_over_ema_and_atr_calls_materializes_expression_series():
+    p = program(
+        [
+            {
+                "kind": "ExpressionStatement",
+                "span": {"start_line": 3, "start_col": 1},
+                "expression": call(
+                    "plot",
+                    [
+                        arg(
+                            {
+                                "kind": "HistoryRefExpr",
+                                "span": {"start_line": 3, "start_col": 6},
+                                "base": call(
+                                    "ta.ema",
+                                    [arg(ident("close")), arg(lit(20))],
+                                    span={"start_line": 3, "start_col": 6},
+                                ),
+                                "offset": lit(1),
+                            }
+                        ),
+                        arg(lit("EMA_prev", "string")),
+                    ],
+                    span={"start_line": 3, "start_col": 1},
+                ),
+            },
+            {
+                "kind": "ExpressionStatement",
+                "span": {"start_line": 4, "start_col": 1},
+                "expression": call(
+                    "plot",
+                    [
+                        arg(
+                            {
+                                "kind": "HistoryRefExpr",
+                                "span": {"start_line": 4, "start_col": 6},
+                                "base": call(
+                                    "ta.atr",
+                                    [arg(lit(14))],
+                                    span={"start_line": 4, "start_col": 6},
+                                ),
+                                "offset": lit(1),
+                            }
+                        ),
+                        arg(lit("ATR_prev", "string")),
+                    ],
+                    span={"start_line": 4, "start_col": 1},
+                ),
+            },
+        ]
+    )
+    result = translate_ast(p, module_name="expr_history_ema_atr")
+    assert "self.rt.expr_history(ema(" in result.code
+    assert "self.rt.expr_history(atr(" in result.code
+    assert ".history(ema(" not in result.code
+    assert ".history(atr(" not in result.code
+    compile(result.code, "expr_history_ema_atr.py", "exec")
+
+
 def test_reference_array_history_fails_before_runtime_and_copy_warns():
     arr_new = call("array.new", [arg(lit(0))])
     bad = program(
