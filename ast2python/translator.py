@@ -2583,6 +2583,34 @@ class Translator:
     def _translate_visual_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
         arguments = self._ordered_call_arguments(name, node)
+        
+        # Fast-path for plot(): emit direct record_plot() call
+        # to avoid _visual_call function-call + conditional overhead
+        if name == 'plot':
+            pieces = []
+            title_expr = "''"
+            for arg_name, arg in arguments:
+                rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+                if arg_name is None:
+                    pieces.append(rendered)
+                elif arg_name == 'title':
+                    title_expr = rendered
+            # Emit: self.rt.plot_recorder.record_plot(
+            #     bar_time=self.rt.current_bar.time,
+            #     bar_index=self.rt.bar_index,
+            #     value=<series>,
+            #     title=<title_expr>,
+            # )
+            series_val = pieces[0] if pieces else 'None'
+            self.ctx.coverage.builtin(name)
+            return (
+                f"self.rt.plot_recorder.record_plot("
+                f"bar_time=self.rt.current_bar.time if self.rt.current_bar else 0,"
+                f"bar_index=self.rt.bar_index,"
+                f"value={series_val},"
+                f"title={title_expr})"
+            )
+        
         pieces = []
         for arg_name, arg in arguments:
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
