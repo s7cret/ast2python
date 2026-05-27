@@ -208,3 +208,33 @@ def test_iteration_b_diagnostic_codes_are_emitted_on_binder_errors() -> None:
         translate_ast(program(call("math.pow", [arg(lit(2))])), module_name="diag_mismatch")
     except TypeResolutionError as exc:
         assert "semantic binding failed" in str(exc)
+
+
+def test_plot_positional_title_captured_in_generated_code():
+    """Regression for positional title: plot(series, 'P092_EMA9') must emit title='P092_EMA9'."""
+    p = program(
+        call(
+            "plot",
+            [arg(ident("close")), arg(lit("P092_EMA9"))],
+            line=8,
+        ),
+        kind="indicator",
+    )
+    result = translate_ast(p, module_name="plot_positional_title")
+    assert not result.diagnostics
+    assert "title='P092_EMA9'" in result.code
+
+
+def test_plot_named_title_still_works():
+    """Named title= must not be broken by positional title fix."""
+    p = program(
+        call(
+            "plot",
+            [arg(ident("close"), "series"), arg(lit("P092_EMA9"), "title")],
+            line=8,
+        ),
+        kind="indicator",
+    )
+    result = translate_ast(p, module_name="plot_named_title")
+    assert not result.diagnostics
+    assert "title='P092_EMA9'" in result.code

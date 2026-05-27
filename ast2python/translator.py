@@ -2595,6 +2595,9 @@ class Translator:
                     pieces.append(rendered)
                 elif arg_name == 'title':
                     title_expr = rendered
+            # If title was positional (second arg), extract it
+            if len(pieces) >= 2 and title_expr == "''":
+                title_expr = pieces[1]
             # Emit: self.rt.plot_recorder.record_plot(
             #     bar_time=self.rt.current_bar.time,
             #     bar_index=self.rt.bar_index,
