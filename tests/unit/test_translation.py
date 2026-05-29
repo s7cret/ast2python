@@ -546,6 +546,7 @@ def test_iteration_c_security_lower_tf_lowers_to_runtime_array_call():
         "request_security_lower_tf('TEST:AAA', '1', lambda request_rt: request_rt.close.current"
         in result.code
     )
+    assert 'expression_hint="close"' in result.code
     compile(result.code, "security_lower_tf.py", "exec")
 
 

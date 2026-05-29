@@ -45,7 +45,7 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
 from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
 
-STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
+STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "wma", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "dev", "correlation", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
 DECLARATION_CONTEXT_FIELDS = {
     "indicator": {
         "overlay",
@@ -536,6 +536,9 @@ class Translator:
             "pine_gte",
             "pine_lt",
             "pine_lte",
+            "pine_int",
+            "pine_float",
+            "pine_str",
         ):
             self.ctx.imports.require_from("pinelib.core", name)
         self.ctx.imports.require_from("pinelib.request", "security", alias="request_security")
@@ -2039,6 +2042,8 @@ class Translator:
             name = str(base.field("name"))
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}[{offset}]"
+            if name in TIME_COMPONENT_BUILTINS:
+                return f"{runtime_expr}.expr_history({runtime_expr}.timefunc.{name}(runtime={runtime_expr}), {offset}, state_id=\"{state_id_for_call(self.ctx, node, name + '_history')}\")"
             # Handle derived builtin series with history (e.g. hl2[1], hlc3[2])
             if name == "hl2":
                 return f"pine_div(pine_add({runtime_expr}.high[{offset}], {runtime_expr}.low[{offset}]), 2)"
@@ -2126,6 +2131,14 @@ class Translator:
             return self._translate_timestamp_call(node)
         if callee_chain in {"time", "time_close"}:
             return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
+        if callee_chain == "timeframe.change":
+            arguments = self._call_arguments(node)
+            rendered = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in arguments
+            ]
+            self.ctx.coverage.builtin(callee_chain)
+            return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
         if callee_chain in {"na", "nz", "fixnan"}:
             return self._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
         if callee_chain.startswith("strategy.") and callee_chain not in {
@@ -2180,11 +2193,18 @@ class Translator:
             return f"{callee_chain}({', '.join(pieces)})"
         # Type-cast builtins: emit as direct Python builtins
         if callee_chain in {"int", "float", "bool", "str"}:
+            helper = {
+                "int": "pine_int",
+                "float": "pine_float",
+                "bool": "pine_bool",
+                "str": "pine_str",
+            }[callee_chain]
+            self.ctx.imports.require_from("pinelib.core", helper)
             pieces = [
                 self.translate_expression(arg, runtime_expr=runtime_expr)
                 for _, arg in self._call_arguments(node)
             ]
-            return f"{callee_chain}({', '.join(pieces)})"
+            return f"{helper}({', '.join(pieces)})"
         self.ctx.add_diagnostic(
             UNKNOWN_OVERLOAD,
             f"unknown or unsupported call overload: {callee_chain}",
@@ -2282,6 +2302,10 @@ class Translator:
             if name is None:
                 continue
             kwargs.append(f"{name}={self.translate_expression(arg, runtime_expr=runtime_expr)}")
+        if expression.kind == "Identifier":
+            expression_name = str(expression.field("name"))
+            if expression_name in BUILTIN_SERIES:
+                kwargs.append(f'expression_hint="{expression_name}"')
         kwargs.extend(
             [
                 f"runtime={runtime_expr}",

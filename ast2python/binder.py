@@ -106,7 +106,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     "ta.change": S(
         "ta.change",
         (
-            P("source", NUMERIC_OR_BOOL, "series"),
+            P("source", ANY, "series"),
             P("length", frozenset({"int"}), "simple", required=False),
         ),
     ),
@@ -904,9 +904,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         ),
     ),
     "array.push": S("array.push", (P("id", REFERENCE, "series"), P("value", ANY, "series"))),
-    "array.get": S(
-        "array.get", (P("id", REFERENCE, "series"), P("index", frozenset({"int"}), "series"))
-    ),
+    "array.get": S("array.get", (P("id", ANY, "series"), P("index", frozenset({"int"}), "series"))),
     "array.set": S(
         "array.set",
         (
@@ -915,7 +913,11 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("value", ANY, "series"),
         ),
     ),
-    "array.size": S("array.size", (P("id", REFERENCE, "series"),)),
+    "array.size": S("array.size", (P("id", ANY, "series"),)),
+    "timeframe.change": S(
+        "timeframe.change",
+        (P("timeframe", frozenset({"string", "object"}), "series"),),
+    ),
     "array.copy": S("array.copy", (P("id", REFERENCE, "series"),)),
     "array.shift": S(
         "array.shift",
