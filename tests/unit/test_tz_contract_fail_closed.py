@@ -54,6 +54,7 @@ def test_allow_invalid_ast_marks_unsafe():
         p, module_name="bad", compile_profile="diagnostic", allow_invalid_ast=True
     )
     assert result.metadata["parity_safe"] is False
+    assert result.metadata["unsafe"] is True
     assert result.metadata["compile_profile"] == "diagnostic"
     assert any("allow_invalid_ast" in risk for risk in result.metadata["parity_risks"])
 
@@ -122,6 +123,7 @@ def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():
         allow_unsupported_request_stubs=True,
     )
     assert result.metadata["parity_safe"] is False
+    assert result.metadata["unsafe"] is True
     assert "unsupported_request_stub" in result.metadata["unsupported_features"]
 
 
@@ -136,6 +138,7 @@ def test_external_import_fails_by_default_and_stub_marks_unsafe():
         allow_external_library_stubs=True,
     )
     assert result.metadata["parity_safe"] is False
+    assert result.metadata["unsafe"] is True
     assert "external_library_stubs" in result.metadata["unsupported_features"]
 
 
@@ -211,4 +214,5 @@ def test_cli_rejects_error_and_allow_risk_writes_unsafe_metadata(tmp_path):
     assert ok.returncode == 0, ok.stderr
     metadata = json.loads((out / "bad.meta.json").read_text(encoding="utf-8"))
     assert metadata["parity_safe"] is False
+    assert metadata["unsafe"] is True
     assert metadata["compile_profile"] == "diagnostic"

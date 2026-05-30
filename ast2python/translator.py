@@ -3506,6 +3506,7 @@ class Translator:
                 self.ctx.import_aliases.values(), key=lambda item: item["alias"]
             ),
             "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),
+            "unsafe": self.compile_profile != "production" or not self.parity_safe,
             "parity_safe": self.parity_safe,
             "codegen_safe": not any(d.severity is Severity.ERROR for d in self.ctx.diagnostics),
             "runtime_contract_safe": self.parity_safe,

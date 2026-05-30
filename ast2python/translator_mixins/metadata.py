@@ -569,6 +569,7 @@ def build_metadata(
             translator.ctx.import_aliases.values(), key=lambda item: item["alias"]
         ),
         "unsupported_declaration_args": sorted(set(translator.ctx.unsupported_declaration_args)),
+        "unsafe": translator.compile_profile != "production" or not translator.parity_safe,
         "parity_safe": translator.parity_safe,
         "codegen_safe": not any(d.severity is Sev.ERROR for d in translator.ctx.diagnostics),
         "runtime_contract_safe": translator.parity_safe,
