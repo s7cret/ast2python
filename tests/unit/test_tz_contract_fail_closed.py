@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from ast2python.errors import ValidationError, UnsupportedBuiltinError
+from ast2python.profiles import CompileProfile
 from ast2python.translator import translate_ast
 
 
@@ -107,6 +108,22 @@ def test_contract_override_marks_unsafe():
 def test_production_compile_profile_rejects_unsafe_overrides(kwargs):
     with pytest.raises(ValidationError, match="production compile profile forbids unsafe overrides"):
         translate_ast(program(), module_name="unsafe", **kwargs)
+
+
+def test_compile_profile_factories_cover_diagnostic_unsafe_gates():
+    diagnostic = CompileProfile.diagnostic(
+        allow_external_library_stubs=True,
+        allow_unsupported_request_stubs=True,
+        allow_invalid_ast=True,
+        allow_implicit_version_rewrite=True,
+        allow_subprocess_fallback=True,
+    )
+    assert diagnostic.name == "diagnostic"
+    assert diagnostic.allow_implicit_version_rewrite is True
+    assert diagnostic.allow_subprocess_fallback is True
+
+    with pytest.raises(ValueError, match="unsafe overrides"):
+        CompileProfile.from_options("production", allow_subprocess_fallback=True)
 
 
 def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():

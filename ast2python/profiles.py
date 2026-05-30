@@ -29,12 +29,16 @@ class CompileProfile:
         allow_external_library_stubs: bool = False,
         allow_unsupported_request_stubs: bool = False,
         allow_invalid_ast: bool = False,
+        allow_implicit_version_rewrite: bool = False,
+        allow_subprocess_fallback: bool = False,
     ) -> "CompileProfile":
         return cls(
             name="diagnostic",
             allow_external_library_stubs=allow_external_library_stubs,
             allow_unsupported_request_stubs=allow_unsupported_request_stubs,
             allow_invalid_ast=allow_invalid_ast,
+            allow_implicit_version_rewrite=allow_implicit_version_rewrite,
+            allow_subprocess_fallback=allow_subprocess_fallback,
         )
 
     @classmethod
@@ -45,9 +49,17 @@ class CompileProfile:
         allow_external_library_stubs: bool = False,
         allow_unsupported_request_stubs: bool = False,
         allow_invalid_ast: bool = False,
+        allow_implicit_version_rewrite: bool = False,
+        allow_subprocess_fallback: bool = False,
     ) -> "CompileProfile":
         if name == "production":
-            if allow_external_library_stubs or allow_unsupported_request_stubs or allow_invalid_ast:
+            if (
+                allow_external_library_stubs
+                or allow_unsupported_request_stubs
+                or allow_invalid_ast
+                or allow_implicit_version_rewrite
+                or allow_subprocess_fallback
+            ):
                 raise ValueError("production compile profile forbids unsafe overrides")
             return cls.production()
         if name == "diagnostic":
@@ -55,5 +67,7 @@ class CompileProfile:
                 allow_external_library_stubs=allow_external_library_stubs,
                 allow_unsupported_request_stubs=allow_unsupported_request_stubs,
                 allow_invalid_ast=allow_invalid_ast,
+                allow_implicit_version_rewrite=allow_implicit_version_rewrite,
+                allow_subprocess_fallback=allow_subprocess_fallback,
             )
         raise ValueError(f"unsupported compile profile: {name}")
