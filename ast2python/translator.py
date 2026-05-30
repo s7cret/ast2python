@@ -29,6 +29,7 @@ from ast2python.diagnostics import (
     Severity,
 )
 from ast2python.emitter import CodeEmitter
+from ast2python.emitters.alerts import PineAlertEmitter
 from ast2python.emitters.inputs import INPUT_CALLS, PineInputEmitter
 from ast2python.emitters.time import DATE_HELPERS, PineTimeEmitter
 from ast2python.errors import (
@@ -238,6 +239,7 @@ class Translator:
         self.ctx = TranslationContext(strict=strict)
         self.emitter = CodeEmitter(self.ctx.source_map, emit_source_comments=emit_source_comments)
         self.member_chain = member_chain
+        self.alert_emitter = PineAlertEmitter(self)
         self.input_emitter = PineInputEmitter(self)
         self.time_emitter = PineTimeEmitter(self)
         self.global_series: list[tuple[VariableInfo, str]] = []
@@ -1347,23 +1349,7 @@ class Translator:
         self.ctx.exit_scope()
 
     def _emit_alert_condition(self, node: ASTNode) -> None:
-        args = []
-        condition = node.child("condition") or node.child("expression")
-        if condition is not None:
-            args.append(self.translate_expression(condition))
-        title = node.child("title")
-        message = node.child("message")
-        kwargs = []
-        if title is not None:
-            kwargs.append(f"title={self.translate_expression(title)}")
-        if message is not None:
-            kwargs.append(f"message={self.translate_expression(message)}")
-        self.ctx.coverage.builtin("alertcondition")
-        self.emitter.line(
-            f"self._record_alert('alertcondition'{', ' if args or kwargs else ''}{', '.join(args + kwargs)}, source_map=\"{node.loc.source_map if node.loc else ''}\")",  # noqa: E501
-            loc=node.loc,
-            source=node.source,
-        )
+        self.alert_emitter.emit_alert_condition_statement(node)
 
     def _unsupported(self, node: ASTNode, message: str) -> NoReturn:
         self.ctx.add_diagnostic(
@@ -2260,16 +2246,7 @@ class Translator:
 
     def _translate_alert_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
-        args: list[str] = []
-        kwargs: list[str] = []
-        for arg_name, arg in self._call_arguments(node):
-            rendered = self.translate_expression(arg)
-            if arg_name is None:
-                args.append(rendered)
-            else:
-                kwargs.append(f"{arg_name}={rendered}")
-        self.ctx.coverage.builtin(name)
-        return f'self._record_alert({name!r}{", " if args or kwargs else ""}{", ".join(args + kwargs)}, source_map="{node.loc.source_map if node.loc else ""}")'  # noqa: E501
+        return self.alert_emitter.translate_alert_call(name, node)
 
     def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
