@@ -50,8 +50,11 @@ def test_embedded_frontend_error_rejected_by_default():
 
 def test_allow_invalid_ast_marks_unsafe():
     p = program(diagnostics=[{"severity": "ERROR", "code": "P2A9999", "message": "boom"}])
-    result = translate_ast(p, module_name="bad", allow_invalid_ast=True)
+    result = translate_ast(
+        p, module_name="bad", compile_profile="diagnostic", allow_invalid_ast=True
+    )
     assert result.metadata["parity_safe"] is False
+    assert result.metadata["compile_profile"] == "diagnostic"
     assert any("allow_invalid_ast" in risk for risk in result.metadata["parity_risks"])
 
 
@@ -73,14 +76,36 @@ def test_non_pass_frontend_gates_rejected_and_override_marks_unsafe():
     p["producer_metadata"]["semantic_gate"] = "not_run"
     with pytest.raises(ValidationError):
         translate_ast(p, module_name="gate_bad")
-    result = translate_ast(p, module_name="gate_override", allow_invalid_ast=True)
+    result = translate_ast(
+        p, module_name="gate_override", compile_profile="diagnostic", allow_invalid_ast=True
+    )
     assert result.metadata["parity_safe"] is False
     assert any(d["code"] == "P2A_FRONTEND_GATE_BLOCK" for d in result.metadata["diagnostics"])
 
 
 def test_contract_override_marks_unsafe():
-    result = translate_ast(program(producer_metadata={}), module_name="missing", allow_contract_mismatch=True)
+    result = translate_ast(
+        program(producer_metadata={}),
+        module_name="missing",
+        compile_profile="diagnostic",
+        allow_contract_mismatch=True,
+    )
     assert result.metadata["parity_safe"] is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"allow_invalid_ast": True},
+        {"allow_contract_mismatch": True},
+        {"allow_external_library_stubs": True},
+        {"allow_unsupported_request_stubs": True},
+        {"allow_realtime_local_simulation": True},
+    ],
+)
+def test_production_compile_profile_rejects_unsafe_overrides(kwargs):
+    with pytest.raises(ValidationError, match="production compile profile forbids unsafe overrides"):
+        translate_ast(program(), module_name="unsafe", **kwargs)
 
 
 def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():
@@ -90,7 +115,12 @@ def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():
     }])
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(p, module_name="request_bad")
-    result = translate_ast(p, module_name="request_stub", allow_unsupported_request_stubs=True)
+    result = translate_ast(
+        p,
+        module_name="request_stub",
+        compile_profile="diagnostic",
+        allow_unsupported_request_stubs=True,
+    )
     assert result.metadata["parity_safe"] is False
     assert "unsupported_request_stub" in result.metadata["unsupported_features"]
 
@@ -99,7 +129,12 @@ def test_external_import_fails_by_default_and_stub_marks_unsafe():
     p = program(items=[{"kind": "ImportDeclaration", "path": "user/lib/1", "owner": "user", "library": "lib", "version": "1", "alias": "lib"}])
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(p, module_name="import_bad")
-    result = translate_ast(p, module_name="import_stub", allow_external_library_stubs=True)
+    result = translate_ast(
+        p,
+        module_name="import_stub",
+        compile_profile="diagnostic",
+        allow_external_library_stubs=True,
+    )
     assert result.metadata["parity_safe"] is False
     assert "external_library_stubs" in result.metadata["unsupported_features"]
 
@@ -120,7 +155,12 @@ def test_calc_on_every_tick_rejected_by_default_and_override_marks_unsafe():
     }
     with pytest.raises(ValidationError):
         translate_ast(p, module_name="rt_bad")
-    result = translate_ast(p, module_name="rt_local", allow_realtime_local_simulation=True)
+    result = translate_ast(
+        p,
+        module_name="rt_local",
+        compile_profile="diagnostic",
+        allow_realtime_local_simulation=True,
+    )
     assert result.metadata["parity_safe"] is False
     assert "realtime_local_simulation" in result.metadata["unsupported_features"]
     assert any(d["code"] == "P2A_CALC_ON_EVERY_TICK_UNSAFE" for d in result.metadata["diagnostics"])
@@ -135,7 +175,12 @@ def test_varip_rejected_by_default_and_override_marks_unsafe():
     }])
     with pytest.raises(ValidationError):
         translate_ast(p, module_name="varip_bad")
-    result = translate_ast(p, module_name="varip_local", allow_realtime_local_simulation=True)
+    result = translate_ast(
+        p,
+        module_name="varip_local",
+        compile_profile="diagnostic",
+        allow_realtime_local_simulation=True,
+    )
     assert result.metadata["parity_safe"] is False
     assert "varip_local_simulation" in result.metadata["unsupported_features"]
     assert any(d["code"] == "P2A_VARIP_UNSAFE" for d in result.metadata["diagnostics"])
@@ -149,7 +194,21 @@ def test_cli_rejects_error_and_allow_risk_writes_unsafe_metadata(tmp_path):
     cmd = [sys.executable, "-m", "ast2python.cli.main", "translate", str(ast_path), "-o", str(out)]
     fail = subprocess.run(cmd, cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
     assert fail.returncode != 0
-    ok = subprocess.run(cmd + ["--allow-invalid-ast"], cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
+    prod_unsafe = subprocess.run(
+        cmd + ["--allow-invalid-ast"],
+        cwd=Path(__file__).resolve().parents[2],
+        text=True,
+        capture_output=True,
+    )
+    assert prod_unsafe.returncode != 0
+    assert "production compile profile forbids unsafe overrides" in prod_unsafe.stderr
+    ok = subprocess.run(
+        cmd + ["--compile-profile", "diagnostic", "--allow-invalid-ast"],
+        cwd=Path(__file__).resolve().parents[2],
+        text=True,
+        capture_output=True,
+    )
     assert ok.returncode == 0, ok.stderr
     metadata = json.loads((out / "bad.meta.json").read_text(encoding="utf-8"))
     assert metadata["parity_safe"] is False
+    assert metadata["compile_profile"] == "diagnostic"

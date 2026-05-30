@@ -47,7 +47,12 @@ def test_stage7i_realtime_strategy_codegen_rejects_by_default_and_allows_local_s
     with pytest.raises(ValidationError):
         translate_ast(program, module_name='stage7i_realtime_default')
 
-    result = translate_ast(program, module_name='stage7i_realtime_local', allow_realtime_local_simulation=True)
+    result = translate_ast(
+        program,
+        module_name='stage7i_realtime_local',
+        compile_profile='diagnostic',
+        allow_realtime_local_simulation=True,
+    )
 
     assert result.metadata['parity_safe'] is False
     assert 'realtime_local_simulation' in result.metadata['unsupported_features']

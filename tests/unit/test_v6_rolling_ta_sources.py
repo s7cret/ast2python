@@ -11,7 +11,13 @@ def get_generated_code(module_name: str, pine_code: str) -> str:
     """Translate and return the generated source code."""
     parsed = parse_code(pine_code, runtime_contract_v1_4_options(source_name="test.pine"))
     ast_dict = ast_to_dict(parsed.ast)
-    result = translate_ast(ast_dict, module_name=module_name, allow_invalid_ast=True, allow_contract_mismatch=True)
+    result = translate_ast(
+        ast_dict,
+        module_name=module_name,
+        compile_profile="diagnostic",
+        allow_invalid_ast=True,
+        allow_contract_mismatch=True,
+    )
     return result.code
 
 

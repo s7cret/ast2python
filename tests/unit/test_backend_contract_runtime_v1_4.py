@@ -292,7 +292,12 @@ def test_varip_local_simulation_lowers_to_runtime_varip_state_and_executes():
         ],
         kind="strategy",
     )
-    result = translate_ast(p, module_name="varip_contract", allow_realtime_local_simulation=True)
+    result = translate_ast(
+        p,
+        module_name="varip_contract",
+        compile_profile="diagnostic",
+        allow_realtime_local_simulation=True,
+    )
     assert "get_varip_state" in result.code
     assert "self.rt.varip_state" in result.code
     assert result.metadata["parity_safe"] is False
@@ -314,7 +319,12 @@ def test_varip_realtime_rollback_checkpoint_preserves_generated_varip_state():
         ],
         kind="strategy",
     )
-    result = translate_ast(p, module_name="varip_rollback_contract", allow_realtime_local_simulation=True)
+    result = translate_ast(
+        p,
+        module_name="varip_rollback_contract",
+        compile_profile="diagnostic",
+        allow_realtime_local_simulation=True,
+    )
     mod = load_generated(result.code, "varip_rollback_contract")
     rt = runtime()
     script = mod.GeneratedStrategy(runtime=rt)

@@ -67,7 +67,10 @@ def test_strategy_realtime_and_broker_flags_lower_to_strategy_context_and_run_lo
         "items": [],
     }
     result = translate_ast(
-        program, module_name="iter_d_flags", allow_realtime_local_simulation=True
+        program,
+        module_name="iter_d_flags",
+        compile_profile="diagnostic",
+        allow_realtime_local_simulation=True,
     )
     assert result.metadata["parity_safe"] is False
     for expected in (

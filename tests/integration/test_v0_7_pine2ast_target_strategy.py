@@ -47,6 +47,7 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
         result = translate_ast(
             program,
             module_name=Path(relative).stem,
+            compile_profile="diagnostic",
             allow_external_library_stubs=True,
         )
         assert result.metadata["parity_safe"] is False
@@ -69,6 +70,7 @@ def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash(
     result = translate_ast(
         program,
         module_name="request_financial",
+        compile_profile="diagnostic",
         allow_unsupported_request_stubs=True,
     )
 

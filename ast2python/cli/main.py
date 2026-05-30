@@ -33,6 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
     translate_parser.add_argument("ast_path")
     translate_parser.add_argument("-o", "--output", required=True)
     translate_parser.add_argument("--module-name")
+    translate_parser.add_argument(
+        "--compile-profile", choices=["production", "diagnostic"], default="production"
+    )
     translate_parser.add_argument("--strict", action="store_true")
     translate_parser.add_argument("--no-source-comments", action="store_true")
     translate_parser.add_argument("--allow-invalid-ast", action="store_true")
@@ -44,6 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     translate_many_parser = subparsers.add_parser("translate-many")
     translate_many_parser.add_argument("ast_paths", nargs="+")
     translate_many_parser.add_argument("-o", "--output", required=True)
+    translate_many_parser.add_argument(
+        "--compile-profile", choices=["production", "diagnostic"], default="production"
+    )
     translate_many_parser.add_argument("--strict", action="store_true")
     translate_many_parser.add_argument("--no-source-comments", action="store_true")
     translate_many_parser.add_argument("--allow-invalid-ast", action="store_true")
@@ -84,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.ast_path,
                 args.output,
                 module_name=args.module_name,
+                compile_profile=args.compile_profile,
                 strict=args.strict,
                 emit_source_comments=not args.no_source_comments,
                 allow_invalid_ast=args.allow_invalid_ast,
@@ -96,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             return command_translate_many(
                 args.ast_paths,
                 args.output,
+                compile_profile=args.compile_profile,
                 strict=args.strict,
                 emit_source_comments=not args.no_source_comments,
                 allow_invalid_ast=args.allow_invalid_ast,
@@ -167,6 +175,7 @@ def command_translate(
     module_name: str | None,
     strict: bool,
     emit_source_comments: bool,
+    compile_profile: str = "production",
     allow_invalid_ast: bool = False,
     allow_contract_mismatch: bool = False,
     allow_external_library_stubs: bool = False,
@@ -174,6 +183,7 @@ def command_translate(
     allow_realtime_local_simulation: bool = False,
 ) -> int:
     translator = Translator(
+        compile_profile=compile_profile,
         strict=strict,
         emit_source_comments=emit_source_comments,
         allow_invalid_ast=allow_invalid_ast,
@@ -204,6 +214,7 @@ def command_translate_many(
     *,
     strict: bool,
     emit_source_comments: bool,
+    compile_profile: str = "production",
     allow_invalid_ast: bool = False,
     allow_contract_mismatch: bool = False,
     allow_external_library_stubs: bool = False,
@@ -215,6 +226,7 @@ def command_translate_many(
     has_error = False
     for ast_path in ast_paths:
         translator = Translator(
+            compile_profile=compile_profile,
             strict=strict,
             emit_source_comments=emit_source_comments,
             allow_invalid_ast=allow_invalid_ast,

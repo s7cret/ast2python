@@ -4,7 +4,7 @@ import ast as pyast
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, Literal, NoReturn
 
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
@@ -230,6 +230,7 @@ class Translator:
     def __init__(
         self,
         *,
+        compile_profile: Literal["production", "diagnostic"] = "production",
         strict: bool = False,
         emit_source_comments: bool = True,
         allow_invalid_ast: bool = False,
@@ -238,6 +239,22 @@ class Translator:
         allow_unsupported_request_stubs: bool = False,
         allow_realtime_local_simulation: bool = False,
     ) -> None:
+        if compile_profile not in {"production", "diagnostic"}:
+            raise ValidationError(f"unsupported compile profile: {compile_profile}")
+        unsafe_flags = {
+            "allow_invalid_ast": allow_invalid_ast,
+            "allow_contract_mismatch": allow_contract_mismatch,
+            "allow_external_library_stubs": allow_external_library_stubs,
+            "allow_unsupported_request_stubs": allow_unsupported_request_stubs,
+            "allow_realtime_local_simulation": allow_realtime_local_simulation,
+        }
+        enabled_unsafe_flags = sorted(name for name, enabled in unsafe_flags.items() if enabled)
+        if compile_profile == "production" and enabled_unsafe_flags:
+            raise ValidationError(
+                "production compile profile forbids unsafe overrides: "
+                + ", ".join(enabled_unsafe_flags)
+            )
+        self.compile_profile = compile_profile
         self.strict = strict
         self.emit_source_comments = emit_source_comments
         self.allow_invalid_ast = allow_invalid_ast
@@ -3485,6 +3502,7 @@ class Translator:
             "ast2python_version": __version__,
             "generator_milestone": f"v{__version__}",
             "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
+            "compile_profile": self.compile_profile,
             "pine_version": program.field("version", "language_version", default=6),
             "source_file": f"{module_name}.pine",
             "module_name": module_name,
@@ -3513,6 +3531,7 @@ class Translator:
 def translate_ast(
     program: ASTProgram | dict[str, Any],
     *,
+    compile_profile: Literal["production", "diagnostic"] = "production",
     strict: bool = False,
     emit_source_comments: bool = True,
     module_name: str | None = None,
@@ -3523,6 +3542,7 @@ def translate_ast(
     allow_realtime_local_simulation: bool = False,
 ) -> TranslationResult:
     return Translator(
+        compile_profile=compile_profile,
         strict=strict,
         emit_source_comments=emit_source_comments,
         allow_invalid_ast=allow_invalid_ast,
