@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import ast as pyast
-import json
-from dataclasses import dataclass, field
+from dataclasses import field
 from pathlib import Path
 from typing import Any, Literal, NoReturn
 
@@ -39,6 +38,8 @@ from ast2python.errors import (
     ValidationError,
 )
 from ast2python.naming import snake_case
+from ast2python.profiles import CompileProfile
+from ast2python.result import TranslationResult
 from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
@@ -192,40 +193,6 @@ def literal_value(node: ASTNode) -> Any:
     return node.field("value")
 
 
-@dataclass
-class TranslationResult:
-    code: str
-    metadata: dict[str, Any]
-    source_map: list[dict[str, Any]]
-    coverage: dict[str, Any]
-    diagnostics: list[Diagnostic]
-    module_name: str
-
-    def write_to(self, output_dir: str | Path) -> dict[str, Path]:
-        output = Path(output_dir)
-        output.mkdir(parents=True, exist_ok=True)
-        py_path = output / f"{self.module_name}.py"
-        meta_path = output / f"{self.module_name}.meta.json"
-        sourcemap_path = output / f"{self.module_name}.sourcemap.json"
-        coverage_path = output / f"{self.module_name}.coverage.json"
-        py_path.write_text(self.code, encoding="utf-8")
-        meta_path.write_text(
-            json.dumps(self.metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        sourcemap_path.write_text(
-            json.dumps(self.source_map, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        coverage_path.write_text(
-            json.dumps(self.coverage, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        return {
-            "python": py_path,
-            "metadata": meta_path,
-            "source_map": sourcemap_path,
-            "coverage": coverage_path,
-        }
-
-
 class Translator:
     def __init__(
         self,
@@ -239,29 +206,43 @@ class Translator:
         allow_unsupported_request_stubs: bool = False,
         allow_realtime_local_simulation: bool = False,
     ) -> None:
-        if compile_profile not in {"production", "diagnostic"}:
-            raise ValidationError(f"unsupported compile profile: {compile_profile}")
-        unsafe_flags = {
-            "allow_invalid_ast": allow_invalid_ast,
-            "allow_contract_mismatch": allow_contract_mismatch,
-            "allow_external_library_stubs": allow_external_library_stubs,
-            "allow_unsupported_request_stubs": allow_unsupported_request_stubs,
-            "allow_realtime_local_simulation": allow_realtime_local_simulation,
-        }
-        enabled_unsafe_flags = sorted(name for name, enabled in unsafe_flags.items() if enabled)
-        if compile_profile == "production" and enabled_unsafe_flags:
+        try:
+            profile = CompileProfile.from_options(
+                compile_profile,
+                allow_external_library_stubs=allow_external_library_stubs,
+                allow_unsupported_request_stubs=allow_unsupported_request_stubs,
+                allow_invalid_ast=allow_invalid_ast
+                or allow_contract_mismatch
+                or allow_realtime_local_simulation,
+            )
+        except ValueError as exc:
+            if str(exc) != "production compile profile forbids unsafe overrides":
+                raise ValidationError(str(exc)) from exc
+            unsafe_flags = {
+                "allow_invalid_ast": allow_invalid_ast,
+                "allow_contract_mismatch": allow_contract_mismatch,
+                "allow_external_library_stubs": allow_external_library_stubs,
+                "allow_unsupported_request_stubs": allow_unsupported_request_stubs,
+                "allow_realtime_local_simulation": allow_realtime_local_simulation,
+            }
+            enabled_unsafe_flags = sorted(
+                name for name, enabled in unsafe_flags.items() if enabled
+            )
             raise ValidationError(
                 "production compile profile forbids unsafe overrides: "
                 + ", ".join(enabled_unsafe_flags)
-            )
-        self.compile_profile = compile_profile
+            ) from exc
+        self.profile = profile
+        self.compile_profile = profile.name
         self.strict = strict
         self.emit_source_comments = emit_source_comments
-        self.allow_invalid_ast = allow_invalid_ast
-        self.allow_contract_mismatch = allow_contract_mismatch
-        self.allow_external_library_stubs = allow_external_library_stubs
-        self.allow_unsupported_request_stubs = allow_unsupported_request_stubs
-        self.allow_realtime_local_simulation = allow_realtime_local_simulation
+        self.allow_invalid_ast = profile.allow_invalid_ast and allow_invalid_ast
+        self.allow_contract_mismatch = profile.allow_invalid_ast and allow_contract_mismatch
+        self.allow_external_library_stubs = profile.allow_external_library_stubs
+        self.allow_unsupported_request_stubs = profile.allow_unsupported_request_stubs
+        self.allow_realtime_local_simulation = (
+            profile.allow_invalid_ast and allow_realtime_local_simulation
+        )
         self.parity_safe = True
         self.unsupported_features: set[str] = set()
         self.parity_risks: list[str] = []

@@ -19,6 +19,7 @@ def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
     assert ast2python.__all__ == [
         "RUNTIME_CONTRACT_VERSION",
         "TranslationResult",
+        "CompileProfile",
         "Translator",
         "__version__",
         "translate_ast",
