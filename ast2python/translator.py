@@ -29,6 +29,7 @@ from ast2python.diagnostics import (
     Severity,
 )
 from ast2python.emitter import CodeEmitter
+from ast2python.emitters.inputs import INPUT_CALLS, PineInputEmitter
 from ast2python.emitters.time import DATE_HELPERS, PineTimeEmitter
 from ast2python.errors import (
     ScopeResolutionError,
@@ -131,17 +132,6 @@ LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
     "time",
 }
 REFERENCE_TYPES = {"array", "map", "matrix", "PineArray", "PineMap", "PineMatrix"}
-INPUT_CALLS = {
-    "input.int",
-    "input.float",
-    "input.bool",
-    "input.string",
-    "input.timeframe",
-    "input.session",
-    "input.source",
-    "input.time",
-    "input.symbol",
-}
 STRATEGY_CALLS_P0 = {
     "strategy.entry",
     "strategy.order",
@@ -247,6 +237,8 @@ class Translator:
         self.parity_risks: list[str] = []
         self.ctx = TranslationContext(strict=strict)
         self.emitter = CodeEmitter(self.ctx.source_map, emit_source_comments=emit_source_comments)
+        self.member_chain = member_chain
+        self.input_emitter = PineInputEmitter(self)
         self.time_emitter = PineTimeEmitter(self)
         self.global_series: list[tuple[VariableInfo, str]] = []
         self.input_series: list[tuple[VariableInfo, str, dict[str, Any]]] = []
@@ -2415,13 +2407,7 @@ class Translator:
         return f"self._visual_call({name!r}{', ' if pieces else ''}{', '.join(pieces)})"
 
     def _translate_input_runtime_lookup(self, node: ASTNode) -> str:
-        arguments = self._call_arguments(node)
-        if not arguments:
-            raise UnsupportedBuiltinError("input.* requires a default value")
-        default_node = arguments[0][1]
-        if default_node.kind == "Literal":
-            return repr(literal_value(default_node))
-        return self.translate_expression(default_node)
+        return self.input_emitter.translate_runtime_lookup(node)
 
     def _bind_or_raise(self, name: str, node: ASTNode) -> None:
         arg_nodes = self._call_arguments(node)
@@ -2752,77 +2738,12 @@ class Translator:
             raise UnsupportedBuiltinError("unsafe request.security capture")
 
     def _is_input_call(self, node: ASTNode) -> bool:
-        callee = node.child("callee")
-        return (
-            node.kind == "CallExpr" and callee is not None and member_chain(callee) in INPUT_CALLS
-        )
+        return self.input_emitter.is_input_call(node)
 
     def _build_input_metadata(
         self, declaration: ASTNode, initializer: ASTNode, py_name: str
     ) -> dict[str, Any]:
-        callee = initializer.child("callee")
-        chain = None if callee is None else member_chain(callee)
-        if chain is None:
-            raise UnsupportedBuiltinError("input declaration is missing a valid callee")
-        info_type = chain.split(".", 1)[1]
-        args = self._call_arguments(initializer)
-        default_node = args[0][1]
-        default_rendered = self.translate_expression(default_node)
-        default_value = (
-            literal_value(default_node) if default_node.kind == "Literal" else default_rendered
-        )
-        metadata = {
-            "pine_name": declaration.field("name"),
-            "py_name": py_name,
-            "type": {
-                "timeframe": "string",
-                "session": "string",
-                "time": "int",
-                "symbol": "string",  # symbol name is a string for request.security
-            }.get(info_type, info_type),
-            "qualifier": "input",
-            "default": default_value,
-            "title": None,
-            "minval": None,
-            "maxval": None,
-            "step": None,
-            "options": None,
-            "group": None,
-            "inline": None,
-            "tooltip": None,
-            "confirm": False,
-            "display": "all",
-            "active": True,
-            "source_map": declaration.loc.source_map if declaration.loc else None,
-        }
-        positional_meta = ["title"]
-        for index, (name, value) in enumerate(args[1:]):
-            key = name or (positional_meta[index] if index < len(positional_meta) else None)
-            if key in {
-                "title",
-                "minval",
-                "maxval",
-                "step",
-                "options",
-                "group",
-                "inline",
-                "tooltip",
-                "confirm",
-                "display",
-                "active",
-                "defval",
-            }:
-                if key == "defval":
-                    continue
-                metadata[key] = self._literal_or_rendered(value, self.translate_expression(value))
-        public_meta = dict(metadata)
-        return {
-            "type": metadata["type"],
-            "default_python": (
-                repr(default_value) if default_node.kind == "Literal" else default_rendered
-            ),
-            "public": public_meta,
-        }
+        return self.input_emitter.build_metadata(declaration, initializer, py_name)
 
     def _infer_dtype(self, node: ASTNode | None) -> str:
         return self._infer_type_info(node).base_type

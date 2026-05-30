@@ -89,6 +89,26 @@ def test_translator_delegates_request_detection_to_metadata_helper() -> None:
     assert "chain.startswith(\"request.\")" not in source[any_start:any_end]
 
 
+def test_translator_delegates_input_helpers_to_input_emitter() -> None:
+    source = Path("ast2python/translator.py").read_text(encoding="utf-8")
+
+    runtime_start = source.index("    def _translate_input_runtime_lookup")
+    runtime_end = source.index("    def _bind_or_raise", runtime_start)
+    is_start = source.index("    def _is_input_call")
+    is_end = source.index("    def _build_input_metadata", is_start)
+    metadata_start = is_end
+    metadata_end = source.index("    def _infer_dtype", metadata_start)
+
+    assert "return self.input_emitter.translate_runtime_lookup(node)" in source[runtime_start:runtime_end]
+    assert "return self.input_emitter.is_input_call(node)" in source[is_start:is_end]
+    assert (
+        "return self.input_emitter.build_metadata(declaration, initializer, py_name)"
+        in source[metadata_start:metadata_end]
+    )
+    assert "input.* requires a default value" not in source
+    assert "input declaration is missing a valid callee" not in source
+
+
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
     assert result.metadata["generator_milestone"] == f"v{__version__}"
