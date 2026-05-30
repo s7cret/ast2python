@@ -29,6 +29,7 @@ from ast2python.diagnostics import (
     Severity,
 )
 from ast2python.emitter import CodeEmitter
+from ast2python.emitters.time import DATE_HELPERS, PineTimeEmitter
 from ast2python.errors import (
     ScopeResolutionError,
     TypeResolutionError,
@@ -128,16 +129,6 @@ LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES = {
     "timeframe",
     "session",
     "time",
-}
-DATE_HELPERS = {
-    "year",
-    "month",
-    "weekofyear",
-    "dayofmonth",
-    "dayofweek",
-    "hour",
-    "minute",
-    "second",
 }
 REFERENCE_TYPES = {"array", "map", "matrix", "PineArray", "PineMap", "PineMatrix"}
 INPUT_CALLS = {
@@ -256,6 +247,7 @@ class Translator:
         self.parity_risks: list[str] = []
         self.ctx = TranslationContext(strict=strict)
         self.emitter = CodeEmitter(self.ctx.source_map, emit_source_comments=emit_source_comments)
+        self.time_emitter = PineTimeEmitter(self)
         self.global_series: list[tuple[VariableInfo, str]] = []
         self.input_series: list[tuple[VariableInfo, str, dict[str, Any]]] = []
         self.var_flags: list[VariableInfo] = []
@@ -2038,11 +2030,15 @@ class Translator:
                 callee_chain, node, runtime_expr=runtime_expr
             )
         if callee_chain in DATE_HELPERS:
-            return self._translate_date_helper_call(callee_chain, node, runtime_expr=runtime_expr)
+            return self.time_emitter.translate_date_helper_call(
+                callee_chain, node, runtime_expr=runtime_expr
+            )
         if callee_chain == "timestamp":
-            return self._translate_timestamp_call(node)
+            return self.time_emitter.translate_timestamp_call(node)
         if callee_chain in {"time", "time_close"}:
-            return self._translate_time_call(callee_chain, node, runtime_expr=runtime_expr)
+            return self.time_emitter.translate_time_call(
+                callee_chain, node, runtime_expr=runtime_expr
+            )
         if callee_chain == "timeframe.change":
             arguments = self._call_arguments(node)
             rendered = [
@@ -2283,146 +2279,6 @@ class Translator:
         self.ctx.coverage.builtin(name)
         return f'self._record_alert({name!r}{", " if args or kwargs else ""}{", ".join(args + kwargs)}, source_map="{node.loc.source_map if node.loc else ""}")'  # noqa: E501
 
-    def _translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
-        args = []
-        for arg_name, arg in self._call_arguments(node):
-            # Pine calendar helpers accept an optional timestamp, but PineLib v1 derives
-            # calendar fields from the active runtime bar. Preserve supported named
-            # arguments such as timezone and avoid emitting incompatible positionals.
-            if arg_name is None:
-                continue
-            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-            args.append(f"{arg_name}={rendered}")
-        args.append(f"runtime={runtime_expr}")
-        self.ctx.coverage.builtin(name)
-        return f"{runtime_expr}.timefunc.{name}({', '.join(args)})"
-
-    def _translate_timestamp_call(self, node: ASTNode) -> str:
-        """Lower Pine timestamp() to Unix milliseconds integer.
-
-        Handles two forms:
-          1. timestamp("YYYY-MM-DD HH:MM:SS +ZZZZ")
-          2. timestamp("UTC", year, month, day, hour, minute, second)
-        """
-        arguments = self._call_arguments(node)
-        if not arguments:
-            raise UnsupportedBuiltinError("timestamp requires at least one argument")
-        arg_name, arg_expr = arguments[0]
-        if arg_name is not None:
-            raise UnsupportedBuiltinError(
-                "timestamp does not support named arguments"
-            )
-        # Translate the argument to get the rendered string
-        rendered = self.translate_expression(arg_expr)
-        # Extract the string literal value
-        literal_value = self._literal_or_rendered(arg_expr, rendered)
-
-        # Multi-argument form: timestamp("UTC", year, month, day, hour, minute, second)
-        # or timestamp("America/New_York", year, month, day, hour, minute, second)
-        if len(arguments) > 1:
-            if not isinstance(literal_value, str):
-                raise UnsupportedBuiltinError(
-                    f"timestamp first argument must be a timezone string, got {type(literal_value).__name__}"
-                )
-            return self._translate_timestamp_components(literal_value, arguments[1:])
-
-        if not isinstance(literal_value, str):
-            raise UnsupportedBuiltinError(
-                f"timestamp argument must be a string literal, got {type(literal_value).__name__}"
-            )
-        # Parse the Pine timestamp string format: "YYYY-MM-DD HH:MM:SS +ZZZZ"
-        # Also support: "YYYY-MM-DDTHH:MM:SS+ZZZZ" (ISO variant)
-        # and "YYYY-MM-DD HH:MM +ZZZZ" (no seconds)
-        unix_ms = self._parse_pine_timestamp(literal_value)
-        self.ctx.coverage.builtin("timestamp")
-        return str(unix_ms)
-
-    def _translate_timestamp_components(
-        self, timezone_str: str, components: list[tuple[str | None, ASTNode]]
-    ) -> str:
-        """Handle timestamp("TZ", year, month, day, hour, minute, second).
-
-        If all components are integer literals, evaluate at compile time.
-        Otherwise generate a runtime call to timefunc.timestamp_components().
-        """
-        from datetime import datetime, timezone as tz_module
-        # Validate we have enough components (5 required: year,month,day,hour,minute; 6th=second is optional)
-        if len(components) < 5:
-            raise UnsupportedBuiltinError(
-                f"timestamp with timezone requires at least 6 arguments (timezone, year, month, day, hour, minute), got {len(components) + 1}"
-            )
-        # Collect component values and track if any are runtime expressions
-        component_values = []
-        all_literal = True
-        for i, (name, node) in enumerate(components[:6]):
-            if name is not None:
-                raise UnsupportedBuiltinError(
-                    "timestamp component arguments must be positional"
-                )
-            rendered = self.translate_expression(node)
-            val = self._literal_or_rendered(node, rendered)
-            if isinstance(val, (int, float)):
-                component_values.append(int(val))
-            else:
-                all_literal = False
-                # For runtime expressions, we need the rendered expression
-                # Strip quotes if it's a string literal (e.g., 'self.rt.timefunc.year()')
-                component_values.append(rendered)
-        # Pad with 0 for missing optional second argument
-        while len(component_values) < 6:
-            component_values.append(0)
-
-        if all_literal:
-            # All components are integers — evaluate at compile time
-            year, month, day, hour, minute, second = component_values
-            tz_map = {"UTC": tz_module.utc}
-            tz = tz_map.get(timezone_str)
-            if tz is None:
-                try:
-                    from zoneinfo import ZoneInfo
-                    tz = ZoneInfo(timezone_str)
-                except (ImportError, KeyError):
-                    tz = tz_module.utc
-            try:
-                dt = datetime(year, month, day, hour, minute, second, tzinfo=tz)
-                unix_ms = int(dt.timestamp() * 1000)
-            except (ValueError, OSError) as e:
-                raise UnsupportedBuiltinError(
-                    f"timestamp: invalid date/time components: {e}"
-                )
-            self.ctx.coverage.builtin("timestamp")
-            return str(unix_ms)
-        else:
-            # Runtime expressions — generate runtime call
-            # Components are: year, month, day, hour, minute, second (0 if missing)
-            # Pad remaining with 0
-            while len(component_values) < 6:
-                component_values.append(0)
-            args = [f"{timezone_str!r}"] + [str(c) for c in component_values[:6]]
-            self.ctx.coverage.builtin("timestamp")
-            return f"self.rt.timefunc.timestamp_components({', '.join(args)})"
-
-    def _parse_pine_timestamp(self, s: str) -> int:
-        """Parse Pine timestamp string to Unix milliseconds."""
-        from datetime import datetime, timezone
-
-        # Try formats in order of specificity
-        formats = [
-            "%Y-%m-%d %H:%M:%S %z",  # "2026-05-07 20:45:00 +0000"
-            "%Y-%m-%dT%H:%M:%S%z",   # "2026-05-07T20:45:00+0000"
-            "%Y-%m-%d %H:%M %z",      # "2026-05-07 20:45 +0000"
-        ]
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(s, fmt)
-                return int(dt.timestamp() * 1000)
-            except ValueError:
-                continue
-        raise UnsupportedBuiltinError(
-            f"timestamp: unsupported date format {s!r}. "
-            "Supported: \"YYYY-MM-DD HH:MM:SS +ZZZZ\", \"YYYY-MM-DDTHH:MM:SS+ZZZZ\", \"YYYY-MM-DD HH:MM +ZZZZ\""
-        )
-
     def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
         self._bind_or_raise(name, node)
@@ -2463,17 +2319,6 @@ class Translator:
                 return f"len({args[0]})"
             return f"{args[0]}.{method}({', '.join(args[1:])})"
         return f"{class_name}.{method}({', '.join(args)})"
-
-    def _translate_time_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
-        arguments = self._call_arguments(node)
-        func_name = "time" if name == "time" else "time_close"
-        args = []
-        for arg_name, arg in arguments:
-            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-            args.append(rendered if arg_name is None else f"{arg_name}={rendered}")
-        args.extend([f"runtime={runtime_expr}"])
-        self.ctx.coverage.builtin(name)
-        return f"{runtime_expr}.timefunc.{func_name}({', '.join(args)})"
 
     def _translate_strategy_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         # Handle strategy.closedtrades.xxx(index) -> self.ctx.closedtrades_xxx(index)
