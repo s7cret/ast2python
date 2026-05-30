@@ -43,8 +43,8 @@ from ast2python.result import TranslationResult
 from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
-from ast2python.version import RUNTIME_CONTRACT_VERSION, __version__
+from ast2python.translator_mixins.metadata import build_metadata
+from ast2python.version import RUNTIME_CONTRACT_VERSION
 
 STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "wma", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "dev", "correlation", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
 DECLARATION_CONTEXT_FIELDS = {
@@ -3482,40 +3482,7 @@ class Translator:
     def _build_metadata(
         self, program: ASTProgram, *, title: str, module_name: str
     ) -> dict[str, Any]:
-        declaration = {
-            "kind": self.ctx.mode,
-            "title": title,
-            "arguments": self.ctx.strategy_metadata,
-        }
-        return {
-            "ast2python_version": __version__,
-            "generator_milestone": f"v{__version__}",
-            "target_runtime_contract": RUNTIME_CONTRACT_VERSION,
-            "compile_profile": self.compile_profile,
-            "pine_version": program.field("version", "language_version", default=6),
-            "source_file": f"{module_name}.pine",
-            "module_name": module_name,
-            "class_name": class_name_for_mode(self.ctx.mode),
-            "declaration": declaration,
-            "inputs": self.ctx.input_metadata,
-            "types": self.ctx.type_metadata,
-            "used_builtins": sorted(self.ctx.coverage.builtins),
-            "node_kind_counts": node_kind_counts(program),
-            "unsupported_nodes": unsupported_node_catalog(program),
-            "import_aliases": sorted(
-                self.ctx.import_aliases.values(), key=lambda item: item["alias"]
-            ),
-            "unsupported_declaration_args": sorted(set(self.ctx.unsupported_declaration_args)),
-            "unsafe": self.compile_profile != "production" or not self.parity_safe,
-            "parity_safe": self.parity_safe,
-            "codegen_safe": not any(d.severity is Severity.ERROR for d in self.ctx.diagnostics),
-            "runtime_contract_safe": self.parity_safe,
-            "unsupported_features": sorted(self.unsupported_features),
-            "parity_risks": self.parity_risks,
-            "producer_metadata": program.field("producer_metadata"),
-            "diagnostics": [item.to_dict() for item in self.ctx.diagnostics],
-            "source_map_file": f"{module_name}.sourcemap.json",
-        }
+        return build_metadata(self, program, title=title, module_name=module_name)
 
 
 def translate_ast(

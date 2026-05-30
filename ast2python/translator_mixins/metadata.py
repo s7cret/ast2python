@@ -10,7 +10,6 @@ from ast2python.diagnostics import (
 )
 from ast2python.errors import ScopeResolutionError
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.unsupported import literal_value, member_chain
 
 if TYPE_CHECKING:
     from ast2python.ast.schema import ASTNode, ASTProgram
@@ -39,6 +38,29 @@ UDT_DECLARATIONS = {
 ENUM_DECLARATIONS = {
     "EnumDeclaration", "EnumDecl",
 }
+
+
+def member_chain(node: ASTNode) -> str | None:
+    if node.kind == "Identifier":
+        name = node.field("name")
+        return name if isinstance(name, str) else None
+    if node.kind == "GenericInstantiationExpr":
+        base = node.child("base")
+        return None if base is None else member_chain(base)
+    if node.kind != "MemberAccessExpr":
+        return None
+    base = node.child("object")
+    member = node.field("member")
+    if base is None or not isinstance(member, str):
+        return None
+    prefix = member_chain(base)
+    if prefix is None:
+        return None
+    return f"{prefix}.{member}"
+
+
+def literal_value(node: ASTNode) -> Any:
+    return node.field("value")
 
 
 def _call_arguments(node: ASTNode) -> list[tuple[str | None, ASTNode]]:
@@ -534,7 +556,7 @@ def infer_dtype(translator: Any, node: ASTNode | None) -> str:
 def build_metadata(
     translator: Any, program: ASTProgram, *, title: str, module_name: str
 ) -> dict[str, Any]:
-    """Build translation metadata dict — exact copy of original _build_metadata."""
+    """Build translation metadata dict."""
     from ast2python.version import __version__ as ast2python_version
     from ast2python.templates.module import class_name_for_mode
     from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
@@ -558,6 +580,7 @@ def build_metadata(
         "pine_version": program.field("version", "language_version", default=6),
         "source_file": f"{module_name}.pine",
         "module_name": module_name,
+        "compile_profile": translator.compile_profile,
         "class_name": class_name_for_mode(translator.ctx.mode),
         "declaration": declaration,
         "inputs": translator.ctx.input_metadata,
