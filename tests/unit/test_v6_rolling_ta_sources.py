@@ -149,13 +149,8 @@ plot(x, "CORR")"""
         assert "self.rt.close.current," not in src, "correlation got scalar for source1!"
         assert "self.rt.volume.current," not in src, "correlation got scalar for source2!"
 
-    def test_wma_source_is_series_no_runtime(self):
-        """WMA: source=Series (batch mode, no runtime= needed).
-
-        WMA is NOT in STATEFUL_TA_FUNCTIONS (intentionally, to preserve user-defined
-        function inlining for hma pattern). WMA works in batch mode — pinelib wma
-        receives the full Series and computes all values without needing runtime=/state_id=.
-        """
+    def test_wma_source_is_series_with_runtime_state(self):
+        """WMA source stays a Series while runtime state is passed explicitly."""
         code = """//@version=6
 indicator("test")
 plot(ta.wma(close, 20), "WMA")"""
@@ -163,8 +158,8 @@ plot(ta.wma(close, 20), "WMA")"""
         # source must be Series (no .current) — this is the key fix
         assert "wma(self.rt.close," in src, f"wma missing Series source"
         assert "wma(self.rt.close.current," not in src, "wma got scalar .current!"
-        # WMA uses batch mode — no runtime=/state_id=
-        assert "runtime=self.rt" not in src, "wma should NOT have runtime= (batch mode)"
+        assert "runtime=self.rt" in src, "wma missing runtime= argument"
+        assert "state_id=" in src, "wma missing stable state_id"
 
     def test_swma_source_is_series_no_runtime(self):
         """SWMA: source=Series, NO runtime=/state_id= (pinelib swma has no runtime support)."""
@@ -434,7 +429,7 @@ plot(hma(close, 20), "HMA")"""
         # Final wma inside hma must use a temp Series, not inline scalar
         import re
         # The wma call inside hma() should use self.__tmp_N as source
-        hma_wma_calls = re.findall(r'wma\(self\.__tmp_\d+, \w+\)', src)
+        hma_wma_calls = re.findall(r'wma\(self\.__tmp_\d+, \w+, runtime=self\.rt', src)
         assert len(hma_wma_calls) >= 1, (
             f"hma inner wma not using temp Series. Generated:\n{src}"
         )
@@ -442,7 +437,7 @@ plot(hma(close, 20), "HMA")"""
     def test_direct_series_source_not_wrapped_unnecessarily(self):
         """Test 4 (negative): Direct series source must NOT be wrapped unnecessarily.
 
-        plot(ta.wma(close, 20)) must generate wma(self.rt.close, 20, ...)
+        plot(ta.wma(close, 20)) must generate wma(self.rt.close, 20, runtime=...)
         NOT wma(self.__tmp_N, 20) with a set_current.
         """
         code = """//@version=6
@@ -450,4 +445,4 @@ indicator("direct series wma")
 plot(ta.wma(close, 20), "WMA")"""
         src = get_generated_code("test_direct_wma", code)
         # Must use direct Series, not a temp
-        assert "wma(self.rt.close, 20)" in src, f"wma should use direct Series close: {src}"
+        assert "wma(self.rt.close, 20," in src, f"wma should use direct Series close: {src}"
