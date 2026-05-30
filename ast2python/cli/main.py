@@ -277,15 +277,6 @@ def _ensure_local_pinelib_importable() -> bool:
 
         return True
     except ModuleNotFoundError:
-        local = Path("[local-home]/pinelib")
-        if local.exists():
-            sys.path.insert(0, str(local))
-            try:
-                import pinelib  # noqa: F401
-
-                return True
-            except ModuleNotFoundError:
-                return False
         return False
 
 
