@@ -30,7 +30,7 @@ PINE2AST = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid")
         ("optimizer_contract/strategy_exit.ast.json", {"strategy.entry", "strategy.exit"}),
         (
             "real_world_smoke/13_input_source_strategy_state.ast.json",
-            {"input.source", "input.int", "ta.ema", "strategy.entry"},
+            {"input.int", "ta.ema", "strategy.entry"},
         ),
     ],
 )

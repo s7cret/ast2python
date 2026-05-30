@@ -2630,15 +2630,23 @@ class Translator:
         if name == 'plot':
             pieces = []
             title_expr = "''"
+            extra_kwargs: list[str] = []
             for arg_name, arg in arguments:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-                if arg_name is None:
+                if arg_name is None or arg_name in {"series", "value"}:
                     pieces.append(rendered)
                 elif arg_name == 'title':
                     title_expr = rendered
+                else:
+                    extra_kwargs.append(f"{arg_name}={rendered}")
             # If title was positional (second arg), extract it
             if len(pieces) >= 2 and title_expr == "''":
                 title_expr = pieces[1]
+            if extra_kwargs:
+                general_pieces = [*pieces, *extra_kwargs]
+                general_pieces.append(f'source_map="{node.loc.source_map if node.loc else ""}"')
+                self.ctx.coverage.builtin(name)
+                return f"self._visual_call({name!r}, {', '.join(general_pieces)})"
             # Emit: self.rt.plot_recorder.record_plot(
             #     bar_time=self.rt.current_bar.time,
             #     bar_index=self.rt.bar_index,
