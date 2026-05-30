@@ -38,6 +38,18 @@ def test_runtime_contract_base_uses_abstract_methods_not_runtime_stubs() -> None
     assert GeneratedScriptBase.__abstractmethods__ == {"run", "_process_bar"}
 
 
+def test_translator_delegates_global_collection_to_metadata_helper() -> None:
+    source = Path("ast2python/translator.py").read_text(encoding="utf-8")
+
+    method_start = source.index("    def _collect_globals")
+    method_end = source.index("    def _emit_statement", method_start)
+    method_source = source[method_start:method_end]
+
+    assert "collect_globals(self, program)" in method_source
+    assert "item.kind == \"VarDeclaration\"" not in method_source
+    assert "ctx.declare_var" not in method_source
+
+
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
     assert result.metadata["generator_milestone"] == f"v{__version__}"

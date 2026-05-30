@@ -131,17 +131,17 @@ def collect_globals(
             continue
         if item.kind == "VarDeclaration":
             initializer = item.child("initializer")
-            if initializer is not None and is_input_call(initializer):
+            if initializer is not None and translator._is_input_call(initializer):
                 info = translator.ctx.declare_var(
                     item.field("name"),
-                    type_ref=_type_ref_name(item),
+                    type_ref=translator._type_ref_name(item),
                     qualifier="input",
                     declaration_kind="input",
                     is_series=True,
                     is_mutable=False,
                     loc=item.loc,
                 )
-                meta = build_input_metadata(item, initializer, info.py_name)
+                meta = translator._build_input_metadata(item, initializer, info.py_name)
                 info.type_info = make_type_info(
                     meta["type"],
                     "input",
@@ -158,7 +158,7 @@ def collect_globals(
             else:
                 info = translator.ctx.declare_var(
                     item.field("name"),
-                    type_ref=_type_ref_name(item),
+                    type_ref=translator._type_ref_name(item),
                     qualifier=item.field("explicit_qualifier"),
                     declaration_kind=str(item.field("mode") or "normal"),
                     is_series=True,

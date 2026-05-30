@@ -43,7 +43,7 @@ from ast2python.result import TranslationResult
 from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.translator_mixins.metadata import build_metadata
+from ast2python.translator_mixins.metadata import build_metadata, collect_globals
 from ast2python.version import RUNTIME_CONTRACT_VERSION
 
 STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "wma", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "dev", "correlation", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
@@ -912,101 +912,7 @@ class Translator:
         self.emitter.dedent()
 
     def _collect_globals(self, program: ASTProgram) -> None:
-        for item in program.items:
-            if item.kind == "ImportDeclaration":
-                self._record_import_alias(item)
-                continue
-            if item.kind in FUNCTION_DECLARATIONS:
-                name = item.field("name")
-                if name is not None:
-                    self.functions.add(str(name))
-                continue
-            if item.kind in METHOD_DECLARATIONS:
-                name = item.field("name")
-                if name is not None:
-                    self.methods.add(str(name))
-                continue
-            if item.kind in UDT_DECLARATIONS | ENUM_DECLARATIONS:
-                continue
-            if item.kind in {"AlertCondition"}:
-                continue
-            if item.kind == "TupleDeclaration":
-                initializer = item.child("initializer") or item.child("value")
-                for name in self._tuple_targets(item):
-                    if name == "_":
-                        continue
-                    info = self.ctx.declare_var(
-                        name,
-                        type_ref=None,
-                        qualifier=item.field("explicit_qualifier"),
-                        declaration_kind=str(item.field("mode") or "normal"),
-                        is_series=True,
-                        is_mutable=True,
-                        loc=item.loc,
-                    )
-                    if initializer is not None:
-                        info.type_info = self._infer_type_info(initializer)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
-                            info.type_info.to_dict()
-                        )
-                    elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                        info.type_info = make_type_info(
-                            "PineObjectId", info.qualifier, is_series=info.is_series
-                        )
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
-                            info.type_info.to_dict()
-                        )
-                    self.global_series.append((info, self._infer_dtype(initializer)))
-                continue
-            if item.kind == "VarDeclaration":
-                initializer = item.child("initializer")
-                if initializer is not None and self._is_input_call(initializer):
-                    info = self.ctx.declare_var(
-                        item.field("name"),
-                        type_ref=self._type_ref_name(item),
-                        qualifier="input",
-                        declaration_kind="input",
-                        is_series=True,
-                        is_mutable=False,
-                        loc=item.loc,
-                    )
-                    meta = self._build_input_metadata(item, initializer, info.py_name)
-                    info.type_info = make_type_info(
-                        meta["type"],
-                        "input",
-                        is_series=True,
-                        can_be_na=meta["type"] != "bool",
-                    )
-                    self.ctx.type_metadata[f"global:{info.pine_name}"] = info.type_info.to_dict()
-                    self.input_series.append((info, meta["type"], meta))
-                    self.ctx.input_metadata.append(meta["public"])
-                    callee = initializer.child("callee")
-                    chain = None if callee is None else member_chain(callee)
-                    if chain is not None:
-                        self.ctx.coverage.builtin(chain)
-                else:
-                    info = self.ctx.declare_var(
-                        item.field("name"),
-                        type_ref=self._type_ref_name(item),
-                        qualifier=item.field("explicit_qualifier"),
-                        declaration_kind=str(item.field("mode") or "normal"),
-                        is_series=True,
-                        is_mutable=True,
-                        loc=item.loc,
-                    )
-                    if initializer is not None:
-                        info.type_info = self._infer_type_info(initializer)
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
-                            info.type_info.to_dict()
-                        )
-                    elif info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
-                        info.type_info = make_type_info(
-                            "PineObjectId", info.qualifier, is_series=info.is_series
-                        )
-                        self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
-                            info.type_info.to_dict()
-                        )
-                    self.global_series.append((info, self._infer_dtype(initializer)))
+        collect_globals(self, program)
 
     def _emit_statement(self, node: ASTNode) -> None:
         self.ctx.coverage.generated()
