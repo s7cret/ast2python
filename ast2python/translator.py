@@ -46,6 +46,8 @@ from ast2python.translator_mixins.metadata import (
     build_metadata,
     collect_declaration_metadata,
     collect_globals,
+    contains_any_request_call,
+    contains_request_call,
     extract_declaration_title,
     literal_or_rendered,
     strategy_context_kwargs,
@@ -2811,22 +2813,10 @@ class Translator:
         return literal_or_rendered(node, rendered)
 
     def _contains_request_call(self, node: ASTNode) -> bool:
-        for descendant in node.descendants():
-            if descendant.kind == "CallExpr":
-                callee = descendant.child("callee")
-                if callee is not None and member_chain(callee) == "request.security":
-                    return True
-        return False
+        return contains_request_call(node)
 
     def _contains_any_request_call(self, node: ASTNode) -> bool:
-        nodes = [node, *node.descendants()]
-        for descendant in nodes:
-            if descendant.kind == "CallExpr":
-                callee = descendant.child("callee")
-                chain = member_chain(callee) if callee is not None else None
-                if chain is not None and chain.startswith("request."):
-                    return True
-        return False
+        return contains_any_request_call(node)
 
     def _diagnose_request_security_lower_tf_safety(self, expression: ASTNode) -> None:
         captured: list[str] = []

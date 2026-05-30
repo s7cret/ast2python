@@ -75,6 +75,20 @@ def test_translator_delegates_strategy_context_kwargs_to_helper() -> None:
     assert "ctx.strategy_metadata = metadata" not in method_source
 
 
+def test_translator_delegates_request_detection_to_metadata_helper() -> None:
+    source = Path("ast2python/translator.py").read_text(encoding="utf-8")
+
+    request_start = source.index("    def _contains_request_call")
+    request_end = source.index("    def _contains_any_request_call", request_start)
+    any_start = request_end
+    any_end = source.index("    def _diagnose_request_security_lower_tf_safety", any_start)
+
+    assert "return contains_request_call(node)" in source[request_start:request_end]
+    assert "return contains_any_request_call(node)" in source[any_start:any_end]
+    assert "for descendant in" not in source[request_start:request_end]
+    assert "chain.startswith(\"request.\")" not in source[any_start:any_end]
+
+
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
     assert result.metadata["generator_milestone"] == f"v{__version__}"
