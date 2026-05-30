@@ -72,6 +72,8 @@ def _translate_ast(tmp_path: Path, ast_path: Path, module_name: str) -> Path:
             str(tmp_path / "generated"),
             "--module-name",
             module_name,
+            "--compile-profile",
+            "diagnostic",
             "--allow-invalid-ast",
         ]
     )

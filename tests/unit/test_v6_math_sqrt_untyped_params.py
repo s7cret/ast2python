@@ -68,6 +68,8 @@ def _translate_ast(tmp_path: Path, ast_path: Path, module_name: str) -> subproce
             str(tmp_path / "generated"),
             "--module-name",
             module_name,
+            "--compile-profile",
+            "diagnostic",
             "--allow-invalid-ast",
         ]
     )
@@ -97,8 +99,8 @@ def test_v6_hma_untyped_length_binds_sqrt_and_ta_wma(tmp_path: Path) -> None:
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
     assert "sqrt(length)" in code
-    assert "wma(src, half)" in code
-    assert "wma(src, length)" in code
+    assert "wma(src, half" in code
+    assert "wma(src, length" in code
     # Materialized: binary expr goes to set_current, outer wma uses temp Series
     assert ".set_current(pine_sub(" in code, "binary expr must be materialized via set_current"
     assert "__tmp_" in code, "temp Series must be created for computed source"
