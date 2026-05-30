@@ -229,6 +229,38 @@ def collect_declaration_metadata(
     translator.ctx.strategy_metadata = metadata
 
 
+def strategy_context_kwargs(
+    translator: Any,
+    declaration: ASTNode,
+    strategy_context_fields: set[str],
+    declaration_context_fields: dict[str, set[str]],
+) -> list[tuple[str, str]]:
+    """Build StrategyContext kwargs and declaration metadata from a strategy declaration."""
+    call = declaration.child("call")
+    if call is None:
+        return []
+    kwargs: list[tuple[str, str]] = []
+    metadata: dict[str, Any] = {}
+    for name, value_node in translator._call_arguments(call):
+        rendered = translator.translate_expression(value_node)
+        key = name or ("title" if not metadata else f"arg_{len(metadata)}")
+        metadata[key] = literal_or_rendered(value_node, rendered)
+        if name in strategy_context_fields:
+            kwargs.append((name, rendered))
+        elif name is not None and name not in declaration_context_fields.get("strategy", set()):
+            translator.ctx.add_diagnostic(
+                UNSUPPORTED_DECLARATION_ARG,
+                f"declaration argument {name!r} is not mapped to StrategyContext",
+                Severity.ERROR if translator.strict else Severity.WARNING,
+                location=value_node.loc,
+            )
+            translator.ctx.unsupported_declaration_args.append(name)
+            if translator.strict:
+                raise UnsupportedBuiltinError(name)
+    translator.ctx.strategy_metadata = metadata
+    return kwargs
+
+
 def literal_or_rendered(node: ASTNode, rendered: str) -> Any:
     """Return literal value if available, otherwise the rendered string."""
     import ast as pyast

@@ -48,6 +48,7 @@ from ast2python.translator_mixins.metadata import (
     collect_globals,
     extract_declaration_title,
     literal_or_rendered,
+    strategy_context_kwargs,
 )
 from ast2python.version import RUNTIME_CONTRACT_VERSION
 
@@ -2799,29 +2800,12 @@ class Translator:
         collect_declaration_metadata(self, declaration, DECLARATION_CONTEXT_FIELDS)
 
     def _strategy_context_kwargs(self, declaration: ASTNode) -> list[tuple[str, str]]:
-        call = declaration.child("call")
-        if call is None:
-            return []
-        kwargs: list[tuple[str, str]] = []
-        metadata: dict[str, Any] = {}
-        for name, value_node in self._call_arguments(call):
-            rendered = self.translate_expression(value_node)
-            key = name or ("title" if not metadata else f"arg_{len(metadata)}")
-            metadata[key] = self._literal_or_rendered(value_node, rendered)
-            if name in STRATEGY_CONTEXT_FIELDS:
-                kwargs.append((name, rendered))
-            elif name is not None and name not in DECLARATION_CONTEXT_FIELDS.get("strategy", set()):
-                self.ctx.add_diagnostic(
-                    UNSUPPORTED_DECLARATION_ARG,
-                    f"declaration argument {name!r} is not mapped to StrategyContext",
-                    Severity.ERROR if self.strict else Severity.WARNING,
-                    location=value_node.loc,
-                )
-                self.ctx.unsupported_declaration_args.append(name)
-                if self.strict:
-                    raise UnsupportedBuiltinError(name)
-        self.ctx.strategy_metadata = metadata
-        return kwargs
+        return strategy_context_kwargs(
+            self,
+            declaration,
+            STRATEGY_CONTEXT_FIELDS,
+            DECLARATION_CONTEXT_FIELDS,
+        )
 
     def _literal_or_rendered(self, node: ASTNode, rendered: str) -> Any:
         return literal_or_rendered(node, rendered)
