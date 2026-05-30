@@ -50,6 +50,18 @@ def test_translator_delegates_global_collection_to_metadata_helper() -> None:
     assert "ctx.declare_var" not in method_source
 
 
+def test_translator_delegates_declaration_metadata_to_helper() -> None:
+    source = Path("ast2python/translator.py").read_text(encoding="utf-8")
+
+    method_start = source.index("    def _collect_declaration_metadata")
+    method_end = source.index("    def _strategy_context_kwargs", method_start)
+    method_source = source[method_start:method_end]
+
+    assert "collect_declaration_metadata(self, declaration, DECLARATION_CONTEXT_FIELDS)" in method_source
+    assert "unsupported_declaration_args.append" not in method_source
+    assert "ctx.strategy_metadata = metadata" not in method_source
+
+
 def test_v0_9_source_map_and_report_audit_fields_are_complete() -> None:
     result = translate_ast(with_valid_producer_metadata(load_ast(FIXTURE)), module_name="audit_ma")
     assert result.metadata["generator_milestone"] == f"v{__version__}"

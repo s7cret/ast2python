@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast as pyast
 from dataclasses import field
 from pathlib import Path
 from typing import Any, Literal, NoReturn
@@ -43,7 +42,13 @@ from ast2python.result import TranslationResult
 from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.translator_mixins.metadata import build_metadata, collect_globals
+from ast2python.translator_mixins.metadata import (
+    build_metadata,
+    collect_declaration_metadata,
+    collect_globals,
+    extract_declaration_title,
+    literal_or_rendered,
+)
 from ast2python.version import RUNTIME_CONTRACT_VERSION
 
 STATEFUL_TA_FUNCTIONS = {"sma", "ema", "rma", "atr", "rsi", "macd", "dmi", "supertrend", "stoch", "adx", "wma", "vwma", "hma", "vwap", "roc", "mom", "sar", "obv", "stdev", "variance", "dev", "correlation", "cci", "mfi", "cum", "range", "tsi", "cmo", "tr", "bb", "bbw", "kc", "kcw", "wpr", "crossover", "crossunder"}
@@ -2788,35 +2793,10 @@ class Translator:
         return result
 
     def _extract_declaration_title(self, declaration: ASTNode) -> str:
-        call = declaration.child("call")
-        if call is None:
-            return "Generated"
-        arguments = self._call_arguments(call)
-        if arguments and arguments[0][0] is None and arguments[0][1].kind == "Literal":
-            return str(literal_value(arguments[0][1]))
-        return "Generated"
+        return extract_declaration_title(self, declaration)
 
     def _collect_declaration_metadata(self, declaration: ASTNode) -> None:
-        call = declaration.child("call")
-        if call is None:
-            return
-        allowed = DECLARATION_CONTEXT_FIELDS.get(self.ctx.mode, set())
-        metadata: dict[str, Any] = {}
-        for name, value_node in self._call_arguments(call):
-            rendered = self.translate_expression(value_node)
-            key = name or ("title" if not metadata else f"arg_{len(metadata)}")
-            metadata[key] = self._literal_or_rendered(value_node, rendered)
-            if name is not None and name not in allowed:
-                self.ctx.add_diagnostic(
-                    UNSUPPORTED_DECLARATION_ARG,
-                    f"declaration argument {name!r} is not mapped for {self.ctx.mode}",
-                    Severity.ERROR if self.strict else Severity.WARNING,
-                    location=value_node.loc,
-                )
-                self.ctx.unsupported_declaration_args.append(name)
-                if self.strict:
-                    raise UnsupportedBuiltinError(name)
-        self.ctx.strategy_metadata = metadata
+        collect_declaration_metadata(self, declaration, DECLARATION_CONTEXT_FIELDS)
 
     def _strategy_context_kwargs(self, declaration: ASTNode) -> list[tuple[str, str]]:
         call = declaration.child("call")
@@ -2844,14 +2824,7 @@ class Translator:
         return kwargs
 
     def _literal_or_rendered(self, node: ASTNode, rendered: str) -> Any:
-        if node.kind == "Literal":
-            return literal_value(node)
-        if node.kind == "MemberAccessExpr":
-            try:
-                return pyast.literal_eval(rendered)
-            except (ValueError, SyntaxError):
-                return rendered
-        return rendered
+        return literal_or_rendered(node, rendered)
 
     def _contains_request_call(self, node: ASTNode) -> bool:
         for descendant in node.descendants():

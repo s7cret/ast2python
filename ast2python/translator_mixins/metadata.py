@@ -8,7 +8,7 @@ from ast2python.diagnostics import (
     WARNING_NESTED_SECURITY,
     Severity,
 )
-from ast2python.errors import ScopeResolutionError
+from ast2python.errors import ScopeResolutionError, UnsupportedBuiltinError
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 
 if TYPE_CHECKING:
@@ -190,35 +190,43 @@ def collect_globals(
                         translator.ctx.coverage.builtin(chain)
 
 
-def extract_declaration_title(declaration: ASTNode) -> str | None:
+def extract_declaration_title(translator: Any, declaration: ASTNode) -> str:
     """Extract the declaration title from an ASTNode."""
     call = declaration.child("call")
     if call is None:
-        return None
-    for name, node in _call_arguments(call):
-        if name == "title":
-            return str(literal_value(node)) if node.kind == "Literal" else None
-    return None
+        return "Generated"
+    arguments = translator._call_arguments(call)
+    if arguments and arguments[0][0] is None and arguments[0][1].kind == "Literal":
+        return str(literal_value(arguments[0][1]))
+    return "Generated"
 
 
-def collect_declaration_metadata(translator: Any, declaration: ASTNode) -> None:
+def collect_declaration_metadata(
+    translator: Any,
+    declaration: ASTNode,
+    declaration_context_fields: dict[str, set[str]],
+) -> None:
     """Collect metadata from the declaration node."""
     call = declaration.child("call")
     if call is None:
         return
-    for name, _ in _call_arguments(call):
-        if name in {"shorttitle", "overlay", "format", "scale", "max_lines_count", "max_labels_count"}:
-            continue
-        if name in {"title", "precision"}:
-            continue
-        if name in {"py_class_name", "timeframe", "timeframe_gaps"}:
-            continue
-        translator.ctx.add_diagnostic(
-            UNSUPPORTED_DECLARATION_ARG,
-            f"Declaration argument '{name}'",
-            Severity.WARNING,
-            details={"argument": name},
-        )
+    allowed = declaration_context_fields.get(translator.ctx.mode, set())
+    metadata: dict[str, Any] = {}
+    for name, value_node in translator._call_arguments(call):
+        rendered = translator.translate_expression(value_node)
+        key = name or ("title" if not metadata else f"arg_{len(metadata)}")
+        metadata[key] = literal_or_rendered(value_node, rendered)
+        if name is not None and name not in allowed:
+            translator.ctx.add_diagnostic(
+                UNSUPPORTED_DECLARATION_ARG,
+                f"declaration argument {name!r} is not mapped for {translator.ctx.mode}",
+                Severity.ERROR if translator.strict else Severity.WARNING,
+                location=value_node.loc,
+            )
+            translator.ctx.unsupported_declaration_args.append(name)
+            if translator.strict:
+                raise UnsupportedBuiltinError(name)
+    translator.ctx.strategy_metadata = metadata
 
 
 def literal_or_rendered(node: ASTNode, rendered: str) -> Any:
