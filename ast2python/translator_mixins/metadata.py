@@ -1,7 +1,7 @@
 """Translator metadata helpers — extracted from translator.py."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ast2python.diagnostics import (
     UNSUPPORTED_DECLARATION_ARG,
@@ -445,7 +445,7 @@ def build_input_metadata(
         elif arg_name == "confirm":
             confirm = bool(literal_value(arg_node)) if arg_node.kind == "Literal" else False
 
-    public = {
+    public: dict[str, Any] = {
         "name": py_name,
         "type": field_type,
         "title": str(declaration.field("name")),
@@ -520,7 +520,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                     return make_type_info(
                         info.type_info.base_type, "input", can_be_na=info.type_info.can_be_na
                     )
-                return info.type_info
+                return cast(TypeInfo, info.type_info)
             if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
                 return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
             return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)

@@ -1,7 +1,7 @@
 """Pine input call emitters and metadata helpers."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ast2python.errors import UnsupportedBuiltinError
 
@@ -44,7 +44,7 @@ class PineInputEmitter:
         default_node = arguments[0][1]
         if default_node.kind == "Literal":
             return repr(default_node.field("value"))
-        return translator.translate_expression(default_node)
+        return cast(str, translator.translate_expression(default_node))
 
     def build_metadata(
         self, declaration: ASTNode, initializer: ASTNode, py_name: str

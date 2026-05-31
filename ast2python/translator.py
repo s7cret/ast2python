@@ -1083,9 +1083,11 @@ class Translator:
             temp_names.append(temp)
             assignments.append((info, temp))
         # Check if this is a request.security call returning a tuple (na-check needed)
+        initializer_callee = initializer.child("callee")
         is_req_security_tuple = (
             initializer.kind == "CallExpr"
-            and member_chain(initializer.child("callee")) == "request.security"
+            and initializer_callee is not None
+            and member_chain(initializer_callee) == "request.security"
             and tuple_element_types is not None
         )
         rendered_expr = self.translate_expression(initializer)

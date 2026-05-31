@@ -37,14 +37,16 @@ def _unwrap_pine2ast_payload(value: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(metadata, dict):
                     result["producer_metadata"] = metadata
             return result
-    result = value.get("result")
-    if isinstance(result, dict):
+    result_payload = value.get("result")
+    if isinstance(result_payload, dict):
         for key in ("ast", "program"):
-            nested = result.get(key)
+            nested = result_payload.get(key)
             if isinstance(nested, dict) and nested.get("kind") == "Program":
                 unwrapped = copy.deepcopy(nested)
                 if "producer_metadata" not in unwrapped:
-                    metadata = result.get("producer_metadata") or result.get("metadata")
+                    metadata = result_payload.get("producer_metadata") or result_payload.get(
+                        "metadata"
+                    )
                     if isinstance(metadata, dict):
                         unwrapped["producer_metadata"] = metadata
                 return unwrapped

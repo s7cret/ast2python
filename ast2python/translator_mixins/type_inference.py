@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from ast2python.ast.schema import ASTNode
 from ast2python.errors import ScopeResolutionError
@@ -67,7 +67,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 # so that binding for visual methods (line.set_xy1, etc.) succeeds.
                 if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
                     return make_type_info("PineObjectId", info.qualifier, is_series=info.is_series)
-                return info.type_info
+                return cast(TypeInfo, info.type_info)
             return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
         except ScopeResolutionError:
             return make_type_info("object", "simple")
@@ -155,7 +155,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         base = "float" if "float" in {left.base_type, right.base_type} else left.base_type
         return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
     if node.kind == "UnaryExpr":
-        return translator._infer_type_info(node.child("operand"))
+        return cast(TypeInfo, translator._infer_type_info(node.child("operand")))
     if node.kind == "ConditionalExpr":
         condition = translator._infer_type_info(node.child("condition"))
         if_true = translator._infer_type_info(node.child("then") or node.child("if_true"))
