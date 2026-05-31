@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import os
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 

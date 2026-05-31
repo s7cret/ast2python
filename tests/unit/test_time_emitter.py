@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -58,7 +58,7 @@ def _translate(expression):
 def test_timestamp_string_literal_lowers_to_unix_milliseconds():
     result = _translate(_timestamp_call(_literal("2026-05-07 20:45:00 +0000", "string")))
 
-    expected = int(datetime(2026, 5, 7, 20, 45, tzinfo=timezone.utc).timestamp() * 1000)
+    expected = int(datetime(2026, 5, 7, 20, 45, tzinfo=UTC).timestamp() * 1000)
     assert f"self.x.set_current({expected})" in result.code
     assert "timestamp" in result.metadata["used_builtins"]
     compile(result.code, "time_emitter.py", "exec")

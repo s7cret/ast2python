@@ -14,7 +14,7 @@ class CompileProfile:
     allow_subprocess_fallback: bool = False
 
     @classmethod
-    def production(cls) -> "CompileProfile":
+    def production(cls) -> CompileProfile:
         return cls(
             name="production",
             allow_external_library_stubs=False,
@@ -31,7 +31,7 @@ class CompileProfile:
         allow_invalid_ast: bool = False,
         allow_implicit_version_rewrite: bool = False,
         allow_subprocess_fallback: bool = False,
-    ) -> "CompileProfile":
+    ) -> CompileProfile:
         return cls(
             name="diagnostic",
             allow_external_library_stubs=allow_external_library_stubs,
@@ -51,7 +51,7 @@ class CompileProfile:
         allow_invalid_ast: bool = False,
         allow_implicit_version_rewrite: bool = False,
         allow_subprocess_fallback: bool = False,
-    ) -> "CompileProfile":
+    ) -> CompileProfile:
         if name == "production":
             if (
                 allow_external_library_stubs

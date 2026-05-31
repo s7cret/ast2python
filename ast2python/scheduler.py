@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
-from ast2python.emitter import CodeEmitter
 from ast2python.context import TranslationContext
+from ast2python.emitter import CodeEmitter
 
 
 @dataclass

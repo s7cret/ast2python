@@ -5,8 +5,8 @@ import time
 from pathlib import Path
 
 import ast2python
-from ast2python.runtime_contract.generated_base import GeneratedScriptBase
 from ast2python.ast.schema import load_ast
+from ast2python.runtime_contract.generated_base import GeneratedScriptBase
 from ast2python.translator import TranslationResult, Translator, translate_ast
 from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata

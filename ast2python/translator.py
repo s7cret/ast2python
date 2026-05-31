@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import field
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
+from ast2python.arg_helper import call_arguments, ordered_call_arguments
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
 from ast2python.context import TranslationContext, VariableInfo
@@ -19,13 +20,11 @@ from ast2python.diagnostics import (
     REFERENCE_HISTORY_UNSUPPORTED,
     REQUEST_SECURITY_CAPTURE_UNSAFE,
     UNKNOWN_OVERLOAD,
-    UNSUPPORTED_DECLARATION_ARG,
     UNSUPPORTED_NODE,
     UNSUPPORTED_REQUEST,
     VARIP_UNSAFE,
     VISUAL_OBJECT_USED_AS_VALUE,
     WARNING_NESTED_SECURITY,
-    Diagnostic,
     Severity,
 )
 from ast2python.emitter import CodeEmitter
@@ -43,21 +42,8 @@ from ast2python.naming import snake_case
 from ast2python.profiles import CompileProfile
 from ast2python.result import TranslationResult
 from ast2python.state import state_id_for_call
-from ast2python.templates.module import base_class_for_mode, class_name_for_mode
-from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.translator_mixins.type_inference import infer_type_info
-from ast2python.arg_helper import call_arguments, ordered_call_arguments
 from ast2python.switch_helper import case_body, case_condition, switch_cases
-from ast2python.translator_mixins.metadata import (
-    build_metadata,
-    collect_declaration_metadata,
-    collect_globals,
-    contains_any_request_call,
-    contains_request_call,
-    extract_declaration_title,
-    literal_or_rendered,
-    strategy_context_kwargs,
-)
+from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.translator_constants import (
     ATR_SHORTHANDS,
     BUILTIN_SERIES,
@@ -68,7 +54,6 @@ from ast2python.translator_constants import (
     LOWER_TF_IMMUTABLE_SCALAR_BASE_TYPES,
     LOWER_TF_PURE_CALL_PREFIXES,
     METHOD_DECLARATIONS,
-    REFERENCE_TYPES,
     STATEFUL_TA_FUNCTIONS,
     STRATEGY_CALLS_P0,
     STRATEGY_CONTEXT_FIELDS,
@@ -79,6 +64,18 @@ from ast2python.translator_constants import (
     VISUAL_OBJECT_PRODUCERS,
     VISUAL_STATEMENT_CALLS,
 )
+from ast2python.translator_mixins.metadata import (
+    build_metadata,
+    collect_declaration_metadata,
+    collect_globals,
+    contains_any_request_call,
+    contains_request_call,
+    extract_declaration_title,
+    literal_or_rendered,
+    strategy_context_kwargs,
+)
+from ast2python.translator_mixins.type_inference import infer_type_info
+from ast2python.types import TypeInfo, make_type_info
 from ast2python.version import RUNTIME_CONTRACT_VERSION
 
 
@@ -1072,7 +1069,7 @@ class Translator:
                     info.type_info.to_dict()
                 )
                 # Override dtype in global_series to the element type, not tuple
-                for i, (gs_info, gs_dtype) in enumerate(self.global_series):
+                for i, (gs_info, _gs_dtype) in enumerate(self.global_series):
                     if gs_info is info:
                         self.global_series[i] = (info, elem_base)
                         break
@@ -1091,7 +1088,7 @@ class Translator:
             # no data is available, which is not iterable and can't be unpacked.
             na_tuple_str = f"({', '.join(['na'] * len(temp_names))},)"
             self.emitter.line(f"_req_sec_result = {rendered_expr}")
-            self.emitter.line(f"if is_na(_req_sec_result):")
+            self.emitter.line("if is_na(_req_sec_result):")
             self.emitter.indent()
             self.emitter.line(f"{', '.join(temp_names)} = {na_tuple_str}")
             self.emitter.dedent()

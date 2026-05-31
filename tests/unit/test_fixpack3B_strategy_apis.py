@@ -1,7 +1,6 @@
 """Tests for FixPack 3B: strategy.closedtrades / strategy.opentrades / strategy.risk translation."""
 from __future__ import annotations
 
-import pytest
 from ast2python.translator import translate_ast
 
 

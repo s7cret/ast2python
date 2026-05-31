@@ -35,6 +35,7 @@ exclude = ["dist", "build", "tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+ignore = ["E402", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Golden generated-code snapshots intentionally mirror emitter output byte-for-byte;

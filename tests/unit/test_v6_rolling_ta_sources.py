@@ -1,9 +1,10 @@
 """Tests for rolling TA call: Series source must be passed, not .current scalar."""
-import pytest
 import sys
+
 sys.path.insert(0, "[local-home]/pine2ast")
 from pine2ast.api import parse_code, runtime_contract_v1_4_options
 from pine2ast.ast.serialize import ast_to_dict
+
 from ast2python.translator import translate_ast
 
 
@@ -32,8 +33,8 @@ l = ta.lowest(low, 20)
 plot(h, "H")
 plot(l, "L")"""
         src = get_generated_code("test_hl", code)
-        assert "highest(self.rt.high," in src, f"highest missing Series arg"
-        assert "lowest(self.rt.low," in src, f"lowest missing Series arg"
+        assert "highest(self.rt.high," in src, "highest missing Series arg"
+        assert "lowest(self.rt.low," in src, "lowest missing Series arg"
         assert "highest(self.rt.high.current," not in src, "highest got scalar .current!"
         assert "lowest(self.rt.low.current," not in src, "lowest got scalar .current!"
 
@@ -45,7 +46,7 @@ dev = ta.stdev(close, 20)
 upper = basis + 2.0 * dev
 plot(upper, "UPPER")"""
         src = get_generated_code("test_stdev", code)
-        assert "stdev(self.rt.close," in src, f"stdev missing Series arg"
+        assert "stdev(self.rt.close," in src, "stdev missing Series arg"
         assert "stdev(self.rt.close.current," not in src, "stdev got scalar .current!"
 
     def test_variance_source_is_series(self):
@@ -54,7 +55,7 @@ indicator("test")
 v = ta.variance(close, 20)
 plot(v, "VAR")"""
         src = get_generated_code("test_var", code)
-        assert "variance(self.rt.close," in src, f"variance missing Series arg"
+        assert "variance(self.rt.close," in src, "variance missing Series arg"
         assert "variance(self.rt.close.current," not in src, "variance got scalar .current!"
 
     def test_dev_source_is_series(self):
@@ -63,7 +64,7 @@ indicator("test")
 d = ta.dev(close, 20)
 plot(d, "DEV")"""
         src = get_generated_code("test_dev", code)
-        assert "dev(self.rt.close," in src, f"dev missing Series arg"
+        assert "dev(self.rt.close," in src, "dev missing Series arg"
         assert "dev(self.rt.close.current," not in src, "dev got scalar .current!"
 
     def test_change_source_is_series(self):
@@ -74,7 +75,7 @@ plot(x, "CHANGE")"""
         src = get_generated_code("test_change", code)
         # check for change call with Series close
         assert ("change(self.rt.close," in src or "change(self.rt.close)" in src), \
-            f"change missing Series arg"
+            "change missing Series arg"
         assert "change(self.rt.close.current," not in src, "change got scalar .current!"
 
     def test_ichimoku_sources_are_series(self):
@@ -85,8 +86,8 @@ kijun = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2.0
 plot(tenkan, "TENKAN")
 plot(kijun, "KIJUN")"""
         src = get_generated_code("test_ichi", code)
-        assert "highest(self.rt.high," in src, f"highest(high) missing Series"
-        assert "lowest(self.rt.low," in src, f"lowest(low) missing Series"
+        assert "highest(self.rt.high," in src, "highest(high) missing Series"
+        assert "lowest(self.rt.low," in src, "lowest(low) missing Series"
         assert "highest(self.rt.high.current," not in src, "highest got scalar!"
         assert "lowest(self.rt.low.current," not in src, "lowest got scalar!"
 
@@ -97,7 +98,7 @@ x = ta.range(close, 20)
 plot(x, "RANGE")"""
         src = get_generated_code("test_range", code)
         # ta.range maps to ta_range in pinelib
-        assert "ta_range(self.rt.close," in src, f"ta_range missing Series arg"
+        assert "ta_range(self.rt.close," in src, "ta_range missing Series arg"
         assert "ta_range(self.rt.close.current," not in src, "ta_range got scalar .current!"
 
     def test_bb_stdev_uses_series(self):
@@ -109,7 +110,7 @@ bbUpper = basis + bbDev
 bbLower = basis - bbDev
 plot(bbUpper, "UPPER")"""
         src = get_generated_code("test_bb", code)
-        assert "stdev(self.rt.close," in src, f"BB stdev missing Series"
+        assert "stdev(self.rt.close," in src, "BB stdev missing Series"
         assert "stdev(self.rt.close.current," not in src, "BB stdev got scalar!"
 
     def test_pivothigh_low_source_is_series(self):
@@ -120,9 +121,9 @@ pl = ta.pivotlow(low, 3, 3)
 plot(ph, "PH")
 plot(pl, "PL")"""
         src = get_generated_code("test_pivot", code)
-        assert "pivothigh(self.rt.high," in src, f"pivothigh missing Series"
+        assert "pivothigh(self.rt.high," in src, "pivothigh missing Series"
         assert "pivothigh(self.rt.high.current," not in src, "pivothigh got scalar!"
-        assert "pivotlow(self.rt.low," in src, f"pivotlow missing Series"
+        assert "pivotlow(self.rt.low," in src, "pivotlow missing Series"
         assert "pivotlow(self.rt.low.current," not in src, "pivotlow got scalar!"
 
     def test_rising_falling_source_is_series(self):
@@ -133,9 +134,9 @@ f = ta.falling(close, 2)
 plot(r ? 1 : 0, "RISE")
 plot(f ? 1 : 0, "FALL")"""
         src = get_generated_code("test_rf", code)
-        assert "rising(self.rt.close," in src, f"rising missing Series"
+        assert "rising(self.rt.close," in src, "rising missing Series"
         assert "rising(self.rt.close.current," not in src, "rising got scalar!"
-        assert "falling(self.rt.close," in src, f"falling missing Series"
+        assert "falling(self.rt.close," in src, "falling missing Series"
         assert "falling(self.rt.close.current," not in src, "falling got scalar!"
 
     def test_correlation_sources_are_series(self):
@@ -145,7 +146,7 @@ x = ta.correlation(close, volume, 20)
 plot(x, "CORR")"""
         src = get_generated_code("test_corr", code)
         # correlation(self.rt.close, self.rt.volume, 20) — both sources as Series
-        assert "self.rt.close, self.rt.volume" in src, f"correlation missing both Series args"
+        assert "self.rt.close, self.rt.volume" in src, "correlation missing both Series args"
         assert "self.rt.close.current," not in src, "correlation got scalar for source1!"
         assert "self.rt.volume.current," not in src, "correlation got scalar for source2!"
 
@@ -156,7 +157,7 @@ indicator("test")
 plot(ta.wma(close, 20), "WMA")"""
         src = get_generated_code("test_wma", code)
         # source must be Series (no .current) — this is the key fix
-        assert "wma(self.rt.close," in src, f"wma missing Series source"
+        assert "wma(self.rt.close," in src, "wma missing Series source"
         assert "wma(self.rt.close.current," not in src, "wma got scalar .current!"
         assert "runtime=self.rt" in src, "wma missing runtime= argument"
         assert "state_id=" in src, "wma missing stable state_id"
@@ -168,7 +169,7 @@ indicator("test")
 plot(ta.swma(close), "SWMA")"""
         src = get_generated_code("test_swma", code)
         # source must be Series (no .current)
-        assert "swma(self.rt.close" in src, f"swma missing Series source"
+        assert "swma(self.rt.close" in src, "swma missing Series source"
         assert "swma(self.rt.close.current" not in src, "swma got scalar .current!"
         # must NOT have runtime= (swma pinelib doesn't support it)
         assert "runtime=self.rt" not in src, "swma should NOT have runtime= argument"
@@ -179,7 +180,7 @@ plot(ta.swma(close), "SWMA")"""
 indicator("test")
 plot(ta.vwma(close, 20), "VWMA")"""
         src = get_generated_code("test_vwma", code)
-        assert "vwma(self.rt.close," in src, f"vwma missing Series source"
+        assert "vwma(self.rt.close," in src, "vwma missing Series source"
         assert "vwma(self.rt.close.current," not in src, "vwma got scalar .current!"
         assert "runtime=self.rt" in src, "vwma missing runtime= argument"
         assert 'state_id="' in src, "vwma missing state_id= argument"
@@ -191,11 +192,11 @@ indicator("test")
 plot(ta.stoch(close, high, low, 14), "STOCH")"""
         src = get_generated_code("test_stoch", code)
         # all three sources must be Series
-        assert "stoch(self.rt.close," in src, f"stoch missing close source"
+        assert "stoch(self.rt.close," in src, "stoch missing close source"
         assert "self.rt.close.current," not in src, "stoch close got .current!"
-        assert "self.rt.high," in src, f"stoch missing high source"
+        assert "self.rt.high," in src, "stoch missing high source"
         assert "self.rt.high.current," not in src, "stoch high got .current!"
-        assert "self.rt.low," in src, f"stoch missing low source"
+        assert "self.rt.low," in src, "stoch missing low source"
         assert "self.rt.low.current," not in src, "stoch low got .current!"
         assert "runtime=self.rt" in src, "stoch missing runtime= argument"
         assert 'state_id="' in src, "stoch missing state_id= argument"
@@ -206,7 +207,7 @@ plot(ta.stoch(close, high, low, 14), "STOCH")"""
 indicator("test")
 plot(ta.mom(close, 10), "MOM")"""
         src = get_generated_code("test_mom", code)
-        assert "mom(self.rt.close," in src, f"mom missing Series source"
+        assert "mom(self.rt.close," in src, "mom missing Series source"
         assert "mom(self.rt.close.current," not in src, "mom got scalar .current!"
         assert "runtime=self.rt" in src, "mom missing runtime= argument"
         assert 'state_id="' in src, "mom missing state_id= argument"
@@ -217,7 +218,7 @@ plot(ta.mom(close, 10), "MOM")"""
 indicator("test")
 plot(ta.roc(close, 10), "ROC")"""
         src = get_generated_code("test_roc", code)
-        assert "roc(self.rt.close," in src, f"roc missing Series source"
+        assert "roc(self.rt.close," in src, "roc missing Series source"
         assert "roc(self.rt.close.current," not in src, "roc got scalar .current!"
         assert "runtime=self.rt" in src, "roc missing runtime= argument"
         assert 'state_id="' in src, "roc missing state_id= argument"
@@ -228,7 +229,7 @@ plot(ta.roc(close, 10), "ROC")"""
 indicator("test")
 plot(ta.mfi(close, 14), "MFI")"""
         src = get_generated_code("test_mfi", code)
-        assert "mfi(self.rt.close," in src, f"mfi missing Series source"
+        assert "mfi(self.rt.close," in src, "mfi missing Series source"
         assert "mfi(self.rt.close.current," not in src, "mfi got scalar .current!"
         assert "runtime=self.rt" in src, "mfi missing runtime= argument"
         assert 'state_id="' in src, "mfi missing state_id= argument"
@@ -251,7 +252,7 @@ plot(ta.vwap(hlc3), "VWAP")"""
 indicator("test")
 plot(ta.alma(close, 20, 0.85, 6), "ALMA")"""
         src = get_generated_code("test_alma", code)
-        assert "alma(self.rt.close," in src, f"alma missing Series source"
+        assert "alma(self.rt.close," in src, "alma missing Series source"
         assert "alma(self.rt.close.current," not in src, "alma got scalar .current!"
         assert "runtime=self.rt" not in src, "alma should NOT have runtime= (batch mode)"
 
@@ -261,7 +262,7 @@ plot(ta.alma(close, 20, 0.85, 6), "ALMA")"""
 indicator("test")
 plot(ta.linreg(close, 20, 0), "LINREG")"""
         src = get_generated_code("test_linreg", code)
-        assert "linreg(self.rt.close," in src, f"linreg missing Series source"
+        assert "linreg(self.rt.close," in src, "linreg missing Series source"
         assert "linreg(self.rt.close.current," not in src, "linreg got scalar .current!"
         assert "runtime=self.rt" not in src, "linreg should NOT have runtime= (batch mode)"
 
@@ -272,7 +273,7 @@ indicator("test")
 plot(ta.cci(hlc3, 20), "CCI")"""
         src = get_generated_code("test_cci", code)
         # hlc3 maps to a Series; cci gets runtime=/state_id=
-        assert "cci(" in src, f"cci call missing"
+        assert "cci(" in src, "cci call missing"
         assert "runtime=self.rt" in src, "cci missing runtime= argument"
         assert 'state_id="' in src, "cci missing state_id= argument"
 
@@ -362,7 +363,7 @@ f(src, length) =>
 plot(f(close, 20), "F")"""
         src = get_generated_code("test_mixed_params", code)
         # close must be Series, not .current
-        assert "self.f(self.rt.close," in src, f"f did not receive Series close"
+        assert "self.f(self.rt.close," in src, "f did not receive Series close"
         assert "self.f(self.rt.close.current," not in src, "f received scalar .current!"
         # length is a literal scalar, no .current
         assert "self.f(self.rt.close, 20)" in src, f"f call wrong: {src}"

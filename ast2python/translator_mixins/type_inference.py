@@ -6,14 +6,14 @@ from typing import Any
 
 from ast2python.ast.schema import ASTNode
 from ast2python.errors import ScopeResolutionError
-from ast2python.types import TypeInfo, join_qualifiers, make_type_info
-from ast2python.translator_mixins.metadata import member_chain
 from ast2python.translator_constants import (
     BUILTIN_SERIES,
     DERIVED_BUILTIN_SERIES,
     REFERENCE_TYPES,
     VISUAL_OBJECT_PRODUCERS,
 )
+from ast2python.translator_mixins.metadata import member_chain
+from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 
 
 def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:

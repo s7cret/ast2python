@@ -13,7 +13,6 @@ from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 
 if TYPE_CHECKING:
     from ast2python.ast.schema import ASTNode, ASTProgram
-    from ast2python.context import VariableInfo
 
 
 BUILTIN_SERIES = {
@@ -361,7 +360,7 @@ def is_lower_tf_safe_immutable_scalar_capture(info: Any) -> bool:
 
 def diagnose_request_security_captures(translator: Any, expression: ASTNode) -> None:
     """Check nested request.security calls in expression captures."""
-    from ast2python.diagnostics import WARNING_NESTED_SECURITY, Severity
+    from ast2python.diagnostics import Severity
 
     if expression.kind == "CallExpr":
         callee = expression.child("callee")
@@ -597,22 +596,17 @@ def build_metadata(
     translator: Any, program: ASTProgram, *, title: str, module_name: str
 ) -> dict[str, Any]:
     """Build translation metadata dict."""
-    from ast2python.version import __version__ as ast2python_version
+    from ast2python.diagnostics import Severity
     from ast2python.templates.module import class_name_for_mode
     from ast2python.unsupported import node_kind_counts, unsupported_node_catalog
     from ast2python.version import RUNTIME_CONTRACT_VERSION
+    from ast2python.version import __version__ as ast2python_version
 
     declaration = {
         "kind": translator.ctx.mode,
         "title": title,
         "arguments": translator.ctx.strategy_metadata,
     }
-    try:
-        from ast2python.diagnostics import Severity as Sev
-        has_severity = True
-    except ImportError:
-        has_severity = False
-    
     return {
         "ast2python_version": ast2python_version,
         "generator_milestone": f"v{ast2python_version}",
@@ -634,7 +628,7 @@ def build_metadata(
         "unsupported_declaration_args": sorted(set(translator.ctx.unsupported_declaration_args)),
         "unsafe": translator.compile_profile != "production" or not translator.parity_safe,
         "parity_safe": translator.parity_safe,
-        "codegen_safe": not any(d.severity is Sev.ERROR for d in translator.ctx.diagnostics),
+        "codegen_safe": not any(d.severity is Severity.ERROR for d in translator.ctx.diagnostics),
         "runtime_contract_safe": translator.parity_safe,
         "unsupported_features": sorted(translator.unsupported_features),
         "parity_risks": translator.parity_risks,

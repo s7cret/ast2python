@@ -1,7 +1,7 @@
 """Pine time and timestamp call emitters."""
 from __future__ import annotations
 
-from datetime import datetime, timezone, tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import TYPE_CHECKING, Any
 
 from ast2python.errors import UnsupportedBuiltinError
@@ -156,7 +156,7 @@ class PineTimeEmitter:
 
 def _timezone_for_name(timezone_str: str) -> tzinfo:
     if timezone_str == "UTC":
-        return timezone.utc
+        return UTC
     try:
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
     except ImportError as exc:

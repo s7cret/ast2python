@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     from ast2python.ast.schema import ASTNode
 
 
-def call_arguments(node: "ASTNode") -> list[tuple[str | None, "ASTNode"]]:
+def call_arguments(node: ASTNode) -> list[tuple[str | None, ASTNode]]:
     """Extract (name, value) pairs from a Pine call-expression node."""
-    result: list[tuple[str | None, "ASTNode"]] = []
+    result: list[tuple[str | None, ASTNode]] = []
     for argument in node.children("arguments", "args"):
         value = argument.child("value") or argument.child("expression")
         if value is None:
@@ -23,15 +23,15 @@ def call_arguments(node: "ASTNode") -> list[tuple[str | None, "ASTNode"]]:
 
 
 def ordered_call_arguments(
-    name: str, node: "ASTNode"
-) -> list[tuple[str | None, "ASTNode"]]:
+    name: str, node: ASTNode
+) -> list[tuple[str | None, ASTNode]]:
     """Reorder call arguments to match BUILTIN_SIGNATURES parameter order."""
     spec = BUILTIN_SIGNATURES[name]
     raw = call_arguments(node)
     if spec.vararg is not None:
         return raw
-    ordered: list[tuple[str | None, "ASTNode"] | None] = [None] * len(spec.parameters)
-    extras: list[tuple[str | None, "ASTNode"]] = []
+    ordered: list[tuple[str | None, ASTNode] | None] = [None] * len(spec.parameters)
+    extras: list[tuple[str | None, ASTNode]] = []
     name_to_index = {param.name: index for index, param in enumerate(spec.parameters)}
     seen_named = False
     for index, (arg_name, arg) in enumerate(raw):

@@ -6,10 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from ast2python.errors import ValidationError, UnsupportedBuiltinError
+from ast2python.errors import UnsupportedBuiltinError, ValidationError
 from ast2python.profiles import CompileProfile
 from ast2python.translator import translate_ast
-
 
 BASE = {
     "kind": "Program",

@@ -8,12 +8,12 @@ if TYPE_CHECKING:
     from ast2python.ast.schema import ASTNode
 
 
-def switch_cases(node: "ASTNode") -> list["ASTNode"]:
+def switch_cases(node: ASTNode) -> list[ASTNode]:
     """Return the case/branch nodes from a Pine switch/switch-expression node."""
     return node.children("cases", "branches", "arms")
 
 
-def case_condition(case: "ASTNode") -> "ASTNode | None":
+def case_condition(case: ASTNode) -> ASTNode | None:
     """Return the condition/test/match/value child of a case node."""
     return (
         case.child("condition")
@@ -23,6 +23,6 @@ def case_condition(case: "ASTNode") -> "ASTNode | None":
     )
 
 
-def case_body(case: "ASTNode") -> "ASTNode | None":
+def case_body(case: ASTNode) -> ASTNode | None:
     """Return the body/block/then child of a case node."""
     return case.child("body") or case.child("block") or case.child("then")

@@ -10,13 +10,11 @@ import json
 import math
 import os
 import subprocess
-import sys
 import traceback
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path.home())).expanduser().resolve()
 WORKSPACE = ROOT / "[workspace-root]/workspace/btcusdt_v6_stage_c_current"
@@ -27,8 +25,9 @@ PYTHON = PINE2AST / ".venv/bin/python"
 DAY_MS = 86_400_000
 M15_MS = 15 * 60 * 1000
 
-from dataclasses import dataclass, field
-from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na, na
+from dataclasses import dataclass
+
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na
 from pinelib.request import InMemoryDataProvider
 
 # Long OHLCV for prehistory loading
@@ -267,6 +266,7 @@ def value_to_cell(value: Any) -> str:
 
 
 from pinelib.plot import PlotRecorder
+
 
 def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str, str]]]:
     recorder = script.rt.plot_recorder
