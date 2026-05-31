@@ -26,6 +26,7 @@ SUPPORTED_NODE_KINDS = {
     "Reassignment",
     "ExpressionStatement",
     "IfStructure",
+    "ElseIfBranch",
     "SwitchStructure",
     "SwitchStatement",
     "SwitchCase",

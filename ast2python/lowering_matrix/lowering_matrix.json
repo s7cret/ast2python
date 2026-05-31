@@ -147,6 +147,18 @@
       "notes": ""
     },
     {
+      "ast_kind": "ElseIfBranch",
+      "category": "control_flow",
+      "priority": "P0",
+      "runtime_contract": "1.4",
+      "lowering_status": "DONE_VERIFIED",
+      "source_map_status": "DONE_VERIFIED",
+      "coverage_status": "DONE_VERIFIED",
+      "owner_method": "Translator._emit_if",
+      "diagnostics": [],
+      "notes": "Lowered as Python elif inside the parent IfStructure emission."
+    },
+    {
       "ast_kind": "SwitchStructure",
       "category": "control_flow",
       "priority": "P0",

@@ -158,6 +158,79 @@ def test_v0_2_strategy_loop_uses_pine_range_history_and_barstate():
     compile(result.code, "v0_2_strategy_loop.py", "exec")
 
 
+def test_else_if_branch_is_supported_and_lowers_to_elif():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def lit(value: Any, literal_type: str) -> dict[str, Any]:
+        return {"kind": "Literal", "literal_type": literal_type, "value": value}
+
+    def member(obj: str, name: str) -> dict[str, Any]:
+        return {"kind": "MemberAccessExpr", "object": ident(obj), "member": name}
+
+    program = {
+        "kind": "Program",
+        "language": "pine",
+        "version": 6,
+        "declaration": {
+            "kind": "DeclarationStatement",
+            "script_type": "indicator",
+            "call": {
+                "kind": "CallExpr",
+                "callee": ident("indicator"),
+                "arguments": [{"kind": "Argument", "name": None, "value": lit("ElseIf", "string")}],
+            },
+        },
+        "items": [
+            {
+                "kind": "VarDeclaration",
+                "declaration_kind": "var",
+                "type": "int",
+                "name": "localBar",
+                "initializer": lit(None, "na"),
+            },
+            {
+                "kind": "IfStructure",
+                "condition": member("barstate", "isfirst"),
+                "then_block": {
+                    "kind": "Block",
+                    "statements": [
+                        {
+                            "kind": "Reassignment",
+                            "op": ":=",
+                            "target": ident("localBar"),
+                            "value": lit(0, "int"),
+                        }
+                    ],
+                },
+                "else_if_branches": [
+                    {
+                        "kind": "ElseIfBranch",
+                        "condition": member("barstate", "isconfirmed"),
+                        "block": {
+                            "kind": "Block",
+                            "statements": [
+                                {
+                                    "kind": "Reassignment",
+                                    "op": ":=",
+                                    "target": ident("localBar"),
+                                    "value": lit(1, "int"),
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        ],
+    }
+
+    result = translate_ast(program, module_name="else_if_branch")
+
+    assert result.metadata["unsupported_nodes"] == []
+    assert "elif pine_bool(self.rt.barstate.isconfirmed):" in result.code
+    compile(result.code, "else_if_branch.py", "exec")
+
+
 def test_v0_3_input_metadata_time_calls_and_typeinfo():
     program = {
         "kind": "Program",
