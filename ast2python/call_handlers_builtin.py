@@ -1,19 +1,27 @@
 from __future__ import annotations
 
-from typing import Any
+from ast2python.call_handler_types import CallNode, CallTranslator
 
 
-def builtin_ta(translator: Any, callee_chain: str, node: Any, runtime_expr: str) -> Any:
+def builtin_ta(
+    translator: CallTranslator, callee_chain: str, node: CallNode, runtime_expr: str
+) -> str:
     return translator._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
 
 
-def builtin_math(translator: Any, callee_chain: str, node: Any, runtime_expr: str) -> Any:
+def builtin_math(
+    translator: CallTranslator, callee_chain: str, node: CallNode, runtime_expr: str
+) -> str:
     return translator._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
 
 
-def builtin_str(translator: Any, callee_chain: str, node: Any, runtime_expr: str) -> Any:
+def builtin_str(
+    translator: CallTranslator, callee_chain: str, node: CallNode, runtime_expr: str
+) -> str:
     return translator._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
 
 
-def builtin_ref(translator: Any, callee_chain: str, node: Any, runtime_expr: str) -> Any:
+def builtin_ref(
+    translator: CallTranslator, callee_chain: str, node: CallNode, runtime_expr: str
+) -> str:
     return translator._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)

@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from collections.abc import Mapping, Sequence
 
+from ast2python.call_handler_types import (
+    CalleeNode,
+    CallNode,
+    CallTranslator,
+    ExactCallHandler,
+    PrefixCallHandler,
+)
 from ast2python.diagnostics import UNKNOWN_OVERLOAD, Severity
 from ast2python.errors import UnsupportedBuiltinError
 from ast2python.naming import snake_case
@@ -12,22 +19,22 @@ from ast2python.translator_constants import (
 
 
 def dispatch_call(
-    translator: Any,
+    translator: CallTranslator,
     callee_chain: str,
-    node: Any,
-    callee: Any,
+    node: CallNode,
+    callee: CalleeNode,
     *,
     runtime_expr: str,
-    exact_handlers: dict[str, Any],
-    prefix_handlers: list[tuple[str, Any]],
+    exact_handlers: Mapping[str, ExactCallHandler],
+    prefix_handlers: Sequence[tuple[str, PrefixCallHandler]],
 ) -> str:
     exact = exact_handlers.get(callee_chain)
     if exact is not None:
-        return cast(str, exact(translator, node, runtime_expr=runtime_expr))
+        return exact(translator, node, runtime_expr=runtime_expr)
 
     for prefix, handler in prefix_handlers:
         if callee_chain.startswith(prefix):
-            return cast(str, handler(translator, callee_chain, node, runtime_expr=runtime_expr))
+            return handler(translator, callee_chain, node, runtime_expr=runtime_expr)
 
     return dispatch_fallback_call(
         translator,
@@ -39,22 +46,19 @@ def dispatch_call(
 
 
 def dispatch_fallback_call(
-    translator: Any,
+    translator: CallTranslator,
     callee_chain: str,
-    node: Any,
-    callee: Any,
+    node: CallNode,
+    callee: CalleeNode,
     *,
     runtime_expr: str,
 ) -> str:
     alias = callee_chain.split(".", 1)[0]
     if alias in translator.ctx.import_aliases and "." in callee_chain:
-        return cast(
-            str,
-            translator._translate_external_library_call(
-                callee_chain,
-                node,
-                runtime_expr=runtime_expr,
-            ),
+        return translator._translate_external_library_call(
+            callee_chain,
+            node,
+            runtime_expr=runtime_expr,
         )
 
     if callee.kind == "MemberAccessExpr":
@@ -73,10 +77,7 @@ def dispatch_fallback_call(
         or callee_chain in VISUAL_OBJECT_PRODUCERS
         or translator._is_visual_method_call(callee_chain)
     ):
-        return cast(
-            str,
-            translator._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr),
-        )
+        return translator._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
 
     if callee_chain in translator.functions:
         pieces = [
