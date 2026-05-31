@@ -190,9 +190,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_cmd(cmd: list[str], *, cwd: Path, log_path: Path) -> None:
-    env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join(str(p) for p in (AST2PYTHON, PINE2AST, PINELIB))
-    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True)
+    proc = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
     log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
     if proc.returncode != 0:
         raise RuntimeError(f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr}")
