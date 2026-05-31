@@ -46,6 +46,7 @@ from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.translator_mixins.type_inference import infer_type_info
+from ast2python.arg_helper import call_arguments, ordered_call_arguments
 from ast2python.switch_helper import case_body, case_condition, switch_cases
 from ast2python.translator_mixins.metadata import (
     build_metadata,
@@ -2337,28 +2338,7 @@ class Translator:
         raise TypeResolutionError(f"{name} semantic binding failed")
 
     def _ordered_call_arguments(self, name: str, node: ASTNode) -> list[tuple[str | None, ASTNode]]:
-        spec = BUILTIN_SIGNATURES[name]
-        raw = self._call_arguments(node)
-        if spec.vararg is not None:
-            return raw
-        ordered: list[tuple[str | None, ASTNode] | None] = [None] * len(spec.parameters)
-        extras: list[tuple[str | None, ASTNode]] = []
-        name_to_index = {param.name: index for index, param in enumerate(spec.parameters)}
-        seen_named = False
-        for index, (arg_name, arg) in enumerate(raw):
-            if arg_name is None and not seen_named:
-                if index < len(ordered):
-                    ordered[index] = (None, arg)
-                continue
-            if arg_name is None:
-                extras.append((None, arg))
-                continue
-            seen_named = True
-            if arg_name in name_to_index:
-                ordered[name_to_index[arg_name]] = (arg_name, arg)
-            else:
-                extras.append((arg_name, arg))
-        return [item for item in ordered if item is not None] + extras
+        return ordered_call_arguments(name, node)
 
     def _translate_series_source_argument(self, node: ASTNode, *, runtime_expr: str) -> str:
         """Render a Pine series object for TA helpers that inspect history internally.
@@ -2511,13 +2491,7 @@ class Translator:
         return f"pine_string.{function_name}({', '.join(arguments)})"
 
     def _call_arguments(self, node: ASTNode) -> list[tuple[str | None, ASTNode]]:
-        result: list[tuple[str | None, ASTNode]] = []
-        for argument in node.children("arguments", "args"):
-            value = argument.child("value") or argument.child("expression")
-            if value is None:
-                raise UnsupportedNodeError("Argument missing value")
-            result.append((argument.field("name"), value))
-        return result
+        return call_arguments(node)
 
     def _extract_declaration_title(self, declaration: ASTNode) -> str:
         return extract_declaration_title(self, declaration)
