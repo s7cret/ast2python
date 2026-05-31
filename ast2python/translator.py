@@ -1916,56 +1916,28 @@ class Translator:
             if callee.kind == "Literal" and callee.field("literal_type") == "na":
                 return self._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
             raise UnsupportedBuiltinError("Unsupported call target")
-        if callee_chain == "request.security":
-            return self._translate_request_security(node, runtime_expr=runtime_expr)
-        if callee_chain == "request.security_lower_tf":
-            return self._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
-        if callee_chain.startswith("request."):
-            return self._translate_unsupported_request_call(
-                callee_chain, node, runtime_expr=runtime_expr
-            )
-        if callee_chain in DATE_HELPERS:
-            return self.time_emitter.translate_date_helper_call(
-                callee_chain, node, runtime_expr=runtime_expr
-            )
-        if callee_chain == "timestamp":
-            return self.time_emitter.translate_timestamp_call(node)
-        if callee_chain in {"time", "time_close"}:
-            return self.time_emitter.translate_time_call(
-                callee_chain, node, runtime_expr=runtime_expr
-            )
-        if callee_chain == "timeframe.change":
-            arguments = self._call_arguments(node)
-            rendered = [
-                self.translate_expression(arg, runtime_expr=runtime_expr)
-                for _, arg in arguments
-            ]
-            self.ctx.coverage.builtin(callee_chain)
-            return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
-        if callee_chain in {"na", "nz", "fixnan"}:
-            return self._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain.startswith("strategy.") and callee_chain not in {
-            "strategy.long",
-            "strategy.short",
-        }:
-            return self._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain in {"alert", "alertcondition"}:
-            return self._translate_alert_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain in INPUT_CALLS:
-            return self._translate_input_runtime_lookup(node)
-        if callee_chain.startswith("ta."):
-            return self._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain.startswith("math."):
-            return self._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain.startswith("str."):
-            return self._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
-        if callee_chain.startswith(("array.", "map.", "matrix.")):
-            return self._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
+
+        # Exact-match fast path
+        exact = _CALL_EXACT.get(callee_chain)
+        if exact is not None:
+            return exact(self, node, runtime_expr=runtime_expr)
+
+        # Prefix-based namespace dispatch
+        for prefix, handler in _CALL_PREFIX:
+            if callee_chain.startswith(prefix):
+                return handler(self, callee_chain, node, runtime_expr=runtime_expr)
+
+        # Remaining cases (user functions, visual calls, type constructors, alias)
+        return self._translate_call_fallback(callee_chain, node, callee, runtime_expr=runtime_expr)
+
+    def _translate_call_fallback(
+        self, callee_chain: str, node: ASTNode, callee, *, runtime_expr: str
+    ) -> str:
+        # External library call via import alias
         alias = callee_chain.split(".", 1)[0]
         if alias in self.ctx.import_aliases and "." in callee_chain:
-            return self._translate_external_library_call(
-                callee_chain, node, runtime_expr=runtime_expr
-            )
+            return self._translate_external_library_call(callee_chain, node, runtime_expr=runtime_expr)
+        # Known method on user-defined object
         if callee.kind == "MemberAccessExpr":
             obj = callee.child("object")
             member = callee.field("member")
@@ -1976,18 +1948,28 @@ class Translator:
                     for _, arg in self._call_arguments(node)
                 )
                 return f"self.{snake_case(member)}({', '.join(pieces)})"
+        # Visual statement / object calls
         if (
             callee_chain in VISUAL_STATEMENT_CALLS
             or callee_chain in VISUAL_OBJECT_PRODUCERS
             or self._is_visual_method_call(callee_chain)
         ):
             return self._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
+        # User-defined function
         if callee_chain in self.functions:
-            pieces = [self._translate_user_func_arg(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            pieces = [
+                self._translate_user_func_arg(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        # User-defined method
         if callee_chain in self.methods:
-            pieces = [self._translate_user_func_arg(arg, runtime_expr=runtime_expr) for _, arg in self._call_arguments(node)]
+            pieces = [
+                self._translate_user_func_arg(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        # Capitalized identifier: type constructor
         if callee_chain and callee_chain[:1].isupper():
             pieces = []
             for arg_name, arg in self._call_arguments(node):
@@ -1996,12 +1978,7 @@ class Translator:
             return f"{callee_chain}({', '.join(pieces)})"
         # Type-cast builtins: emit as direct Python builtins
         if callee_chain in {"int", "float", "bool", "str"}:
-            helper = {
-                "int": "pine_int",
-                "float": "pine_float",
-                "bool": "pine_bool",
-                "str": "pine_str",
-            }[callee_chain]
+            helper = {"int": "pine_int", "float": "pine_float", "bool": "pine_bool", "str": "pine_str"}[callee_chain]
             self.ctx.imports.require_from("pinelib.core", helper)
             pieces = [
                 self.translate_expression(arg, runtime_expr=runtime_expr)
@@ -2657,3 +2634,139 @@ def translate_ast(
         program,
         module_name=module_name,
     )
+
+# ------------------------------------------------------------------
+# Call-expression dispatch for _translate_call.
+#
+# _CALL_EXACT: callee_chain string -> handler(Translator, node, runtime_expr)
+# _CALL_PREFIX: list of (prefix, handler); handlers receive
+#   (Translator, callee_chain, node, runtime_expr)
+# ------------------------------------------------------------------
+
+from typing import Callable
+from ast2python.translator import Translator
+
+# -- Exact-match helpers ----------------------------------------------------
+
+def _h_request_security(tr, node, runtime_expr):
+    return tr._translate_request_security(node, runtime_expr=runtime_expr)
+
+def _h_request_security_lower_tf(tr, node, runtime_expr):
+    return tr._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
+
+def _h_timestamp(tr, node, runtime_expr):
+    return tr.time_emitter.translate_timestamp_call(node)
+
+def _make_date_helper(name):
+    def h(tr, node, runtime_expr):
+        return tr.time_emitter.translate_date_helper_call(name, node, runtime_expr=runtime_expr)
+    return h
+
+
+def _h_unsupported_request(tr, callee_chain, node, runtime_expr):
+    return tr._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_na(tr, callee_chain, node, runtime_expr):
+    return tr._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_strategy(tr, callee_chain, node, runtime_expr):
+    return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_alert(tr, callee_chain, node, runtime_expr):
+    return tr._translate_alert_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_input_runtime(tr, node, runtime_expr):
+    return tr._translate_input_runtime_lookup(node)
+
+def _h_builtin_ta(tr, callee_chain, node, runtime_expr):
+    return tr._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_math(tr, callee_chain, node, runtime_expr):
+    return tr._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_str(tr, callee_chain, node, runtime_expr):
+    return tr._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_ref(tr, callee_chain, node, runtime_expr):
+    return tr._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_builtin_strategy_prefix(tr, callee_chain, node, runtime_expr):
+    # strategy.* except strategy.long/strategy.short (exact matches above)
+    return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
+
+def _h_timeframe_change(tr, callee_chain, node, runtime_expr):
+    arguments = tr._call_arguments(node)
+    rendered = [
+        tr.translate_expression(arg, runtime_expr=runtime_expr)
+        for _, arg in arguments
+    ]
+    tr.ctx.coverage.builtin(callee_chain)
+    return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
+
+def _h_builtin_time_exact(tr, node, runtime_expr):
+    return tr.time_emitter.translate_time_call("time", node, runtime_expr=runtime_expr)
+
+def _h_builtin_time_close_exact(tr, node, runtime_expr):
+    return tr.time_emitter.translate_time_call("time_close", node, runtime_expr=runtime_expr)
+
+def _h_timeframe_change_exact(tr, node, runtime_expr):
+    arguments = tr._call_arguments(node)
+    rendered = [
+        tr.translate_expression(arg, runtime_expr=runtime_expr)
+        for _, arg in arguments
+    ]
+    tr.ctx.coverage.builtin("timeframe.change")
+    return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
+
+def _h_na(tr, node, runtime_expr):
+    return tr._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
+
+def _h_nz(tr, node, runtime_expr):
+    return tr._translate_na_helper_call("nz", node, runtime_expr=runtime_expr)
+
+def _h_fixnan(tr, node, runtime_expr):
+    return tr._translate_na_helper_call("fixnan", node, runtime_expr=runtime_expr)
+
+def _h_alert(tr, node, runtime_expr):
+    return tr._translate_alert_call("alert", node, runtime_expr=runtime_expr)
+
+def _h_alertcondition(tr, node, runtime_expr):
+    return tr._translate_alert_call("alertcondition", node, runtime_expr=runtime_expr)
+
+# -- Dispatch tables --------------------------------------------------------
+
+_CALL_EXACT: dict[str, Callable] = {
+    "request.security":          _h_request_security,
+    "request.security_lower_tf": _h_request_security_lower_tf,
+    "timestamp":                 _h_timestamp,
+    "time":                      _h_builtin_time_exact,
+    "time_close":                _h_builtin_time_close_exact,
+    "timeframe.change":          _h_timeframe_change_exact,
+    "na":     _h_na,
+    "nz":     _h_nz,
+    "fixnan": _h_fixnan,
+    "alert":                     _h_alert,
+    "alertcondition":            _h_alertcondition,
+    "strategy.long":             lambda tr, node, runtime: tr._translate_strategy_call("strategy.long", node, runtime_expr=runtime),
+    "strategy.short":            lambda tr, node, runtime: tr._translate_strategy_call("strategy.short", node, runtime_expr=runtime),
+}
+
+# Populate INPUT_CALLS
+for _ic in INPUT_CALLS:
+    _CALL_EXACT[_ic] = _h_input_runtime
+
+for _dh in DATE_HELPERS:
+    _CALL_EXACT[_dh] = _make_date_helper(_dh)
+
+# Prefix table — checked in order
+_CALL_PREFIX: list[tuple[str, Callable]] = [
+    ("request.",  _h_unsupported_request),
+    ("ta.",       _h_builtin_ta),
+    ("math.",     _h_builtin_math),
+    ("str.",      _h_builtin_str),
+    ("array.",    _h_builtin_ref),
+    ("map.",      _h_builtin_ref),
+    ("matrix.",   _h_builtin_ref),
+    ("strategy.", _h_builtin_strategy_prefix),
+]
+
