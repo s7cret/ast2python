@@ -7,6 +7,7 @@ from typing import Any, Literal, NoReturn
 from ast2python.arg_helper import call_arguments, ordered_call_arguments
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
+from ast2python.call_dispatch import dispatch_call
 from ast2python.context import TranslationContext, VariableInfo
 from ast2python.diagnostics import (
     BINDER_SIGNATURE_MISMATCH,
@@ -61,8 +62,6 @@ from ast2python.translator_constants import (
     TIME_COMPONENT_BUILTINS,
     UDT_DECLARATIONS,
     VISUAL_OBJECT_METHOD_PREFIXES,
-    VISUAL_OBJECT_PRODUCERS,
-    VISUAL_STATEMENT_CALLS,
 )
 from ast2python.translator_mixins.metadata import (
     build_metadata,
@@ -134,9 +133,7 @@ class Translator:
                 "allow_unsupported_request_stubs": allow_unsupported_request_stubs,
                 "allow_realtime_local_simulation": allow_realtime_local_simulation,
             }
-            enabled_unsafe_flags = sorted(
-                name for name, enabled in unsafe_flags.items() if enabled
-            )
+            enabled_unsafe_flags = sorted(name for name, enabled in unsafe_flags.items() if enabled)
             raise ValidationError(
                 "production compile profile forbids unsafe overrides: "
                 + ", ".join(enabled_unsafe_flags)
@@ -302,7 +299,9 @@ class Translator:
                 },
             )
             if not self.allow_contract_mismatch:
-                raise ValidationError("Pine2AST producer metadata missing/mismatched runtime contract")
+                raise ValidationError(
+                    "Pine2AST producer metadata missing/mismatched runtime contract"
+                )
             self.parity_safe = False
             self.parity_risks.append("allow_contract_mismatch override used")
 
@@ -322,10 +321,14 @@ class Translator:
                 if not self.allow_invalid_ast:
                     raise ValidationError("Pine2AST producer metadata gates are not pass")
                 self.parity_safe = False
-                self.parity_risks.append("allow_invalid_ast override used with non-pass frontend gates")
+                self.parity_risks.append(
+                    "allow_invalid_ast override used with non-pass frontend gates"
+                )
 
     def _enforce_realtime_boundary(self, declaration: ASTNode) -> None:
-        if self.ctx.mode != "strategy" or not self._strategy_calc_on_every_tick_enabled(declaration):
+        if self.ctx.mode != "strategy" or not self._strategy_calc_on_every_tick_enabled(
+            declaration
+        ):
             return
         self.ctx.add_diagnostic(
             CALC_ON_EVERY_TICK_UNSAFE,
@@ -345,7 +348,8 @@ class Translator:
         varip_nodes = [
             node
             for node in program.descendants()
-            if node.kind == "VarDeclaration" and str(node.field("mode", default="")).lower() == "varip"
+            if node.kind == "VarDeclaration"
+            and str(node.field("mode", default="")).lower() == "varip"
         ]
         if not varip_nodes:
             return
@@ -504,7 +508,11 @@ class Translator:
                 else:
                     sig = BUILTIN_SIGNATURES.get(chain)
                     if sig is not None:
-                        fn = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+                        fn = (
+                            sig.builtin.split(".", 1)[1]
+                            if sig.builtin.startswith("ta.")
+                            else sig.builtin
+                        )
                         self.ctx.imports.require_from("pinelib.ta", fn)
                     else:
                         self.ctx.imports.require_from("pinelib.ta", member)
@@ -643,14 +651,16 @@ class Translator:
                         self.emitter.line(f"self.{info.py_name} = {series_expr}")
                     else:
                         # Fallback: strip .current and hope for the best
-                        source_ref = default.replace(".current", "") if isinstance(default, str) else default
-                        self.emitter.line(f'self.{info.py_name} = {source_ref}')
+                        source_ref = (
+                            default.replace(".current", "") if isinstance(default, str) else default
+                        )
+                        self.emitter.line(f"self.{info.py_name} = {source_ref}")
                 elif isinstance(default, str) and ".current" in default:
                     # Simple case: self.rt.close.current -> self.rt.close
                     source_ref = default.replace(".current", "")
-                    self.emitter.line(f'self.{info.py_name} = {source_ref}')
+                    self.emitter.line(f"self.{info.py_name} = {source_ref}")
                 else:
-                    self.emitter.line(f'self.{info.py_name} = {default}')
+                    self.emitter.line(f"self.{info.py_name} = {default}")
             else:
                 self.emitter.line(
                     f'self.{info.py_name}.set_current(self._input_value("{info.pine_name}", {default}, {schema}))'  # noqa: E501
@@ -807,9 +817,7 @@ class Translator:
         self.emitter.indent()
         self.emitter.line("'bar_index': getattr(self.rt, 'bar_index', None),")
         if self.ctx.mode == "strategy":
-            self.emitter.line(
-                "'pending_orders': len(getattr(self.ctx, 'pending_orders', ())),"
-            )
+            self.emitter.line("'pending_orders': len(getattr(self.ctx, 'pending_orders', ())),")
         self.emitter.dedent()
         self.emitter.line("}")
         self.emitter.dedent()
@@ -932,9 +940,7 @@ class Translator:
         # tuple-target pre-declaration (which sets wrong type before tuple unpacking)
         if initializer is not None:
             info.type_info = self._infer_type_info(initializer)
-            self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = (
-                info.type_info.to_dict()
-            )
+            self.ctx.type_metadata[f"{info.scope_id}:{info.pine_name}"] = info.type_info.to_dict()
         return info
 
     def _varip_key(self, info: VariableInfo) -> str:
@@ -1643,9 +1649,10 @@ class Translator:
             ):
                 return f"({left} {op} {right})"
             # Also handle when both sides are string literals (including empty strings)
-            if op in ("==", "!=") and left == right and (
-                (left.startswith("(") and left.endswith(")")) or
-                left in ('""', "''")
+            if (
+                op in ("==", "!=")
+                and left == right
+                and ((left.startswith("(") and left.endswith(")")) or left in ('""', "''"))
             ):
                 return f"({left} {op} {right})"
             return self._lower_binary_operator(op, left, right, node)
@@ -1793,8 +1800,14 @@ class Translator:
             return repr(chain)
         if chain.startswith(
             (
-                "display.", "currency.", "location.", "shape.", "size.", "position.",
-                "plot.style_", "format.",
+                "display.",
+                "currency.",
+                "location.",
+                "shape.",
+                "size.",
+                "position.",
+                "plot.style_",
+                "format.",
             )
         ):
             return repr(chain)
@@ -1824,7 +1837,7 @@ class Translator:
                 period = ATR_SHORTHANDS[chain]
                 self.ctx.imports.require_from("pinelib.ta", "atr")
                 state_id = state_id_for_call(self.ctx, node, f"atr_{period}")
-                return f"atr({period}, runtime={runtime_expr}, state_id=\"{state_id}\")"
+                return f'atr({period}, runtime={runtime_expr}, state_id="{state_id}")'
             # Other ta.* names (ta.sma, ta.ema, etc.) return as-is
             return chain
         if chain.startswith("math.") or chain.startswith("str."):
@@ -1853,7 +1866,7 @@ class Translator:
             if name in BUILTIN_SERIES:
                 return f"{runtime_expr}.{name}[{offset}]"
             if name in TIME_COMPONENT_BUILTINS:
-                return f"{runtime_expr}.expr_history({runtime_expr}.timefunc.{name}(runtime={runtime_expr}), {offset}, state_id=\"{state_id_for_call(self.ctx, node, name + '_history')}\")"
+                return f'{runtime_expr}.expr_history({runtime_expr}.timefunc.{name}(runtime={runtime_expr}), {offset}, state_id="{state_id_for_call(self.ctx, node, name + "_history")}")'
             # Handle derived builtin series with history (e.g. hl2[1], hlc3[2])
             if name == "hl2":
                 return f"pine_div(pine_add({runtime_expr}.high[{offset}], {runtime_expr}.low[{offset}]), 2)"
@@ -1881,7 +1894,7 @@ class Translator:
                 return f"self.{info.py_name}[{offset}]"
         rendered = self.translate_expression(base, runtime_expr=runtime_expr)
         state_id = state_id_for_call(self.ctx, node, "expr_history")
-        return f"{runtime_expr}.expr_history({rendered}, {offset}, state_id=\"{state_id}\")"
+        return f'{runtime_expr}.expr_history({rendered}, {offset}, state_id="{state_id}")'
 
     def _translate_if_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
         condition = node.child("condition")
@@ -1928,81 +1941,15 @@ class Translator:
                 return self._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
             raise UnsupportedBuiltinError("Unsupported call target")
 
-        # Exact-match fast path
-        exact = _CALL_EXACT.get(callee_chain)
-        if exact is not None:
-            return exact(self, node, runtime_expr=runtime_expr)
-
-        # Prefix-based namespace dispatch
-        for prefix, handler in _CALL_PREFIX:
-            if callee_chain.startswith(prefix):
-                return handler(self, callee_chain, node, runtime_expr=runtime_expr)
-
-        # Remaining cases (user functions, visual calls, type constructors, alias)
-        return self._translate_call_fallback(callee_chain, node, callee, runtime_expr=runtime_expr)
-
-    def _translate_call_fallback(
-        self, callee_chain: str, node: ASTNode, callee, *, runtime_expr: str
-    ) -> str:
-        # External library call via import alias
-        alias = callee_chain.split(".", 1)[0]
-        if alias in self.ctx.import_aliases and "." in callee_chain:
-            return self._translate_external_library_call(callee_chain, node, runtime_expr=runtime_expr)
-        # Known method on user-defined object
-        if callee.kind == "MemberAccessExpr":
-            obj = callee.child("object")
-            member = callee.field("member")
-            if obj is not None and isinstance(member, str) and member in self.methods:
-                pieces = [self.translate_expression(obj, runtime_expr=runtime_expr)]
-                pieces.extend(
-                    self.translate_expression(arg, runtime_expr=runtime_expr)
-                    for _, arg in self._call_arguments(node)
-                )
-                return f"self.{snake_case(member)}({', '.join(pieces)})"
-        # Visual statement / object calls
-        if (
-            callee_chain in VISUAL_STATEMENT_CALLS
-            or callee_chain in VISUAL_OBJECT_PRODUCERS
-            or self._is_visual_method_call(callee_chain)
-        ):
-            return self._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
-        # User-defined function
-        if callee_chain in self.functions:
-            pieces = [
-                self._translate_user_func_arg(arg, runtime_expr=runtime_expr)
-                for _, arg in self._call_arguments(node)
-            ]
-            return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
-        # User-defined method
-        if callee_chain in self.methods:
-            pieces = [
-                self._translate_user_func_arg(arg, runtime_expr=runtime_expr)
-                for _, arg in self._call_arguments(node)
-            ]
-            return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
-        # Capitalized identifier: type constructor
-        if callee_chain and callee_chain[:1].isupper():
-            pieces = []
-            for arg_name, arg in self._call_arguments(node):
-                rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-                pieces.append(rendered if arg_name is None else f"{arg_name}={rendered}")
-            return f"{callee_chain}({', '.join(pieces)})"
-        # Type-cast builtins: emit as direct Python builtins
-        if callee_chain in {"int", "float", "bool", "str"}:
-            helper = {"int": "pine_int", "float": "pine_float", "bool": "pine_bool", "str": "pine_str"}[callee_chain]
-            self.ctx.imports.require_from("pinelib.core", helper)
-            pieces = [
-                self.translate_expression(arg, runtime_expr=runtime_expr)
-                for _, arg in self._call_arguments(node)
-            ]
-            return f"{helper}({', '.join(pieces)})"
-        self.ctx.add_diagnostic(
-            UNKNOWN_OVERLOAD,
-            f"unknown or unsupported call overload: {callee_chain}",
-            Severity.ERROR if self.strict else Severity.WARNING,
-            location=node.loc,
+        return dispatch_call(
+            self,
+            callee_chain,
+            node,
+            callee,
+            runtime_expr=runtime_expr,
+            exact_handlers=_CALL_EXACT,
+            prefix_handlers=_CALL_PREFIX,
         )
-        raise UnsupportedBuiltinError(callee_chain)
 
     def _translate_na_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         arguments = self._call_arguments(node)
@@ -2177,7 +2124,13 @@ class Translator:
         if namespace == "array" and method == "from":
             return f"PineArray([{', '.join(args)}])"
         # Handle array.new_float, array.new_int, array.new_bool, array.new_string, array.new_color
-        if namespace == "array" and method in ("new_float", "new_int", "new_bool", "new_string", "new_color"):
+        if namespace == "array" and method in (
+            "new_float",
+            "new_int",
+            "new_bool",
+            "new_string",
+            "new_color",
+        ):
             return f"PineArray.{method}({', '.join(args)})"
         if namespace == "map" and method == "new":
             return "PineMap()"
@@ -2186,7 +2139,10 @@ class Translator:
         # matrix.rows / matrix.cols / matrix.columns — access as property, not method call
         if namespace == "matrix" and method in ("rows", "cols", "columns"):
             return f"{args[0]}.{method}"
-        if method in {"push", "set", "put", "remove", "shift", "avg", "sum", "min", "max", "sort"} and args:
+        if (
+            method in {"push", "set", "put", "remove", "shift", "avg", "sum", "min", "max", "sort"}
+            and args
+        ):
             return f"{args[0]}.{method}({', '.join(args[1:])})"
         if method in {"get", "size", "copy"} and args:
             if method == "size":
@@ -2200,15 +2156,19 @@ class Translator:
             parts = name.split(".")
             ns = parts[1]  # "closedtrades" or "opentrades"
             method = parts[2]  # e.g. "entry_price"
-            args = [self.translate_expression(arg, runtime_expr=runtime_expr)
-                    for _, arg in self._call_arguments(node)]
+            args = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             self.ctx.coverage.builtin(name)
             return f"self.ctx.{ns}_{method}({', '.join(args)})"
         # Handle strategy.risk.xxx -> self.ctx.risk_xxx(...)
         if name.startswith("strategy.risk."):
             method = name.split(".", 2)[2]  # e.g. "allow_entry_in"
-            args = [self.translate_expression(arg, runtime_expr=runtime_expr)
-                    for _, arg in self._call_arguments(node)]
+            args = [
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in self._call_arguments(node)
+            ]
             self.ctx.coverage.builtin(name)
             return f"self.ctx.risk_{method}({', '.join(args)})"
         if name not in STRATEGY_CALLS_P0:
@@ -2238,10 +2198,10 @@ class Translator:
     def _translate_visual_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
         arguments = self._ordered_call_arguments(name, node)
-        
+
         # Fast-path for plot(): emit direct record_plot() call
         # to avoid _visual_call function-call + conditional overhead
-        if name == 'plot':
+        if name == "plot":
             pieces = []
             title_expr = "''"
             extra_kwargs: list[str] = []
@@ -2249,7 +2209,7 @@ class Translator:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
                 if arg_name is None or arg_name in {"series", "value"}:
                     pieces.append(rendered)
-                elif arg_name == 'title':
+                elif arg_name == "title":
                     title_expr = rendered
                 else:
                     extra_kwargs.append(f"{arg_name}={rendered}")
@@ -2267,7 +2227,7 @@ class Translator:
             #     value=<series>,
             #     title=<title_expr>,
             # )
-            series_val = pieces[0] if pieces else 'None'
+            series_val = pieces[0] if pieces else "None"
             self.ctx.coverage.builtin(name)
             return (
                 f"self.rt.plot_recorder.record_plot("
@@ -2276,7 +2236,7 @@ class Translator:
                 f"value={series_val},"
                 f"title={title_expr})"
             )
-        
+
         pieces = []
         for arg_name, arg in arguments:
             rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
@@ -2317,6 +2277,7 @@ class Translator:
             },
         )
         import os
+
         if os.environ.get("DEBUG_BIND"):
             os.makedirs("/tmp/debug_dir", exist_ok=True)
             with open("/tmp/debug_dir/bind_trace.txt", "a") as f:
@@ -2346,7 +2307,11 @@ class Translator:
             if callee is not None and callee.kind == "MemberAccess":
                 obj = callee.child("object")
                 member = callee.field("member")
-                if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
+                if (
+                    obj is not None
+                    and str(obj.field("name")) == "ta"
+                    and member in DERIVED_BUILTIN_SERIES
+                ):
                     # ta.hlc3, ta.hl2, etc. → use _RuntimeDerivedSeries for proper lookback
                     series_fn = f"{member}_series"
                     self.ctx.imports.require_from("pinelib.ta", series_fn)
@@ -2358,7 +2323,9 @@ class Translator:
             temp_name = f"__tmp_{self._temp_series_index}"
             temp_ident = f"self.{temp_name}"
             # Declare the temp series inline; it persists on self across bars.
-            self.emitter.line(f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')")
+            self.emitter.line(
+                f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')"
+            )
             self.emitter.line(f"{temp_ident}.set_current({expr_str})")
             return temp_ident
         if node.kind == "Identifier":
@@ -2382,7 +2349,9 @@ class Translator:
             self._temp_series_index += 1
             temp_name = f"__tmp_{self._temp_series_index}"
             temp_ident = f"self.{temp_name}"
-            self.emitter.line(f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')")
+            self.emitter.line(
+                f"if not hasattr(self, '{temp_name}'): self.{temp_name} = self.rt.series('{temp_name}', dtype='float')"
+            )
             self.emitter.line(f"{temp_ident}.set_current({expr_str})")
             return temp_ident
         return self.translate_expression(node, runtime_expr=runtime_expr)
@@ -2391,11 +2360,44 @@ class Translator:
         self._bind_or_raise(name, node)
         sig = BUILTIN_SIGNATURES[name]
         # Use binder alias (e.g. "ta_range" for "ta.range")
-        function_name = sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+        function_name = (
+            sig.builtin.split(".", 1)[1] if sig.builtin.startswith("ta.") else sig.builtin
+        )
         canonical_name = name.split(".", 1)[1] if name.startswith("ta.") else function_name
         import_name = self.ctx.imports.require_from("pinelib.ta", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
-        history_source_functions = {"crossover", "crossunder", "cross", "rising", "falling", "cum", "range", "cmo", "tsi", "cci", "mfi", "highestbars", "lowestbars", "highest", "lowest", "stdev", "variance", "dev", "change", "pivothigh", "pivotlow", "correlation", "wma", "swma", "vwma", "stoch", "mom", "roc", "alma", "linreg"}
+        history_source_functions = {
+            "crossover",
+            "crossunder",
+            "cross",
+            "rising",
+            "falling",
+            "cum",
+            "range",
+            "cmo",
+            "tsi",
+            "cci",
+            "mfi",
+            "highestbars",
+            "lowestbars",
+            "highest",
+            "lowest",
+            "stdev",
+            "variance",
+            "dev",
+            "change",
+            "pivothigh",
+            "pivotlow",
+            "correlation",
+            "wma",
+            "swma",
+            "vwma",
+            "stoch",
+            "mom",
+            "roc",
+            "alma",
+            "linreg",
+        }
         arguments = []
         ordered_arguments = self._ordered_call_arguments(name, node)
         for index, (arg_name, arg) in enumerate(ordered_arguments):
@@ -2416,21 +2418,35 @@ class Translator:
                         and str(obj.field("name")) == "ta"
                         and member in DERIVED_BUILTIN_SERIES
                     )
-            is_source_param = parameter_name in {"source", "source1", "source2", "high", "low", "open", "series"}
+            is_source_param = parameter_name in {
+                "source",
+                "source1",
+                "source2",
+                "high",
+                "low",
+                "open",
+                "series",
+            }
             # Use _translate_series_source_argument for rolling functions' source args,
             # OR when the arg itself is a DERIVED_BUILTIN_SERIES (hl2/hlc3/etc)
             # used as any function's source param,
             # OR for barssince/valuewhen condition/source args (need Series for history search)
             needs_series_arg = (
-                (canonical_name in history_source_functions or is_derived_series_arg) and is_source_param
+                (canonical_name in history_source_functions or is_derived_series_arg)
+                and is_source_param
             ) or (
-                canonical_name in {"barssince", "valuewhen"} and parameter_name in {"condition", "source"}
+                canonical_name in {"barssince", "valuewhen"}
+                and parameter_name in {"condition", "source"}
             )
             if needs_series_arg:
                 rendered = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
             else:
                 rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
-            arguments.append(rendered if arg_name is None or arg_name in parameter_names else f"{arg_name}={rendered}")
+            arguments.append(
+                rendered
+                if arg_name is None or arg_name in parameter_names
+                else f"{arg_name}={rendered}"
+            )
         if function_name == "dmi":
             arguments = [
                 f"{runtime_expr}.high.current",
@@ -2648,6 +2664,7 @@ def translate_ast(
         module_name=module_name,
     )
 
+
 # ------------------------------------------------------------------
 # Call-expression dispatch for _translate_call.
 #
@@ -2658,113 +2675,133 @@ def translate_ast(
 
 # -- Exact-match helpers ----------------------------------------------------
 
+
 def _h_request_security(tr, node, runtime_expr):
     return tr._translate_request_security(node, runtime_expr=runtime_expr)
+
 
 def _h_request_security_lower_tf(tr, node, runtime_expr):
     return tr._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
 
+
 def _h_timestamp(tr, node, runtime_expr):
     return tr.time_emitter.translate_timestamp_call(node)
+
 
 def _make_date_helper(name):
     def h(tr, node, runtime_expr):
         return tr.time_emitter.translate_date_helper_call(name, node, runtime_expr=runtime_expr)
+
     return h
 
 
 def _h_unsupported_request(tr, callee_chain, node, runtime_expr):
     return tr._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
 
+
 def _h_builtin_na(tr, callee_chain, node, runtime_expr):
     return tr._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
+
 
 def _h_builtin_strategy(tr, callee_chain, node, runtime_expr):
     return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
 
+
 def _h_builtin_alert(tr, callee_chain, node, runtime_expr):
     return tr._translate_alert_call(callee_chain, node, runtime_expr=runtime_expr)
+
 
 def _h_input_runtime(tr, node, runtime_expr):
     return tr._translate_input_runtime_lookup(node)
 
+
 def _h_builtin_ta(tr, callee_chain, node, runtime_expr):
     return tr._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
+
 
 def _h_builtin_math(tr, callee_chain, node, runtime_expr):
     return tr._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
 
+
 def _h_builtin_str(tr, callee_chain, node, runtime_expr):
     return tr._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
 
+
 def _h_builtin_ref(tr, callee_chain, node, runtime_expr):
     return tr._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
+
 
 def _h_builtin_strategy_prefix(tr, callee_chain, node, runtime_expr):
     # strategy.* except strategy.long/strategy.short (exact matches above)
     return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
 
+
 def _h_timeframe_change(tr, callee_chain, node, runtime_expr):
     arguments = tr._call_arguments(node)
-    rendered = [
-        tr.translate_expression(arg, runtime_expr=runtime_expr)
-        for _, arg in arguments
-    ]
+    rendered = [tr.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in arguments]
     tr.ctx.coverage.builtin(callee_chain)
     return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
+
 
 def _h_builtin_time_exact(tr, node, runtime_expr):
     return tr.time_emitter.translate_time_call("time", node, runtime_expr=runtime_expr)
 
+
 def _h_builtin_time_close_exact(tr, node, runtime_expr):
     return tr.time_emitter.translate_time_call("time_close", node, runtime_expr=runtime_expr)
 
+
 def _h_timeframe_change_exact(tr, node, runtime_expr):
     arguments = tr._call_arguments(node)
-    rendered = [
-        tr.translate_expression(arg, runtime_expr=runtime_expr)
-        for _, arg in arguments
-    ]
+    rendered = [tr.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in arguments]
     tr.ctx.coverage.builtin("timeframe.change")
     return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
+
 
 def _h_na(tr, node, runtime_expr):
     return tr._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
 
+
 def _h_nz(tr, node, runtime_expr):
     return tr._translate_na_helper_call("nz", node, runtime_expr=runtime_expr)
+
 
 def _h_fixnan(tr, node, runtime_expr):
     return tr._translate_na_helper_call("fixnan", node, runtime_expr=runtime_expr)
 
+
 def _h_alert(tr, node, runtime_expr):
     return tr._translate_alert_call("alert", node, runtime_expr=runtime_expr)
+
 
 def _h_alertcondition(tr, node, runtime_expr):
     return tr._translate_alert_call("alertcondition", node, runtime_expr=runtime_expr)
 
+
 def _h_strategy_long(tr, node, runtime_expr):
     return tr._translate_strategy_call("strategy.long", node, runtime_expr=runtime_expr)
+
 
 def _h_strategy_short(tr, node, runtime_expr):
     return tr._translate_strategy_call("strategy.short", node, runtime_expr=runtime_expr)
 
+
 # -- Dispatch tables --------------------------------------------------------
 
 _CALL_EXACT: dict[str, Callable] = {
-    "request.security":          _h_request_security,
+    "request.security": _h_request_security,
     "request.security_lower_tf": _h_request_security_lower_tf,
-    "timestamp":                 _h_timestamp,
-    "time":                      _h_builtin_time_exact,
-    "time_close":                _h_builtin_time_close_exact,
-    "timeframe.change":          _h_timeframe_change_exact,
-    "na":     _h_na,
-    "nz":     _h_nz,
+    "timestamp": _h_timestamp,
+    "time": _h_builtin_time_exact,
+    "time_close": _h_builtin_time_close_exact,
+    "timeframe.change": _h_timeframe_change_exact,
+    "na": _h_na,
+    "nz": _h_nz,
     "fixnan": _h_fixnan,
-    "alert":                     _h_alert,
-    "alertcondition":            _h_alertcondition,
-    "strategy.long":             _h_strategy_long,
-    "strategy.short":            _h_strategy_short,
+    "alert": _h_alert,
+    "alertcondition": _h_alertcondition,
+    "strategy.long": _h_strategy_long,
+    "strategy.short": _h_strategy_short,
 }
 
 # Populate INPUT_CALLS
@@ -2776,12 +2813,12 @@ for _dh in DATE_HELPERS:
 
 # Prefix table — checked in order
 _CALL_PREFIX: list[tuple[str, Callable]] = [
-    ("request.",  _h_unsupported_request),
-    ("ta.",       _h_builtin_ta),
-    ("math.",     _h_builtin_math),
-    ("str.",      _h_builtin_str),
-    ("array.",    _h_builtin_ref),
-    ("map.",      _h_builtin_ref),
-    ("matrix.",   _h_builtin_ref),
+    ("request.", _h_unsupported_request),
+    ("ta.", _h_builtin_ta),
+    ("math.", _h_builtin_math),
+    ("str.", _h_builtin_str),
+    ("array.", _h_builtin_ref),
+    ("map.", _h_builtin_ref),
+    ("matrix.", _h_builtin_ref),
     ("strategy.", _h_builtin_strategy_prefix),
 ]
