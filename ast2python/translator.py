@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, NoReturn
 
@@ -8,6 +7,7 @@ from ast2python.arg_helper import call_arguments, ordered_call_arguments
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
 from ast2python.call_dispatch import dispatch_call
+from ast2python.call_registry import CALL_EXACT, CALL_PREFIX
 from ast2python.context import TranslationContext, VariableInfo
 from ast2python.diagnostics import (
     BINDER_SIGNATURE_MISMATCH,
@@ -30,8 +30,8 @@ from ast2python.diagnostics import (
 )
 from ast2python.emitter import CodeEmitter
 from ast2python.emitters.alerts import PineAlertEmitter
-from ast2python.emitters.inputs import INPUT_CALLS, PineInputEmitter
-from ast2python.emitters.time import DATE_HELPERS, PineTimeEmitter
+from ast2python.emitters.inputs import PineInputEmitter
+from ast2python.emitters.time import PineTimeEmitter
 from ast2python.errors import (
     ScopeResolutionError,
     TypeResolutionError,
@@ -1947,8 +1947,8 @@ class Translator:
             node,
             callee,
             runtime_expr=runtime_expr,
-            exact_handlers=_CALL_EXACT,
-            prefix_handlers=_CALL_PREFIX,
+            exact_handlers=CALL_EXACT,
+            prefix_handlers=CALL_PREFIX,
         )
 
     def _translate_na_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
@@ -2663,162 +2663,3 @@ def translate_ast(
         program,
         module_name=module_name,
     )
-
-
-# ------------------------------------------------------------------
-# Call-expression dispatch for _translate_call.
-#
-# _CALL_EXACT: callee_chain string -> handler(Translator, node, runtime_expr)
-# _CALL_PREFIX: list of (prefix, handler); handlers receive
-#   (Translator, callee_chain, node, runtime_expr)
-# ------------------------------------------------------------------
-
-# -- Exact-match helpers ----------------------------------------------------
-
-
-def _h_request_security(tr, node, runtime_expr):
-    return tr._translate_request_security(node, runtime_expr=runtime_expr)
-
-
-def _h_request_security_lower_tf(tr, node, runtime_expr):
-    return tr._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
-
-
-def _h_timestamp(tr, node, runtime_expr):
-    return tr.time_emitter.translate_timestamp_call(node)
-
-
-def _make_date_helper(name):
-    def h(tr, node, runtime_expr):
-        return tr.time_emitter.translate_date_helper_call(name, node, runtime_expr=runtime_expr)
-
-    return h
-
-
-def _h_unsupported_request(tr, callee_chain, node, runtime_expr):
-    return tr._translate_unsupported_request_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_na(tr, callee_chain, node, runtime_expr):
-    return tr._translate_na_helper_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_strategy(tr, callee_chain, node, runtime_expr):
-    return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_alert(tr, callee_chain, node, runtime_expr):
-    return tr._translate_alert_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_input_runtime(tr, node, runtime_expr):
-    return tr._translate_input_runtime_lookup(node)
-
-
-def _h_builtin_ta(tr, callee_chain, node, runtime_expr):
-    return tr._translate_ta_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_math(tr, callee_chain, node, runtime_expr):
-    return tr._translate_math_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_str(tr, callee_chain, node, runtime_expr):
-    return tr._translate_str_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_ref(tr, callee_chain, node, runtime_expr):
-    return tr._translate_reference_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_strategy_prefix(tr, callee_chain, node, runtime_expr):
-    # strategy.* except strategy.long/strategy.short (exact matches above)
-    return tr._translate_strategy_call(callee_chain, node, runtime_expr=runtime_expr)
-
-
-def _h_timeframe_change(tr, callee_chain, node, runtime_expr):
-    arguments = tr._call_arguments(node)
-    rendered = [tr.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in arguments]
-    tr.ctx.coverage.builtin(callee_chain)
-    return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
-
-
-def _h_builtin_time_exact(tr, node, runtime_expr):
-    return tr.time_emitter.translate_time_call("time", node, runtime_expr=runtime_expr)
-
-
-def _h_builtin_time_close_exact(tr, node, runtime_expr):
-    return tr.time_emitter.translate_time_call("time_close", node, runtime_expr=runtime_expr)
-
-
-def _h_timeframe_change_exact(tr, node, runtime_expr):
-    arguments = tr._call_arguments(node)
-    rendered = [tr.translate_expression(arg, runtime_expr=runtime_expr) for _, arg in arguments]
-    tr.ctx.coverage.builtin("timeframe.change")
-    return f"{runtime_expr}.timefunc.change({', '.join(rendered)}, runtime={runtime_expr})"
-
-
-def _h_na(tr, node, runtime_expr):
-    return tr._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
-
-
-def _h_nz(tr, node, runtime_expr):
-    return tr._translate_na_helper_call("nz", node, runtime_expr=runtime_expr)
-
-
-def _h_fixnan(tr, node, runtime_expr):
-    return tr._translate_na_helper_call("fixnan", node, runtime_expr=runtime_expr)
-
-
-def _h_alert(tr, node, runtime_expr):
-    return tr._translate_alert_call("alert", node, runtime_expr=runtime_expr)
-
-
-def _h_alertcondition(tr, node, runtime_expr):
-    return tr._translate_alert_call("alertcondition", node, runtime_expr=runtime_expr)
-
-
-def _h_strategy_long(tr, node, runtime_expr):
-    return tr._translate_strategy_call("strategy.long", node, runtime_expr=runtime_expr)
-
-
-def _h_strategy_short(tr, node, runtime_expr):
-    return tr._translate_strategy_call("strategy.short", node, runtime_expr=runtime_expr)
-
-
-# -- Dispatch tables --------------------------------------------------------
-
-_CALL_EXACT: dict[str, Callable] = {
-    "request.security": _h_request_security,
-    "request.security_lower_tf": _h_request_security_lower_tf,
-    "timestamp": _h_timestamp,
-    "time": _h_builtin_time_exact,
-    "time_close": _h_builtin_time_close_exact,
-    "timeframe.change": _h_timeframe_change_exact,
-    "na": _h_na,
-    "nz": _h_nz,
-    "fixnan": _h_fixnan,
-    "alert": _h_alert,
-    "alertcondition": _h_alertcondition,
-    "strategy.long": _h_strategy_long,
-    "strategy.short": _h_strategy_short,
-}
-
-# Populate INPUT_CALLS
-for _ic in INPUT_CALLS:
-    _CALL_EXACT[_ic] = _h_input_runtime
-
-for _dh in DATE_HELPERS:
-    _CALL_EXACT[_dh] = _make_date_helper(_dh)
-
-# Prefix table — checked in order
-_CALL_PREFIX: list[tuple[str, Callable]] = [
-    ("request.", _h_unsupported_request),
-    ("ta.", _h_builtin_ta),
-    ("math.", _h_builtin_math),
-    ("str.", _h_builtin_str),
-    ("array.", _h_builtin_ref),
-    ("map.", _h_builtin_ref),
-    ("matrix.", _h_builtin_ref),
-    ("strategy.", _h_builtin_strategy_prefix),
-]
