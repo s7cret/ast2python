@@ -86,8 +86,9 @@ def test_strategy_realtime_and_broker_flags_lower_to_strategy_context_and_run_lo
         "max_lines_count=10",
         "max_labels_count=20",
         "max_boxes_count=30",
-        "from pinelib.backtest import run_generated_strategy",
-        "result = run_generated_strategy(self, self.rt, self.ctx, bars)",
+        "self._process_bar(bar)",
+        "results.append(self._snapshot())",
     ):
         assert expected in result.code
+    assert "run_generated_strategy" not in result.code
     compile(result.code, "iter_d_flags.py", "exec")

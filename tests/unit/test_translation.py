@@ -53,6 +53,68 @@ def test_request_security_callable_generation_and_state_ids():
     compile(result.code, "request_security.py", "exec")
 
 
+def test_request_security_complex_source_does_not_emit_request_runtime_side_effects():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def member(obj: str, name: str) -> dict[str, Any]:
+        return {"kind": "MemberAccessExpr", "object": ident(obj), "member": name}
+
+    def arg(value: dict[str, Any], name: str | None = None) -> dict[str, Any]:
+        return {"kind": "Argument", "name": name, "value": value}
+
+    def call(callee: dict[str, Any], args: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"kind": "CallExpr", "callee": callee, "arguments": args}
+
+    result = translate_ast(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "indicator",
+                "call": call(
+                    ident("indicator"),
+                    [arg({"kind": "Literal", "literal_type": "string", "value": "rs"})],
+                ),
+            },
+            "items": [
+                {
+                    "kind": "VarDeclaration",
+                    "name": "x",
+                    "initializer": call(
+                        member("request", "security"),
+                        [
+                            arg({"kind": "Literal", "literal_type": "string", "value": "AAPL"}),
+                            arg({"kind": "Literal", "literal_type": "string", "value": "D"}),
+                            arg(
+                                call(
+                                    member("ta", "highest"),
+                                    [
+                                        arg({
+                                            "kind": "BinaryExpr",
+                                            "op": "+",
+                                            "left": ident("close"),
+                                            "right": ident("open"),
+                                        }),
+                                        arg({"kind": "Literal", "literal_type": "int", "value": 5}),
+                                    ],
+                                )
+                            ),
+                        ],
+                    ),
+                }
+            ],
+        },
+        module_name="request_security_complex_source",
+    )
+    assert "lambda request_rt:" in result.code
+    assert "request_rt" not in result.code.split("lambda request_rt:", 1)[0]
+    assert "self.__tmp" not in result.code
+    compile(result.code, "request_security_complex_source.py", "exec")
+
+
 def test_nested_request_security_emits_diagnostic():
     result = translate_ast(
         load_fixture("nested_request_security.ast.json"), module_name="nested_request"

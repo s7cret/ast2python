@@ -458,7 +458,6 @@ class Translator:
         self.ctx.imports.require_from("pinelib.request", "security", alias="request_security")
         if self.ctx.mode == "strategy":
             self.ctx.imports.require_from("pinelib.strategy", "StrategyContext")
-            self.ctx.imports.require_from("pinelib.backtest", "run_generated_strategy")
         self.ctx.imports.require_from("pinelib.errors", "PineRuntimeError")
         self.ctx.imports.require_from("pinelib.errors", "PL_INPUT_VALIDATION_ERROR")
 
@@ -746,8 +745,21 @@ class Translator:
             self.emitter.line()
             self.emitter.line("def run(self, bars):")
             self.emitter.indent()
-            self.emitter.line("result = run_generated_strategy(self, self.rt, self.ctx, bars)")
-            self.emitter.line("return result.report.snapshots")
+            self.emitter.line("results = []")
+            self.emitter.line("for bar in bars:")
+            self.emitter.indent()
+            self.emitter.line("self.rt.begin_bar(bar)")
+            self.emitter.line("try:")
+            self.emitter.indent()
+            self.emitter.line("self._process_bar(bar)")
+            self.emitter.dedent()
+            self.emitter.line("finally:")
+            self.emitter.indent()
+            self.emitter.line("self.rt.end_bar()")
+            self.emitter.dedent()
+            self.emitter.line("results.append(self._snapshot())")
+            self.emitter.dedent()
+            self.emitter.line("return results")
             self.emitter.dedent()
             return
         self.emitter.line("def run(self, bars):")
@@ -798,7 +810,9 @@ class Translator:
         self.emitter.indent()
         self.emitter.line("'bar_index': getattr(self.rt, 'bar_index', None),")
         if self.ctx.mode == "strategy":
-            self.emitter.line("'position_size': getattr(self.ctx, 'position_size', None),")
+            self.emitter.line(
+                "'pending_orders': len(getattr(self.ctx, 'pending_orders', ())),"
+            )
         self.emitter.dedent()
         self.emitter.line("}")
         self.emitter.dedent()
@@ -2366,6 +2380,8 @@ class Translator:
         # BinaryExpr, UnaryExpr, or other complex expression: materialize into a temp Series.
         if node.kind in ("BinaryExpr", "UnaryExpr"):
             expr_str = self.translate_expression(node, runtime_expr=runtime_expr)
+            if runtime_expr != "self.rt":
+                return expr_str
             self._temp_series_index += 1
             temp_name = f"__tmp_{self._temp_series_index}"
             temp_ident = f"self.{temp_name}"
