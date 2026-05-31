@@ -1,7 +1,4 @@
 """Tests for rolling TA call: Series source must be passed, not .current scalar."""
-import sys
-
-sys.path.insert(0, "[local-home]/pine2ast")
 from pine2ast.api import parse_code, runtime_contract_v1_4_options
 from pine2ast.ast.serialize import ast_to_dict
 

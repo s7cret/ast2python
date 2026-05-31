@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,7 +19,8 @@ from tests.contract_metadata import with_valid_producer_metadata
 def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
-PINE2AST = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid")
+STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
+PINE2AST = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid"
 
 
 @pytest.mark.parametrize(

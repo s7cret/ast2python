@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +15,8 @@ from tests.contract_metadata import with_valid_producer_metadata
 def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
-FIXTURES = Path("[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke")
+STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
+FIXTURES = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke"
 
 
 def metadata_fixture_copy(src: Path, dst_dir: Path) -> Path:

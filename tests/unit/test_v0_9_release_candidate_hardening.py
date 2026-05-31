@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -11,9 +12,8 @@ from ast2python.translator import TranslationResult, Translator, translate_ast
 from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
-FIXTURE = Path(
-    "[local-home]/pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
-)
+STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
+FIXTURE = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
 
 
 def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
