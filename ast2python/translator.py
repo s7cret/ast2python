@@ -46,6 +46,7 @@ from ast2python.state import state_id_for_call
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 from ast2python.translator_mixins.type_inference import infer_type_info
+from ast2python.switch_helper import case_body, case_condition, switch_cases
 from ast2python.translator_mixins.metadata import (
     build_metadata,
     collect_declaration_metadata,
@@ -1339,25 +1340,20 @@ class Translator:
         self.emitter.dedent()
 
     def _switch_cases(self, node: ASTNode) -> list[ASTNode]:
-        return node.children("cases", "branches", "arms")
+        return switch_cases(node)
 
     def _case_condition(self, case: ASTNode) -> ASTNode | None:
-        return (
-            case.child("condition")
-            or case.child("match")
-            or case.child("value")
-            or case.child("test")
-        )
+        return case_condition(case)
 
     def _case_body(self, case: ASTNode) -> ASTNode | None:
-        return case.child("body") or case.child("block") or case.child("then")
+        return case_body(case)
 
     def _emit_switch(self, node: ASTNode) -> None:
         subject = node.child("expression") or node.child("subject") or node.child("target")
         emitted = False
-        for case in self._switch_cases(node):
-            cond = self._case_condition(case)
-            body = self._case_body(case)
+        for case in switch_cases(node):
+            cond = case_condition(case)
+            body = case_body(case)
             is_default = cond is None or bool(case.field("default", default=False))
             if is_default:
                 self.emitter.line(
@@ -1547,10 +1543,10 @@ class Translator:
         subject = node.child("expression") or node.child("subject") or node.child("target")
         default = "na"
         clauses: list[tuple[str, str]] = []
-        for case in self._switch_cases(node):
-            cond = self._case_condition(case)
+        for case in switch_cases(node):
+            cond = case_condition(case)
             expr = case.child("expression") or case.child("result")
-            body = self._case_body(case)
+            body = case_body(case)
             if body is None:
                 body_expr = None
             elif body.kind == "Block":
