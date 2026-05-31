@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path("[local-home]")
+ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path.home())).expanduser().resolve()
 WORKSPACE = ROOT / "[workspace-root]/workspace/btcusdt_v6_stage_c_current"
 AST2PYTHON = ROOT / "ast2python"
 PINE2AST = ROOT / "pine2ast"
@@ -27,12 +27,9 @@ PYTHON = PINE2AST / ".venv/bin/python"
 DAY_MS = 86_400_000
 M15_MS = 15 * 60 * 1000
 
-for repo in (AST2PYTHON, PINE2AST, PINELIB):
-    sys.path.insert(0, str(repo))
-
 from dataclasses import dataclass, field
-from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na, na  # noqa: E402
-from pinelib.request import InMemoryDataProvider  # noqa: E402
+from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na, na
+from pinelib.request import InMemoryDataProvider
 
 # Long OHLCV for prehistory loading
 LONG_OHLCV = ROOT / "[workspace-root]/workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv"

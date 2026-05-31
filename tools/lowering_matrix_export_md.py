@@ -2,14 +2,8 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from ast2python.lowering_matrix import (  # noqa: E402
+from ast2python.lowering_matrix import (
     export_lowering_matrix_markdown,
     export_source_map_contract_markdown,
     validate_lowering_matrix,
