@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import field
 from pathlib import Path
-from typing import Any, Literal, NoReturn
+from typing import Any, Callable, Literal, NoReturn
 
 from ast2python.ast.schema import ASTNode, ASTProgram, ensure_program_node, load_ast, validate_ast
 from ast2python.binder import BUILTIN_SIGNATURES, bind_builtin_call
@@ -2643,9 +2643,6 @@ def translate_ast(
 #   (Translator, callee_chain, node, runtime_expr)
 # ------------------------------------------------------------------
 
-from typing import Callable
-from ast2python.translator import Translator
-
 # -- Exact-match helpers ----------------------------------------------------
 
 def _h_request_security(tr, node, runtime_expr):
@@ -2733,6 +2730,12 @@ def _h_alert(tr, node, runtime_expr):
 def _h_alertcondition(tr, node, runtime_expr):
     return tr._translate_alert_call("alertcondition", node, runtime_expr=runtime_expr)
 
+def _h_strategy_long(tr, node, runtime_expr):
+    return tr._translate_strategy_call("strategy.long", node, runtime_expr=runtime_expr)
+
+def _h_strategy_short(tr, node, runtime_expr):
+    return tr._translate_strategy_call("strategy.short", node, runtime_expr=runtime_expr)
+
 # -- Dispatch tables --------------------------------------------------------
 
 _CALL_EXACT: dict[str, Callable] = {
@@ -2747,8 +2750,8 @@ _CALL_EXACT: dict[str, Callable] = {
     "fixnan": _h_fixnan,
     "alert":                     _h_alert,
     "alertcondition":            _h_alertcondition,
-    "strategy.long":             lambda tr, node, runtime: tr._translate_strategy_call("strategy.long", node, runtime_expr=runtime),
-    "strategy.short":            lambda tr, node, runtime: tr._translate_strategy_call("strategy.short", node, runtime_expr=runtime),
+    "strategy.long":             _h_strategy_long,
+    "strategy.short":            _h_strategy_short,
 }
 
 # Populate INPUT_CALLS
@@ -2769,4 +2772,3 @@ _CALL_PREFIX: list[tuple[str, Callable]] = [
     ("matrix.",   _h_builtin_ref),
     ("strategy.", _h_builtin_strategy_prefix),
 ]
-
