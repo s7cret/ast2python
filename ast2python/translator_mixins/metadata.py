@@ -66,7 +66,7 @@ def literal_value(node: ASTNode) -> Any:
 def _call_arguments(node: ASTNode) -> list[tuple[str | None, ASTNode]]:
     """Extract argument name/value pairs from a CallExpr node."""
     if node.kind != "CallExpr":
-        return []
+        return list()
     args: list[tuple[str | None, ASTNode]] = []
     for child in node.children():
         if child.kind == "Argument":
@@ -238,7 +238,7 @@ def strategy_context_kwargs(
     """Build StrategyContext kwargs and declaration metadata from a strategy declaration."""
     call = declaration.child("call")
     if call is None:
-        return []
+        return list()
     kwargs: list[tuple[str, str]] = []
     metadata: dict[str, Any] = {}
     for name, value_node in translator._call_arguments(call):

@@ -277,7 +277,7 @@ def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str,
     else:
         records = script.visual_calls  # legacy fallback
     if not bars:
-        return [], []
+        return list(), list()
     if len(records) % len(bars) != 0:
         raise RuntimeError(f"visual event count {len(records)} is not divisible by bars {len(bars)}")
     per_bar = len(records) // len(bars)
