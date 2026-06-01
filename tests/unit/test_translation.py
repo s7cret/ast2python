@@ -18,6 +18,49 @@ def load_fixture(name: str) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads((FIXTURES / name).read_text(encoding="utf-8")))
 
 
+def test_fixnan_series_identifier_passes_series_object_for_history_backfill():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def arg(value: dict[str, Any]) -> dict[str, Any]:
+        return {"kind": "Argument", "name": None, "value": value}
+
+    def call(name: str, args: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"kind": "CallExpr", "callee": ident(name), "arguments": args}
+
+    result = translate_ast(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "indicator",
+                "call": call(
+                    "indicator",
+                    [arg({"kind": "Literal", "literal_type": "string", "value": "fixnan"})],
+                ),
+            },
+            "items": [
+                {
+                    "kind": "VarDeclaration",
+                    "name": "maybeNa",
+                    "initializer": ident("close"),
+                },
+                {
+                    "kind": "VarDeclaration",
+                    "name": "fixed",
+                    "initializer": call("fixnan", [arg(ident("maybeNa"))]),
+                },
+            ],
+        },
+        module_name="fixnan_series",
+    )
+
+    assert "self.fixed.set_current(fixnan(self.maybe_na))" in result.code
+    assert "fixnan(self.maybe_na.current)" not in result.code
+
+
 def test_contract_header_and_minimal_indicator_compiles():
     result = translate_ast(
         load_fixture("minimal_indicator.ast.json"), module_name="minimal_indicator"

@@ -1970,8 +1970,11 @@ class Translator:
         import_name = "is_na" if name == "na" else name
         self.ctx.imports.require_from("pinelib.core", import_name)
         rendered: list[str] = []
-        for arg_name, arg in arguments:
-            value = self.translate_expression(arg, runtime_expr=runtime_expr)
+        for index, (arg_name, arg) in enumerate(arguments):
+            if name == "fixnan" and index == 0 and first_type.qualifier == "series":
+                value = self._translate_series_source_argument(arg, runtime_expr=runtime_expr)
+            else:
+                value = self.translate_expression(arg, runtime_expr=runtime_expr)
             rendered.append(value if arg_name is None else f"{arg_name}={value}")
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(rendered)})"
