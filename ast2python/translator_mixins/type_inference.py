@@ -10,6 +10,7 @@ from ast2python.translator_constants import (
     BUILTIN_SERIES,
     DERIVED_BUILTIN_SERIES,
     REFERENCE_TYPES,
+    STRATEGY_READONLY_FIELDS,
     VISUAL_OBJECT_PRODUCERS,
 )
 from ast2python.translator_mixins.metadata import member_chain
@@ -80,6 +81,17 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             "strategy.oca.reduce",
         }:
             return make_type_info("string", "const", can_be_na=False)
+        if chain is not None and chain.startswith("strategy."):
+            field = chain.split(".", 1)[1]
+            if field in STRATEGY_READONLY_FIELDS:
+                base = "int" if field in {
+                    "opentrades",
+                    "closedtrades",
+                    "wintrades",
+                    "losstrades",
+                    "eventrades",
+                } else "float"
+                return make_type_info(base, "series", is_series=True, can_be_na=False)
         if chain is not None and chain.startswith("syminfo."):
             member = chain.split(".", 1)[1]
             # syminfo.mintick and syminfo.pointvalue are float, rest are string
@@ -232,6 +244,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             "ta.cmo",
             "ta.tsi",
             "ta.range",
+            "ta.tr",
             "ta.correlation",
             "ta.vwap",
             "ta.kc",
@@ -259,6 +272,13 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             return make_type_info("tuple", "series", is_series=True)
         if chain == "request.security_lower_tf":
             return make_type_info("array", "series", is_history_allowed=False)
+        if chain and chain.startswith(("strategy.closedtrades.", "strategy.opentrades.")):
+            method = chain.rsplit(".", 1)[1]
+            if method in {"entry_id", "exit_id", "side"}:
+                return make_type_info("string", "series", is_series=True)
+            if method in {"entry_time", "exit_time", "entry_bar_index", "exit_bar_index"}:
+                return make_type_info("int", "series", is_series=True)
+            return make_type_info("float", "series", is_series=True)
         # request.financial/economic/currency_rate/earnings/dividends/splits
         # all return float series (financial/economic data is time-series)
         if chain and chain.startswith("request."):

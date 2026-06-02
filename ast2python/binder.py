@@ -571,6 +571,14 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         "strategy.closedtrades.entry_price",
         (P("index", NUMERIC, "simple"),),
     ),
+    "strategy.closedtrades.entry_id": S(
+        "strategy.closedtrades.entry_id",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.exit_id": S(
+        "strategy.closedtrades.exit_id",
+        (P("index", NUMERIC, "simple"),),
+    ),
     "strategy.closedtrades.exit_price": S(
         "strategy.closedtrades.exit_price",
         (P("index", NUMERIC, "simple"),),
@@ -583,12 +591,36 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         "strategy.closedtrades.exit_time",
         (P("index", NUMERIC, "simple"),),
     ),
+    "strategy.closedtrades.entry_bar_index": S(
+        "strategy.closedtrades.entry_bar_index",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.exit_bar_index": S(
+        "strategy.closedtrades.exit_bar_index",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.commission": S(
+        "strategy.closedtrades.commission",
+        (P("index", NUMERIC, "simple"),),
+    ),
     "strategy.closedtrades.profit": S(
         "strategy.closedtrades.profit",
         (P("index", NUMERIC, "simple"),),
     ),
+    "strategy.closedtrades.profit_percent": S(
+        "strategy.closedtrades.profit_percent",
+        (P("index", NUMERIC, "simple"),),
+    ),
     "strategy.closedtrades.size": S(
         "strategy.closedtrades.size",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.qty": S(
+        "strategy.closedtrades.qty",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.closedtrades.side": S(
+        "strategy.closedtrades.side",
         (P("index", NUMERIC, "simple"),),
     ),
     "strategy.closedtrades.max_drawdown": S(
@@ -604,12 +636,40 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         "strategy.opentrades.entry_price",
         (P("index", NUMERIC, "simple"),),
     ),
+    "strategy.opentrades.entry_id": S(
+        "strategy.opentrades.entry_id",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.entry_time": S(
+        "strategy.opentrades.entry_time",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.entry_bar_index": S(
+        "strategy.opentrades.entry_bar_index",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.commission": S(
+        "strategy.opentrades.commission",
+        (P("index", NUMERIC, "simple"),),
+    ),
     "strategy.opentrades.profit": S(
         "strategy.opentrades.profit",
         (P("index", NUMERIC, "simple"),),
     ),
+    "strategy.opentrades.profit_percent": S(
+        "strategy.opentrades.profit_percent",
+        (P("index", NUMERIC, "simple"),),
+    ),
     "strategy.opentrades.size": S(
         "strategy.opentrades.size",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.qty": S(
+        "strategy.opentrades.qty",
+        (P("index", NUMERIC, "simple"),),
+    ),
+    "strategy.opentrades.side": S(
+        "strategy.opentrades.side",
         (P("index", NUMERIC, "simple"),),
     ),
     "strategy.opentrades.max_drawdown": S(

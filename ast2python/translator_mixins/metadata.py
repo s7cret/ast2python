@@ -22,6 +22,23 @@ BUILTIN_SERIES = {
     "timenow", "syminfo",
 }
 
+STRATEGY_READONLY_FIELDS = {
+    "equity",
+    "netprofit",
+    "openprofit",
+    "grossprofit",
+    "grossloss",
+    "position_size",
+    "position_avg_price",
+    "opentrades",
+    "closedtrades",
+    "wintrades",
+    "losstrades",
+    "eventrades",
+    "max_drawdown",
+    "max_runup",
+}
+
 FUNCTION_DECLARATIONS = {
     "FunctionDeclaration", "FunctionDecl", "FunctionDefinition",
 }
@@ -535,6 +552,17 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             "strategy.oca.reduce",
         }:
             return make_type_info("string", "const", can_be_na=False)
+        if chain is not None and chain.startswith("strategy."):
+            field = chain.split(".", 1)[1]
+            if field in STRATEGY_READONLY_FIELDS:
+                base = "int" if field in {
+                    "opentrades",
+                    "closedtrades",
+                    "wintrades",
+                    "losstrades",
+                    "eventrades",
+                } else "float"
+                return make_type_info(base, "series", is_series=True, can_be_na=False)
         if chain is not None and chain.startswith("syminfo."):
             return make_type_info("string", "simple", can_be_na=False)
         if chain is not None and chain.startswith((
