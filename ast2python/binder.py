@@ -478,10 +478,28 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("timeframe", frozenset({"string", "object"}), "series"),
             P("expression", ANY, "series"),
             P("ignore_invalid_symbol", BOOL, "simple", required=False),
+            P("ignore_invalid_timeframe", BOOL, "simple", required=False),
             P("currency", STRING, "simple", required=False),
             P("calc_bars_count", frozenset({"int"}), "simple", required=False),
         ),
         notes="PineLib runtime_contract_v1.4 bounded lower-timeframe array slice",
+    ),
+    "request.footprint": S(
+        "request.footprint",
+        (
+            P("ticks_per_row", ANY, "series", required=False),
+            P("value_area", ANY, "series", required=False),
+            P("imbalance", ANY, "series", required=False),
+        ),
+        notes="unsupported by PineLib data runtime; lowered through request stub policy",
+    ),
+    # Color namespace helpers lowered to PineLib.
+    "color.new": S(
+        "color.new",
+        (
+            P("color", ANY, "series"),
+            P("transp", NUMERIC, "series"),
+        ),
     ),
     # Strategy P0 calls lowered to StrategyContext.
     "strategy.entry": S(
@@ -850,7 +868,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
             P("table_id", OBJECT_ID, "series"),
             P("column", frozenset({"int"}), "simple"),
             P("row", frozenset({"int"}), "simple"),
-            P("text", STRING, "series"),
+            P("text", ANY, "series"),
         ),
         allow_extra_named=frozenset(
             {

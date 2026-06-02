@@ -61,9 +61,20 @@ def dispatch_fallback_call(
             runtime_expr=runtime_expr,
         )
 
-    if callee.kind == "MemberAccessExpr":
+    if callee.kind in {"MemberAccess", "MemberAccessExpr"}:
         obj = callee.child("object")
         member = callee.field("member")
+        if obj is not None and isinstance(member, str) and member in {
+            "buy_volume",
+            "sell_volume",
+            "delta",
+        }:
+            pieces = [
+                translator.translate_expression(arg, runtime_expr=runtime_expr)
+                for _, arg in translator._call_arguments(node)
+            ]
+            obj_expr = translator.translate_expression(obj, runtime_expr=runtime_expr)
+            return f"{obj_expr}.{member}({', '.join(pieces)})"
         if obj is not None and isinstance(member, str) and member in translator.methods:
             pieces = [translator.translate_expression(obj, runtime_expr=runtime_expr)]
             pieces.extend(

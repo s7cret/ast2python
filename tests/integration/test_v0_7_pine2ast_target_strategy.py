@@ -19,6 +19,15 @@ from tests.contract_metadata import with_valid_producer_metadata
 def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
+
+def parse_pine(source: str) -> dict:
+    from pine2ast.api import ParseOptions, parse_code
+
+    result = parse_code(source, ParseOptions(run_semantic=True))
+    errors = [diag for diag in result.diagnostics if diag.severity.value in {"ERROR", "FATAL"}]
+    assert errors == []
+    return result.ast.to_dict()
+
 STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
 PINE2AST = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid"
 
@@ -82,6 +91,44 @@ def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash(
     assert "request.financial" in result.coverage["builtins"]
     assert result.metadata["parity_safe"] is False
     assert "unsupported_request_stub" in result.metadata["unsupported_features"]
+
+
+def test_v0_7_color_new_and_plot_style_translate_from_pine2ast() -> None:
+    program = parse_pine(
+        """//@version=6
+indicator("T")
+plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
+"""
+    )
+    result = translate_ast(program, module_name="color_new_plot_style")
+
+    compile(result.code, "color_new_plot_style.py", "exec")
+    assert "pine_color.new" in result.code
+    assert "color.new" in result.coverage["builtins"]
+
+
+def test_v0_7_request_footprint_compiles_as_diagnostic_stub() -> None:
+    program = parse_pine(
+        """//@version=6
+indicator("T")
+fp = request.footprint(10, 70, 300)
+plot(not na(fp) ? fp.delta() : close)
+"""
+    )
+    production = translate_ast(program, module_name="footprint_prod")
+    assert production.metadata["parity_safe"] is False
+    assert "request_footprint_stub" in production.metadata["unsupported_features"]
+
+    result = translate_ast(
+        program,
+        module_name="footprint_diag",
+        compile_profile="diagnostic",
+        allow_unsupported_request_stubs=True,
+    )
+
+    compile(result.code, "footprint_diag.py", "exec")
+    assert "request.footprint" in result.coverage["builtins"]
+    assert "request_footprint_stub" in result.metadata["unsupported_features"]
 
 
 def test_v0_7_supported_real_fixture_smoke_runs_or_skips_cleanly(tmp_path: Path) -> None:

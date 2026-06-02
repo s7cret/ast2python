@@ -7,6 +7,7 @@ from ast2python.emitters.time import DATE_HELPERS
 CALL_EXACT: dict[str, call_handlers.ExactCallHandler] = {
     "request.security": call_handlers.request_security,
     "request.security_lower_tf": call_handlers.request_security_lower_tf,
+    "request.footprint": call_handlers.request_footprint,
     "timestamp": call_handlers.timestamp,
     "time": call_handlers.builtin_time_exact,
     "time_close": call_handlers.builtin_time_close_exact,
@@ -14,6 +15,7 @@ CALL_EXACT: dict[str, call_handlers.ExactCallHandler] = {
     "na": call_handlers.na,
     "nz": call_handlers.nz,
     "fixnan": call_handlers.fixnan,
+    "color.new": call_handlers.color_new,
     "alert": call_handlers.alert,
     "alertcondition": call_handlers.alertcondition,
     "strategy.long": call_handlers.strategy_long,

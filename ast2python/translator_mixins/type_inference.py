@@ -97,6 +97,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 "position.",
                 "plot.style_",
                 "format.",
+                "alert.",
             )
         ):
             return make_type_info("string", "const", can_be_na=False)

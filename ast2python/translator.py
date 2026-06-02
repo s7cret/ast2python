@@ -1810,6 +1810,7 @@ class Translator:
                 "position.",
                 "plot.style_",
                 "format.",
+                "alert.",
             )
         ):
             return repr(chain)
@@ -2058,6 +2059,23 @@ class Translator:
         self.ctx.coverage.builtin("request.security_lower_tf")
         return f"request_security_lower_tf({', '.join(call_args + kwargs)})"
 
+    def _translate_request_footprint(self, node: ASTNode, *, runtime_expr: str) -> str:
+        del runtime_expr
+        self._bind_or_raise("request.footprint", node)
+        self.ctx.add_diagnostic(
+            UNSUPPORTED_REQUEST,
+            "request.footprint has no PineLib market-data source and is lowered to na",
+            Severity.WARNING,
+            location=node.loc,
+            details={"builtin": "request.footprint", "lowering": "na_stub"},
+        )
+        self.parity_safe = False
+        self.unsupported_features.add("request_footprint_stub")
+        self.parity_risks.append("request.footprint lowered to na stub")
+        self.ctx.coverage.builtin("request.footprint")
+        self.ctx.imports.require_from("pinelib.core", "na")
+        return "na"
+
     def _translate_unsupported_request_call(
         self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False
     ) -> str:
@@ -2104,6 +2122,16 @@ class Translator:
     def _translate_alert_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr
         return self.alert_emitter.translate_alert_call(name, node)
+
+    def _translate_color_new(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
+        self._bind_or_raise(name, node)
+        self.ctx.imports.require_from("pinelib", "color", alias="pine_color")
+        pieces = []
+        for arg_name, arg in self._ordered_call_arguments(name, node):
+            rendered = self.translate_expression(arg, runtime_expr=runtime_expr)
+            pieces.append(rendered if arg_name is None else f"{arg_name}={rendered}")
+        self.ctx.coverage.builtin(name)
+        return f"pine_color.new({', '.join(pieces)})"
 
     def _translate_reference_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         del runtime_expr

@@ -25,3 +25,7 @@ def alert(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
 
 def alertcondition(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
     return translator._translate_alert_call("alertcondition", node, runtime_expr=runtime_expr)
+
+
+def color_new(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
+    return translator._translate_color_new("color.new", node, runtime_expr=runtime_expr)

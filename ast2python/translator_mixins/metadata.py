@@ -539,7 +539,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             return make_type_info("string", "simple", can_be_na=False)
         if chain is not None and chain.startswith((
             "barmerge.", "display.", "currency.", "location.",
-            "shape.", "size.", "position.", "plot.style_",
+            "shape.", "size.", "position.", "plot.style_", "alert.",
         )):
             return make_type_info("string", "const", can_be_na=False)
         if chain is not None and chain.startswith("color."):

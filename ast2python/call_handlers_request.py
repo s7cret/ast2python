@@ -13,6 +13,10 @@ def request_security_lower_tf(
     return translator._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
 
 
+def request_footprint(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
+    return translator._translate_request_footprint(node, runtime_expr=runtime_expr)
+
+
 def unsupported_request(
     translator: CallTranslator, callee_chain: str, node: CallNode, runtime_expr: str
 ) -> str:
