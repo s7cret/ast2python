@@ -471,6 +471,10 @@ class Translator:
                     self.ctx.imports.require_from(
                         "pinelib.request", "security_lower_tf", alias="request_security_lower_tf"
                     )
+                if callee is not None and member_chain(callee) == "request.footprint":
+                    self.ctx.imports.require_from(
+                        "pinelib.request", "footprint", alias="request_footprint"
+                    )
             if node.kind in {"ForRangeStructure", "ForStructure"}:
                 self.ctx.imports.require_from("pinelib.core", "pine_range")
             if node.kind == "ForInStructure":
@@ -2060,21 +2064,16 @@ class Translator:
         return f"request_security_lower_tf({', '.join(call_args + kwargs)})"
 
     def _translate_request_footprint(self, node: ASTNode, *, runtime_expr: str) -> str:
-        del runtime_expr
         self._bind_or_raise("request.footprint", node)
-        self.ctx.add_diagnostic(
-            UNSUPPORTED_REQUEST,
-            "request.footprint has no PineLib market-data source and is lowered to na",
-            Severity.WARNING,
-            location=node.loc,
-            details={"builtin": "request.footprint", "lowering": "na_stub"},
-        )
-        self.parity_safe = False
-        self.unsupported_features.add("request_footprint_stub")
-        self.parity_risks.append("request.footprint lowered to na stub")
+        call_args = [
+            self.translate_expression(arg, runtime_expr=runtime_expr)
+            for _, arg in self._call_arguments(node)
+        ]
+        state_id = state_id_for_call(self.ctx, node, "footprint")
+        call_args.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
         self.ctx.coverage.builtin("request.footprint")
-        self.ctx.imports.require_from("pinelib.core", "na")
-        return "na"
+        self.ctx.imports.require_from("pinelib.request", "footprint", alias="request_footprint")
+        return f"request_footprint({', '.join(call_args)})"
 
     def _translate_unsupported_request_call(
         self, name: str, node: ASTNode, *, runtime_expr: str, force_error: bool = False

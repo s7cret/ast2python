@@ -107,7 +107,7 @@ plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
     assert "color.new" in result.coverage["builtins"]
 
 
-def test_v0_7_request_footprint_compiles_as_diagnostic_stub() -> None:
+def test_v0_7_request_footprint_compiles_as_runtime_request() -> None:
     program = parse_pine(
         """//@version=6
 indicator("T")
@@ -116,8 +116,8 @@ plot(not na(fp) ? fp.delta() : close)
 """
     )
     production = translate_ast(program, module_name="footprint_prod")
-    assert production.metadata["parity_safe"] is False
-    assert "request_footprint_stub" in production.metadata["unsupported_features"]
+    assert production.metadata["parity_safe"] is True
+    assert "request_footprint_stub" not in production.metadata["unsupported_features"]
 
     result = translate_ast(
         program,
@@ -127,8 +127,9 @@ plot(not na(fp) ? fp.delta() : close)
     )
 
     compile(result.code, "footprint_diag.py", "exec")
+    assert "request_footprint" in result.code
     assert "request.footprint" in result.coverage["builtins"]
-    assert "request_footprint_stub" in result.metadata["unsupported_features"]
+    assert "request_footprint_stub" not in result.metadata["unsupported_features"]
 
 
 def test_v0_7_supported_real_fixture_smoke_runs_or_skips_cleanly(tmp_path: Path) -> None:
