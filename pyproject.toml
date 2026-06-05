@@ -11,8 +11,8 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
-  "pinelib>=2.17.0",
-  "pine2ast>=2.17.0",
+  "pinelib @ git+https://github.com/s7cret/pinelib.git@v2.17.0",
+  "pine2ast @ git+https://github.com/s7cret/pine2ast.git@v2.17.0",
 ]
 
 [project.urls]
