@@ -15,6 +15,11 @@ dependencies = [
   "pine2ast>=2.17.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/s7cret/ast2python"
+Repository = "https://github.com/s7cret/ast2python"
+Issues = "https://github.com/s7cret/ast2python/issues"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8",
