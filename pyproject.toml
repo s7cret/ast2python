@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ast2python"
 version = "2.17.0"
-description = "AST2Python generator for Pine AST to Python runtime contract 1.4"
+description = "AST2Python generator for Pine AST to PineLib Python modules"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

@@ -1,22 +1,22 @@
-# AST2Python v1.0.0
+# AST2Python
 
-AST2Python translates Pine2AST JSON into readable, deterministic Python modules targeting PineLib runtime contract `1.4`.
+AST2Python translates Pine2AST JSON into readable, deterministic Python modules that run on PineLib.
 
-v1.0.0 is the finalized runtime-contract `1.4` release. Stack train metadata: `pain-stack-pine-v6-2026.04-r1`, `pine_language_version=6`, `pine_docs_baseline=2026-04`, `runtime_contract=1.4` (see `RELEASE_STACK_MANIFEST_2026_04_R1.json`). This is a verified Pine v6 subset/oracle-snapshot target, not a full Pine v6 parity claim. The April 2026 language-relevant baseline delta is UDT collection sorting via `sort_field` for `array.sort`, `array.sort_indices`, and `matrix.sort`; Pine Editor word-wrap is non-runtime UX.
+## Scope
 
-## Release scope and stack boundaries
+`ast2python` is the code-generation layer between Pine2AST JSON and PineLib. It owns deterministic lowering, generated runtime checks, source maps, coverage metadata, and explicit unsupported-feature diagnostics.
 
-`ast2python` is the code-generation layer between Pine2AST JSON and PineLib `runtime_contract=1.4`. It owns deterministic lowering, source maps, coverage metadata, generated runtime-contract checks, and explicit unsupported-feature diagnostics. It does **not** parse Pine source, emulate TradingView bars/orders, fetch market data, run backtests, or optimize strategies.
+It does **not** parse Pine source, emulate TradingView bars/orders, fetch market data, run backtests, or optimize strategies.
 
-Future Backtest Engine and Optimizer work is planned as independent layers outside this package and outside the current `pain-stack-pine-v6-2026.04-r1` claim. Any optimizer integration should be protocol-bound through a BacktestRunner-style interface, not documented as part of this v1.0.0 generator release.
+## What It Supports
 
-It keeps v0.9.0 release-candidate hardening and finalizes:
-
-- final audit documentation and release notes
-- explicit v1.0 limitations carried forward without hidden feature expansion
-- validated reproducible archive manifest for `dist/ast2python_v1_0_0.zip`
-- deterministic generated code, source-map and coverage artifact checks
-- successful compileall, pytest, mypy and release-script gates
+- Translation of Pine2AST indicator and strategy envelopes into Python modules.
+- Generated code that targets PineLib runtime objects and helper namespaces.
+- Runtime contract checks with clear `P2A_CONTRACT_VERSION_MISMATCH` diagnostics.
+- Explicit diagnostics/failures for unsupported nodes and builtins instead of silent placeholder translation.
+- Source-map and coverage metadata for generated modules.
+- Visual call routing through PineLib's runtime visual recorder.
+- Strategy intent generation without owning broker fills, equity, or execution authority.
 
 ## CLI
 
@@ -48,16 +48,6 @@ MIT. See `LICENSE`.
 ```bash
 ./scripts/install.sh --dev
 docker compose run --rm ast2python
-```
-
-For a public GitHub release checklist, see `docs/GITHUB_PUBLICATION.md`.
-
-## Release archive
-
-Build the reproducible release archive with:
-
-```bash
-./scripts/release_v1_0_0.sh
 ```
 
 ## Acknowledgements
