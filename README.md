@@ -43,6 +43,15 @@ Generated modules emit:
 
 MIT. See `LICENSE`.
 
+## Installation, Docker, and Publication
+
+```bash
+./scripts/install.sh --dev
+docker compose run --rm ast2python
+```
+
+For a public GitHub release checklist, see `docs/GITHUB_PUBLICATION.md`.
+
 ## Release archive
 
 Build the reproducible release archive with:

@@ -15,6 +15,15 @@ dependencies = [
   "pine2ast>=2.17.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+  "black>=24",
+  "mypy>=1.10",
+  "build>=1.2",
+]
+
 [project.scripts]
 ast2python = "ast2python.cli.main:main"
 
