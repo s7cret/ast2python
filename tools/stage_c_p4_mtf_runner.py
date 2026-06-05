@@ -17,7 +17,9 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path.home())).expanduser().resolve()
-WORKSPACE = ROOT / "[workspace-root]/workspace/btcusdt_v6_stage_c_current"
+WORKSPACE = Path(
+    os.environ.get("PINE_STACK_WORKSPACE", ROOT / "workspace/btcusdt_v6_stage_c_current")
+).expanduser().resolve()
 AST2PYTHON = ROOT / "ast2python"
 PINE2AST = ROOT / "pine2ast"
 PINELIB = ROOT / "pinelib"
@@ -31,7 +33,12 @@ from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na
 from pinelib.request import InMemoryDataProvider
 
 # Long OHLCV for prehistory loading
-LONG_OHLCV = ROOT / "[workspace-root]/workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv"
+LONG_OHLCV = Path(
+    os.environ.get(
+        "PINE_STACK_LONG_OHLCV",
+        ROOT / "workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv",
+    )
+).expanduser().resolve()
 
 
 @dataclass
