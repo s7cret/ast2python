@@ -58,13 +58,10 @@ def test_alert_call_and_alertcondition_statement_lower_to_recorder_calls():
         "message": _literal("go", "string"),
     }
 
-    result = _translate_ast(
-        _program(alert_statement, alert_condition), module_name="alert_emitter"
-    )
+    result = _translate_ast(_program(alert_statement, alert_condition), module_name="alert_emitter")
 
     assert (
-        "self._record_alert('alert', 'ping', freq='once_per_bar', source_map=\"L3\")"
-        in result.code
+        "self._record_alert('alert', 'ping', freq='once_per_bar', source_map=\"L3\")" in result.code
     )
     assert (
         "self._record_alert('alertcondition', True, title='ready', message='go', source_map=\"L4\")"

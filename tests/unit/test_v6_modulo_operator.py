@@ -189,13 +189,9 @@ def test_v6_strategy_entry_accepts_dynamic_named_comment(tmp_path: Path) -> None
     code = py_path.read_text(encoding="utf-8")
 
     compile(code, str(py_path), "exec")
+    assert "self.ctx.entry('L', \"long\", comment=pine_add('P4_LONG_', self.engine.current)" in code
     assert (
-        "self.ctx.entry('L', \"long\", comment=pine_add('P4_LONG_', self.engine.current)"
-        in code
-    )
-    assert (
-        "self.ctx.entry('S', \"short\", comment=pine_add('P4_SHORT_', self.engine.current)"
-        in code
+        "self.ctx.entry('S', \"short\", comment=pine_add('P4_SHORT_', self.engine.current)" in code
     )
 
 

@@ -1,4 +1,5 @@
 """Tests for FixPack 3B: strategy.closedtrades / strategy.opentrades / strategy.risk translation."""
+
 from __future__ import annotations
 
 from ast2python.translator import translate_ast
@@ -70,7 +71,9 @@ def _call_expr(callee_parts: list[str], args: list[dict] | None = None) -> dict:
     obj = {"kind": "Identifier", "name": parts[0]}
     for part in parts[1:-1]:
         obj = {"kind": "MemberAccessExpr", "object": obj, "member": part}
-    callee = obj if len(parts) == 1 else {"kind": "MemberAccessExpr", "object": obj, "member": parts[-1]}
+    callee = (
+        obj if len(parts) == 1 else {"kind": "MemberAccessExpr", "object": obj, "member": parts[-1]}
+    )
     return {"kind": "CallExpr", "callee": callee, "arguments": args or []}
 
 
@@ -80,79 +83,81 @@ class TestStrategyClosedTradesTranslation:
     def _assert_generates(self, items: list[dict], expected_substr: str) -> None:
         program = _program(items)
         result = translate_ast(program, module_name="test_strategy_closedtrades")
-        assert expected_substr in result.code, (
-            f"Expected {expected_substr!r} in:\n{result.code}"
-        )
+        assert expected_substr in result.code, f"Expected {expected_substr!r} in:\n{result.code}"
 
     def test_closedtrades_entry_price(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "entry_price"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "entry_price"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_entry_price",
         )
 
     def test_closedtrades_exit_price(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "exit_price"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "exit_price"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_exit_price",
         )
 
     def test_closedtrades_entry_time(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "entry_time"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "entry_time"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_entry_time",
         )
 
     def test_closedtrades_exit_time(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "exit_time"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "exit_time"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_exit_time",
         )
 
     def test_closedtrades_profit(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "profit"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "profit"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_profit",
         )
 
     def test_closedtrades_size(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "size"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [_expr_stmt(_call_expr(["strategy", "closedtrades", "size"], [_arg(_lit(0, "int"))]))],
             "self.ctx.closedtrades_size",
         )
 
     def test_closedtrades_max_runup(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "max_runup"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "max_runup"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_max_runup",
         )
 
     def test_closedtrades_max_drawdown(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "closedtrades", "max_drawdown"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "closedtrades", "max_drawdown"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.closedtrades_max_drawdown",
         )
 
@@ -161,52 +166,47 @@ class TestStrategyOpenTradesTranslation:
     def _assert_generates(self, items: list[dict], expected_substr: str) -> None:
         program = _program(items)
         result = translate_ast(program, module_name="test_strategy_opentrades")
-        assert expected_substr in result.code, (
-            f"Expected {expected_substr!r} in:\n{result.code}"
-        )
+        assert expected_substr in result.code, f"Expected {expected_substr!r} in:\n{result.code}"
 
     def test_opentrades_entry_price(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "opentrades", "entry_price"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "opentrades", "entry_price"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.opentrades_entry_price",
         )
 
     def test_opentrades_profit(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "opentrades", "profit"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [_expr_stmt(_call_expr(["strategy", "opentrades", "profit"], [_arg(_lit(0, "int"))]))],
             "self.ctx.opentrades_profit",
         )
 
     def test_opentrades_size(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "opentrades", "size"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [_expr_stmt(_call_expr(["strategy", "opentrades", "size"], [_arg(_lit(0, "int"))]))],
             "self.ctx.opentrades_size",
         )
 
     def test_opentrades_max_runup(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "opentrades", "max_runup"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "opentrades", "max_runup"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.opentrades_max_runup",
         )
 
     def test_opentrades_max_drawdown(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "opentrades", "max_drawdown"],
-                [_arg(_lit(0, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(["strategy", "opentrades", "max_drawdown"], [_arg(_lit(0, "int"))])
+                )
+            ],
             "self.ctx.opentrades_max_drawdown",
         )
 
@@ -235,61 +235,80 @@ class TestStrategyRiskTranslation:
     def _assert_generates(self, items: list[dict], expected_substr: str) -> None:
         program = _program(items)
         result = translate_ast(program, module_name="test_strategy_risk")
-        assert expected_substr in result.code, (
-            f"Expected {expected_substr!r} in:\n{result.code}"
-        )
+        assert expected_substr in result.code, f"Expected {expected_substr!r} in:\n{result.code}"
 
     def test_risk_allow_entry_in(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "risk", "allow_entry_in"],
-                [_arg(_lit(1, "int"))]  # strategy.direction.long == 1
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(
+                        ["strategy", "risk", "allow_entry_in"],
+                        [_arg(_lit(1, "int"))],  # strategy.direction.long == 1
+                    )
+                )
+            ],
             "self.ctx.risk_allow_entry_in",
         )
 
     def test_risk_max_drawdown(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "risk", "max_drawdown"],
-                [_arg(_lit(20, "float")), _arg(_lit(1, "int"))]  # strategy.percent_of_equity == 1
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(
+                        ["strategy", "risk", "max_drawdown"],
+                        [
+                            _arg(_lit(20, "float")),
+                            _arg(_lit(1, "int")),
+                        ],  # strategy.percent_of_equity == 1
+                    )
+                )
+            ],
             "self.ctx.risk_max_drawdown",
         )
 
     def test_risk_max_intraday_loss(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "risk", "max_intraday_loss"],
-                [_arg(_lit(5, "float")), _arg(_lit(1, "int"))]
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(
+                        ["strategy", "risk", "max_intraday_loss"],
+                        [_arg(_lit(5, "float")), _arg(_lit(1, "int"))],
+                    )
+                )
+            ],
             "self.ctx.risk_max_intraday_loss",
         )
 
     def test_risk_max_position_size(self):
         self._assert_generates(
-            [_expr_stmt(_call_expr(
-                ["strategy", "risk", "max_position_size"],
-                [_arg(_lit(100, "float")), _arg(_lit(1, "int"))]  # strategy.fixed == 1
-            ))],
+            [
+                _expr_stmt(
+                    _call_expr(
+                        ["strategy", "risk", "max_position_size"],
+                        [_arg(_lit(100, "float")), _arg(_lit(1, "int"))],  # strategy.fixed == 1
+                    )
+                )
+            ],
             "self.ctx.risk_max_position_size",
         )
 
 
 class TestStrategyCloseAllTranslation:
     def test_close_all_no_args(self):
-        program = _program([
-            _expr_stmt(_call_expr(["strategy", "close_all"]))
-        ])
+        program = _program([_expr_stmt(_call_expr(["strategy", "close_all"]))])
         result = translate_ast(program, module_name="test_close_all")
         assert "self.ctx.close_all" in result.code
 
     def test_close_all_with_immediately(self):
-        program = _program([
-            _expr_stmt(_call_expr(
-                ["strategy", "close_all"],
-                [dict(name="immediately", value=_lit(True, "bool"))]
-            ))
-        ])
+        program = _program(
+            [
+                _expr_stmt(
+                    _call_expr(
+                        ["strategy", "close_all"],
+                        [dict(name="immediately", value=_lit(True, "bool"))],
+                    )
+                )
+            ]
+        )
         result = translate_ast(program, module_name="test_close_all")
         assert "self.ctx.close_all" in result.code

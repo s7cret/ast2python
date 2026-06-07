@@ -20,12 +20,10 @@ class GeneratedScriptBase(ABC):
     script_kind = "script"
 
     @abstractmethod
-    def run(self, bars: Iterable[Any]) -> list[dict[str, Any] | None]:
-        ...
+    def run(self, bars: Iterable[Any]) -> list[dict[str, Any] | None]: ...
 
     @abstractmethod
-    def _process_bar(self, bar: Any) -> None:
-        ...
+    def _process_bar(self, bar: Any) -> None: ...
 
     def _snapshot(self) -> dict[str, Any]:
         return {}

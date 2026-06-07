@@ -6,11 +6,26 @@ from __future__ import annotations
 
 from ast2python.errors import RuntimeContractError
 from ast2python.runtime_contract.generated_base import GeneratedIndicatorBase
-from pinelib.core import PineRuntime, na, pine_add, pine_bool, pine_div, pine_eq, pine_gt, pine_gte, pine_lt, pine_lte, pine_mul, pine_ne, pine_sub
+from pinelib.core import (
+    PineRuntime,
+    na,
+    pine_add,
+    pine_bool,
+    pine_div,
+    pine_eq,
+    pine_gt,
+    pine_gte,
+    pine_lt,
+    pine_lte,
+    pine_mul,
+    pine_ne,
+    pine_sub,
+)
 from pinelib.errors import PL_INPUT_VALIDATION_ERROR, PineRuntimeError
 from pinelib.request import security as request_security
 
 REQUIRED_RUNTIME_CONTRACT = "1.4"
+
 
 class GeneratedIndicator(GeneratedIndicatorBase):
     """
@@ -22,8 +37,10 @@ class GeneratedIndicator(GeneratedIndicatorBase):
         self.rt = runtime
         if self.rt is None:
             raise RuntimeContractError("runtime is required for generated modules")
-        if getattr(self.rt, 'contract_version', None) != REQUIRED_RUNTIME_CONTRACT:
-            raise RuntimeContractError(f"P2A_CONTRACT_VERSION_MISMATCH: requires runtime contract {REQUIRED_RUNTIME_CONTRACT}, got {getattr(self.rt, 'contract_version', None)}")
+        if getattr(self.rt, "contract_version", None) != REQUIRED_RUNTIME_CONTRACT:
+            raise RuntimeContractError(
+                f"P2A_CONTRACT_VERSION_MISMATCH: requires runtime contract {REQUIRED_RUNTIME_CONTRACT}, got {getattr(self.rt, 'contract_version', None)}"
+            )
         self.ctx = None
         self._var_initialized = {}
         self.alerts = []
@@ -34,29 +51,44 @@ class GeneratedIndicator(GeneratedIndicatorBase):
         self._init_inputs()
 
     def _record_alert(self, kind, *args, source_map=None, **kwargs):
-        payload = {'kind': kind, 'args': args, 'kwargs': kwargs, 'source_map': source_map}
-        (self.alert_conditions if kind == 'alertcondition' else self.alerts).append(payload)
+        payload = {"kind": kind, "args": args, "kwargs": kwargs, "source_map": source_map}
+        (self.alert_conditions if kind == "alertcondition" else self.alerts).append(payload)
         return None
 
     def _external_library_call(self, alias, member, *args, source_map=None, **kwargs):
-        self.external_library_calls.append({'alias': alias, 'member': member, 'args': args, 'kwargs': kwargs, 'source_map': source_map})
+        self.external_library_calls.append(
+            {
+                "alias": alias,
+                "member": member,
+                "args": args,
+                "kwargs": kwargs,
+                "source_map": source_map,
+            }
+        )
         return na
 
     def _visual_call(self, name, *args, source_map=None, **kwargs):
-        self.visual_calls.append({'name': name, 'args': args, 'kwargs': kwargs, 'source_map': source_map})
-        if name.endswith('.new'):
-            kind = name.split('.', 1)[0]
-            positional = {'line': ('x1', 'y1', 'x2', 'y2'), 'label': ('x', 'y', 'text'), 'box': ('left', 'top', 'right', 'bottom'), 'table': ('position', 'columns', 'rows')}.get(kind, ())
+        self.visual_calls.append(
+            {"name": name, "args": args, "kwargs": kwargs, "source_map": source_map}
+        )
+        if name.endswith(".new"):
+            kind = name.split(".", 1)[0]
+            positional = {
+                "line": ("x1", "y1", "x2", "y2"),
+                "label": ("x", "y", "text"),
+                "box": ("left", "top", "right", "bottom"),
+                "table": ("position", "columns", "rows"),
+            }.get(kind, ())
             attrs = dict(kwargs)
             attrs.update({key: value for key, value in zip(positional, args)})
             return self.rt.visual.new(kind, **attrs)
-        if name.split('.', 1)[0] in {'line', 'label', 'box', 'table'} and args:
-            kind, method = name.split('.', 1)
-            if method == 'delete':
+        if name.split(".", 1)[0] in {"line", "label", "box", "table"} and args:
+            kind, method = name.split(".", 1)
+            if method == "delete":
                 return self.rt.visual.delete(args[0])
             attrs = dict(kwargs)
-            attrs['_method'] = method
-            attrs['_args'] = args[1:]
+            attrs["_method"] = method
+            attrs["_args"] = args[1:]
             return self.rt.visual.set(args[0], **attrs)
         return None
 
@@ -68,29 +100,33 @@ class GeneratedIndicator(GeneratedIndicatorBase):
 
     def _input_value(self, name, default, schema):
         value = self.params.get(name, default)
-        kind = schema.get('type')
+        kind = schema.get("type")
+
         def fail(message):
-            diagnostics = getattr(getattr(self.rt, 'config', None), 'diagnostics', None)
+            diagnostics = getattr(getattr(self.rt, "config", None), "diagnostics", None)
             if isinstance(diagnostics, list):
-                diagnostics.append({'code': PL_INPUT_VALIDATION_ERROR, 'message': message, 'input': name})
+                diagnostics.append(
+                    {"code": PL_INPUT_VALIDATION_ERROR, "message": message, "input": name}
+                )
             raise PineRuntimeError(message, code=PL_INPUT_VALIDATION_ERROR)
-        if kind == 'int' and (not isinstance(value, int) or isinstance(value, bool)):
-            fail(f'Input {name} must be int')
-        if kind == 'float' and (not isinstance(value, (int, float)) or isinstance(value, bool)):
-            fail(f'Input {name} must be float')
-        if kind == 'bool' and not isinstance(value, bool):
-            fail(f'Input {name} must be bool')
-        if kind in {'string', 'session', 'timeframe'} and not isinstance(value, str):
-            fail(f'Input {name} must be string')
-        options = schema.get('options')
+
+        if kind == "int" and (not isinstance(value, int) or isinstance(value, bool)):
+            fail(f"Input {name} must be int")
+        if kind == "float" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            fail(f"Input {name} must be float")
+        if kind == "bool" and not isinstance(value, bool):
+            fail(f"Input {name} must be bool")
+        if kind in {"string", "session", "timeframe"} and not isinstance(value, str):
+            fail(f"Input {name} must be string")
+        options = schema.get("options")
         if options is not None and value not in options:
-            fail(f'Input {name} must be one of {options!r}')
-        minval = schema.get('minval')
+            fail(f"Input {name} must be one of {options!r}")
+        minval = schema.get("minval")
         if minval is not None and value < minval:
-            fail(f'Input {name} must be >= {minval!r}')
-        maxval = schema.get('maxval')
+            fail(f"Input {name} must be >= {minval!r}")
+        maxval = schema.get("maxval")
         if maxval is not None and value > maxval:
-            fail(f'Input {name} must be <= {maxval!r}')
+            fail(f"Input {name} must be <= {maxval!r}")
         return value
 
     # no user functions
@@ -108,9 +144,9 @@ class GeneratedIndicator(GeneratedIndicatorBase):
 
     def _snapshot(self):
         return {
-            'bar_index': getattr(self.rt, 'bar_index', None),
+            "bar_index": getattr(self.rt, "bar_index", None),
         }
 
     def _process_bar(self, bar):
         # pine:L3
-        self._visual_call('plot', self.rt.close.current, source_map="L3")
+        self._visual_call("plot", self.rt.close.current, source_map="L3")

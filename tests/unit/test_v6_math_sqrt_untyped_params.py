@@ -55,7 +55,9 @@ def _parse_pine(tmp_path: Path, name: str, source: str) -> Path:
     return ast_path
 
 
-def _translate_ast(tmp_path: Path, ast_path: Path, module_name: str) -> subprocess.CompletedProcess[str]:
+def _translate_ast(
+    tmp_path: Path, ast_path: Path, module_name: str
+) -> subprocess.CompletedProcess[str]:
     return _run(
         [
             sys.executable,
@@ -103,7 +105,9 @@ def test_v6_hma_untyped_length_binds_sqrt_and_ta_wma(tmp_path: Path) -> None:
     # Materialized: binary expr goes to set_current, outer wma uses temp Series
     assert ".set_current(pine_sub(" in code, "binary expr must be materialized via set_current"
     assert "__tmp_" in code, "temp Series must be created for computed source"
-    assert "wma(self.__tmp_" in code and "sqrt_len" in code, "outer wma must use temp Series and sqrt_len"
+    assert (
+        "wma(self.__tmp_" in code and "sqrt_len" in code
+    ), "outer wma must use temp Series and sqrt_len"
 
     metadata = json.loads(meta_path.read_text(encoding="utf-8"))
     assert metadata["types"]["function_1:sqrtLen"]["base_type"] == "int"
@@ -150,8 +154,8 @@ def test_v6_supertrend_lowers_to_runtime_ohlc_tuple(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import supertrend' in code
-    assert 'supertrend(3.0, 10, runtime=self.rt, state_id=' in code
+    assert "from pinelib.ta import supertrend" in code
+    assert "supertrend(3.0, 10, runtime=self.rt, state_id=" in code
     assert "_st, _dir_ = supertrend(" in code
     assert "self.st.set_current(_st)" in code
     assert "self.dir_.set_current(_dir_)" in code
@@ -176,7 +180,15 @@ def test_v6_supertrend_lowers_to_runtime_ohlc_tuple(tmp_path: Path) -> None:
     script.run(
         [
             Bar(time=0, time_close=899_999, open=100, high=105, low=99, close=101, volume=10),
-            Bar(time=900_000, time_close=1_799_999, open=101, high=106, low=100, close=104, volume=11),
+            Bar(
+                time=900_000,
+                time_close=1_799_999,
+                open=101,
+                high=106,
+                low=100,
+                close=104,
+                volume=11,
+            ),
         ]
     )
 
@@ -204,9 +216,9 @@ def test_v6_dmi_and_sar_lower_to_runtime_ohlc_inputs(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import dmi, sar' in code
-    assert 'dmi(self.rt.high.current, self.rt.low.current, self.rt.close.current, 14, 14' in code
-    assert 'sar(self.rt.high.current, self.rt.low.current, 0.02, 0.02, 0.2' in code
+    assert "from pinelib.ta import dmi, sar" in code
+    assert "dmi(self.rt.high.current, self.rt.low.current, self.rt.close.current, 14, 14" in code
+    assert "sar(self.rt.high.current, self.rt.low.current, 0.02, 0.02, 0.2" in code
     assert "_plus, _minus, _adx = dmi(" in code
 
 
@@ -228,8 +240,8 @@ def test_v6_ta_tr_lowers_to_runtime_ohlc(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import tr' in code
-    assert 'tr(runtime=self.rt, state_id=' in code
+    assert "from pinelib.ta import tr" in code
+    assert "tr(runtime=self.rt, state_id=" in code
 
 
 def test_v6_ta_range_preserves_builtin_series_source(tmp_path: Path) -> None:
@@ -252,9 +264,9 @@ def test_v6_ta_range_preserves_builtin_series_source(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import ta_range' in code
-    assert 'ta_range(self.rt.close, self.len_.current, runtime=self.rt, state_id=' in code
-    assert 'ta_range(self.rt.close.current' not in code
+    assert "from pinelib.ta import ta_range" in code
+    assert "ta_range(self.rt.close, self.len_.current, runtime=self.rt, state_id=" in code
+    assert "ta_range(self.rt.close.current" not in code
 
     spec = importlib.util.spec_from_file_location("ta_range_series_source", py_path)
     assert spec is not None and spec.loader is not None
@@ -303,9 +315,9 @@ def test_v6_ta_range_nested_in_math_preserves_series_source(tmp_path: Path) -> N
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import ta_range' in code
-    assert 'pine_max(ta_range(self.rt.close, 20, runtime=self.rt, state_id=' in code
-    assert 'ta_range(self.rt.close.current' not in code
+    assert "from pinelib.ta import ta_range" in code
+    assert "pine_max(ta_range(self.rt.close, 20, runtime=self.rt, state_id=" in code
+    assert "ta_range(self.rt.close.current" not in code
 
 
 def test_v6_ta_sma_accepts_untyped_function_params(tmp_path: Path) -> None:
@@ -327,8 +339,8 @@ def test_v6_ta_sma_accepts_untyped_function_params(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import sma' in code
-    assert 'sma(src, length, runtime=self.rt, state_id=' in code
+    assert "from pinelib.ta import sma" in code
+    assert "sma(src, length, runtime=self.rt, state_id=" in code
 
 
 def test_v6_ta_sma_accepts_derived_builtin_series_source(tmp_path: Path) -> None:
@@ -351,9 +363,9 @@ def test_v6_ta_sma_accepts_derived_builtin_series_source(tmp_path: Path) -> None
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
     # hl2 is a DERIVED_BUILTIN_SERIES used as SMA source → hl2_series must be imported
-    assert 'from pinelib.ta import' in code and 'sma' in code and 'hl2_series' in code
+    assert "from pinelib.ta import" in code and "sma" in code and "hl2_series" in code
     # hl2 should use _RuntimeDerivedSeries for proper runtime semantics
-    assert 'hl2_series(self.rt)' in code
+    assert "hl2_series(self.rt)" in code
 
 
 def test_v6_crossover_accepts_nested_ta_numeric_source(tmp_path: Path) -> None:
@@ -375,5 +387,5 @@ def test_v6_crossover_accepts_nested_ta_numeric_source(tmp_path: Path) -> None:
 
     code = py_path.read_text(encoding="utf-8")
     compile(code, str(py_path), "exec")
-    assert 'from pinelib.ta import cci, crossover' in code
-    assert 'crossover(cci(' in code
+    assert "from pinelib.ta import cci, crossover" in code
+    assert "crossover(cci(" in code

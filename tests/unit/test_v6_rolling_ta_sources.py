@@ -1,4 +1,5 @@
 """Tests for rolling TA call: Series source must be passed, not .current scalar."""
+
 from pine2ast.api import parse_code, runtime_contract_v1_4_options
 from pine2ast.ast.serialize import ast_to_dict
 
@@ -71,8 +72,9 @@ x = ta.change(close)
 plot(x, "CHANGE")"""
         src = get_generated_code("test_change", code)
         # check for change call with Series close
-        assert ("change(self.rt.close," in src or "change(self.rt.close)" in src), \
-            "change missing Series arg"
+        assert (
+            "change(self.rt.close," in src or "change(self.rt.close)" in src
+        ), "change missing Series arg"
         assert "change(self.rt.close.current," not in src, "change got scalar .current!"
 
     def test_ichimoku_sources_are_series(self):
@@ -241,8 +243,6 @@ plot(ta.vwap(hlc3), "VWAP")"""
         assert "runtime=self.rt" in src, "vwap missing runtime= argument"
         assert 'state_id="' in src, "vwap missing state_id= argument"
 
-
-
     def test_alma_source_is_series_no_runtime(self):
         """ALMA: source=Series, NO runtime= (batch mode works; alma NOT in STATEFUL_TA_FUNCTIONS)."""
         code = """//@version=6
@@ -309,7 +309,9 @@ plot(ta.cci(hlc3, 20), "CCI")"""
         # Must use hlc3_series(rt) in the call
         assert "hlc3_series(self.rt)" in src, "hlc3_series(rt) not in code"
         # Must NOT expand to scalar .current arithmetic
-        assert "high.current" not in src and "low.current" not in src, "bare hlc3 expanded to .current!"
+        assert (
+            "high.current" not in src and "low.current" not in src
+        ), "bare hlc3 expanded to .current!"
         # cci call must use hlc3_series
         assert "cci(hlc3_series(" in src, "cci call missing hlc3_series"
 
@@ -343,13 +345,11 @@ hma(src, length) =>
 plot(hma(close, 19), "HMA")"""
         src = get_generated_code("test_hma_wrapper", code)
         # hma wrapper call must receive Series close (no .current)
-        assert "self.hma(self.rt.close," in src, (
-            f"hma wrapper did not receive Series close: {src}"
-        )
+        assert "self.hma(self.rt.close," in src, f"hma wrapper did not receive Series close: {src}"
         # Must NOT receive .current scalar
-        assert "self.hma(self.rt.close.current," not in src, (
-            "hma wrapper received scalar .current — wrong!"
-        )
+        assert (
+            "self.hma(self.rt.close.current," not in src
+        ), "hma wrapper received scalar .current — wrong!"
 
     def test_user_defined_function_with_scalar_and_series_params(self):
         """User-defined function with mixed scalar+series params: series stays Series."""
@@ -381,13 +381,14 @@ plot(ta.wma(raw, 4), "HMA_RAW_WMA")"""
         assert ".set_current(" in src, "no set_current found — computed source not materialized!"
         # The outer wma must receive a temp Series (contains "__tmp_"), not a scalar expression
         import re
+
         # Find all wma(...) calls and check that sources are NOT raw scalar expressions
-        wma_calls = re.findall(r'wma\([^)]+\)', src)
+        wma_calls = re.findall(r"wma\([^)]+\)", src)
         for call in wma_calls:
             # A temp Series source should look like wma(self.__tmp_N, ...) not wma(2.0 * wma(...), ...)
-            assert "2.0 * wma(" not in call, (
-                f"Outer wma received scalar expression directly: {call}"
-            )
+            assert (
+                "2.0 * wma(" not in call
+            ), f"Outer wma received scalar expression directly: {call}"
 
     def test_inline_computed_source_wma_materializes_temp(self):
         """Test 2: ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4) inline.
@@ -402,11 +403,12 @@ plot(ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4), "HMA_INLINE")"""
         assert ".set_current(" in src, "no set_current — inline computed source not materialized!"
         # Must NOT have wma() called with a scalar BinaryExpr directly
         import re
+
         # Extract the wma call with 4-arg signature (source, length)
-        wma_pattern = re.findall(r'wma\(self\.__tmp_\d+, 4', src)
-        assert len(wma_pattern) >= 1, (
-            f"Outer wma with sqrt_len=4 not found using temp Series. Generated:\n{src}"
-        )
+        wma_pattern = re.findall(r"wma\(self\.__tmp_\d+, 4", src)
+        assert (
+            len(wma_pattern) >= 1
+        ), f"Outer wma with sqrt_len=4 not found using temp Series. Generated:\n{src}"
 
     def test_user_defined_hma_wrapper_materializes_raw(self):
         """Test 3: User-defined HMA wrapper with ta.wma(raw_expr, sqrtLen).
@@ -426,11 +428,10 @@ plot(hma(close, 20), "HMA")"""
         assert ".set_current(" in src, "hma function missing set_current — raw not materialized!"
         # Final wma inside hma must use a temp Series, not inline scalar
         import re
+
         # The wma call inside hma() should use self.__tmp_N as source
-        hma_wma_calls = re.findall(r'wma\(self\.__tmp_\d+, \w+, runtime=self\.rt', src)
-        assert len(hma_wma_calls) >= 1, (
-            f"hma inner wma not using temp Series. Generated:\n{src}"
-        )
+        hma_wma_calls = re.findall(r"wma\(self\.__tmp_\d+, \w+, runtime=self\.rt", src)
+        assert len(hma_wma_calls) >= 1, f"hma inner wma not using temp Series. Generated:\n{src}"
 
     def test_direct_series_source_not_wrapped_unnecessarily(self):
         """Test 4 (negative): Direct series source must NOT be wrapped unnecessarily.

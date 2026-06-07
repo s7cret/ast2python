@@ -32,9 +32,9 @@ class CoverageTracker:
             "nodes_total": self.nodes_total,
             "nodes_generated": self.nodes_generated,
             "nodes_unsupported": self.nodes_unsupported,
-            "generation_ratio": 0.0
-            if self.nodes_total == 0
-            else self.nodes_generated / self.nodes_total,
+            "generation_ratio": (
+                0.0 if self.nodes_total == 0 else self.nodes_generated / self.nodes_total
+            ),
             "builtins": dict(sorted(self.builtins.items())),
         }
 

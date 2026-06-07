@@ -13,9 +13,7 @@ CallArguments: TypeAlias = list[tuple[str | None, ASTNode]]
 class TimeCallEmitter(Protocol):
     def translate_timestamp_call(self, node: ASTNode) -> str: ...
 
-    def translate_date_helper_call(
-        self, name: str, node: ASTNode, *, runtime_expr: str
-    ) -> str: ...
+    def translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str: ...
 
     def translate_time_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str: ...
 
@@ -73,9 +71,7 @@ class CallTranslator(Protocol):
 
 
 class ExactCallHandler(Protocol):
-    def __call__(
-        self, translator: CallTranslator, node: CallNode, *, runtime_expr: str
-    ) -> str: ...
+    def __call__(self, translator: CallTranslator, node: CallNode, *, runtime_expr: str) -> str: ...
 
 
 class PrefixCallHandler(Protocol):

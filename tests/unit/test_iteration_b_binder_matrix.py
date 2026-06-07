@@ -35,11 +35,11 @@ def lit(value: object, literal_type: str | None = None) -> dict[str, object]:
         literal_type = (
             "bool"
             if isinstance(value, bool)
-            else "int"
-            if isinstance(value, int)
-            else "float"
-            if isinstance(value, float)
-            else "string"
+            else (
+                "int"
+                if isinstance(value, int)
+                else "float" if isinstance(value, float) else "string"
+            )
         )
     return {"kind": "Literal", "literal_type": literal_type, "value": value}
 
@@ -75,13 +75,15 @@ def call(chain: str, args: list[dict[str, object]], *, line: int = 3) -> dict[st
 
 
 def program(expr: dict[str, object], *, kind: str = "indicator") -> dict[str, object]:
-    return with_valid_producer_metadata({
-        "kind": "Program",
-        "language": "pine",
-        "version": 6,
-        "declaration": declaration(kind),
-        "items": [{"kind": "ExpressionStatement", "expression": expr}],
-    })
+    return with_valid_producer_metadata(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": declaration(kind),
+            "items": [{"kind": "ExpressionStatement", "expression": expr}],
+        }
+    )
 
 
 def var(name: str, init: dict[str, object]) -> dict[str, object]:

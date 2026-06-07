@@ -15,6 +15,7 @@ from tests.contract_metadata import with_valid_producer_metadata
 def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
+
 STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
 FIXTURES = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke"
 

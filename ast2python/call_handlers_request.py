@@ -7,9 +7,7 @@ def request_security(translator: CallTranslator, node: CallNode, runtime_expr: s
     return translator._translate_request_security(node, runtime_expr=runtime_expr)
 
 
-def request_security_lower_tf(
-    translator: CallTranslator, node: CallNode, runtime_expr: str
-) -> str:
+def request_security_lower_tf(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
     return translator._translate_request_security_lower_tf(node, runtime_expr=runtime_expr)
 
 

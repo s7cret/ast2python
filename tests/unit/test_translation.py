@@ -11,6 +11,7 @@ from tests.contract_metadata import with_valid_producer_metadata
 def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "ast"
 
 
@@ -135,12 +136,14 @@ def test_request_security_complex_source_does_not_emit_request_runtime_side_effe
                                 call(
                                     member("ta", "highest"),
                                     [
-                                        arg({
-                                            "kind": "BinaryExpr",
-                                            "op": "+",
-                                            "left": ident("close"),
-                                            "right": ident("open"),
-                                        }),
+                                        arg(
+                                            {
+                                                "kind": "BinaryExpr",
+                                                "op": "+",
+                                                "left": ident("close"),
+                                                "right": ident("open"),
+                                            }
+                                        ),
                                         arg({"kind": "Literal", "literal_type": "int", "value": 5}),
                                     ],
                                 )
@@ -420,7 +423,7 @@ def test_v0_3_input_metadata_time_calls_and_typeinfo():
     )
     # For source inputs, the generated code now uses direct Series reference
     # instead of set_current with a scalar value
-    assert 'self.src = self.rt.close' in result.code
+    assert "self.src = self.rt.close" in result.code
     assert result.metadata["declaration"]["arguments"]["max_lines_count"] == 10
     assert result.metadata["inputs"][0]["confirm"] is True
     assert result.metadata["types"]["global:sess"]["qualifier"] == "series"

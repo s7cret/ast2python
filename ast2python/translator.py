@@ -1523,9 +1523,11 @@ class Translator:
                     expr = statement.child("expression")
                     self.emitter.source_comment(statement.loc, statement.source)
                     self.emitter.line(
-                        f"return {self.translate_expression(expr)}"
-                        if expr is not None
-                        else "return None",
+                        (
+                            f"return {self.translate_expression(expr)}"
+                            if expr is not None
+                            else "return None"
+                        ),
                         loc=statement.loc,
                         source=statement.source,
                     )
@@ -2506,9 +2508,11 @@ class Translator:
         import_name = self.ctx.imports.require_from("pinelib.math", function_name)
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
         arguments = [
-            self.translate_expression(arg, runtime_expr=runtime_expr)
-            if arg_name is None or arg_name in parameter_names
-            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            (
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                if arg_name is None or arg_name in parameter_names
+                else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            )
             for arg_name, arg in self._ordered_call_arguments(name, node)
         ]
         self.ctx.coverage.builtin(name)
@@ -2520,9 +2524,11 @@ class Translator:
         function_name = name.split(".", 1)[1]
         parameter_names = {param.name for param in BUILTIN_SIGNATURES[name].parameters}
         arguments = [
-            self.translate_expression(arg, runtime_expr=runtime_expr)
-            if arg_name is None or arg_name in parameter_names
-            else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            (
+                self.translate_expression(arg, runtime_expr=runtime_expr)
+                if arg_name is None or arg_name in parameter_names
+                else f"{arg_name}={self.translate_expression(arg, runtime_expr=runtime_expr)}"
+            )
             for arg_name, arg in self._ordered_call_arguments(name, node)
         ]
         self.ctx.coverage.builtin(name)

@@ -28,6 +28,7 @@ def parse_pine(source: str) -> dict:
     assert errors == []
     return result.ast.to_dict()
 
+
 STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
 PINE2AST = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid"
 
@@ -94,12 +95,10 @@ def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash(
 
 
 def test_v0_7_color_new_and_plot_style_translate_from_pine2ast() -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("T")
 plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
-"""
-    )
+""")
     result = translate_ast(program, module_name="color_new_plot_style")
 
     compile(result.code, "color_new_plot_style.py", "exec")
@@ -108,13 +107,11 @@ plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
 
 
 def test_v0_7_request_footprint_compiles_as_runtime_request() -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("T")
 fp = request.footprint(10, 70, 300)
 plot(not na(fp) ? fp.delta() : close)
-"""
-    )
+""")
     production = translate_ast(program, module_name="footprint_prod")
     assert production.metadata["parity_safe"] is True
     assert "request_footprint_stub" not in production.metadata["unsupported_features"]

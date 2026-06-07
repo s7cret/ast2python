@@ -62,13 +62,15 @@ def call(name, args=None, span=None):
 
 
 def program(items, kind="indicator"):
-    return with_valid_producer_metadata({
-        "kind": "Program",
-        "language": "pine",
-        "version": 6,
-        "declaration": decl(kind),
-        "items": items,
-    })
+    return with_valid_producer_metadata(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": decl(kind),
+            "items": items,
+        }
+    )
 
 
 def test_generated_base_import_and_strategy_phase_contract_full_bar_lifecycle_no_fill():

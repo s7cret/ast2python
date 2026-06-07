@@ -1,4 +1,5 @@
 """Pine time and timestamp call emitters."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, tzinfo
@@ -28,9 +29,7 @@ class PineTimeEmitter:
     def __init__(self, translator: Any) -> None:
         self.translator = translator
 
-    def translate_date_helper_call(
-        self, name: str, node: ASTNode, *, runtime_expr: str
-    ) -> str:
+    def translate_date_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         translator = self.translator
         args = []
         for arg_name, arg in translator._call_arguments(node):
@@ -166,6 +165,4 @@ def _timezone_for_name(timezone_str: str) -> tzinfo:
     try:
         return ZoneInfo(timezone_str)
     except ZoneInfoNotFoundError as exc:
-        raise UnsupportedBuiltinError(
-            f"timestamp: unsupported timezone {timezone_str!r}"
-        ) from exc
+        raise UnsupportedBuiltinError(f"timestamp: unsupported timezone {timezone_str!r}") from exc

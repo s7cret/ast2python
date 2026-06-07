@@ -59,11 +59,19 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 if (
                     info.type_info.base_type == "object"
                     and info.type_ref is not None
-                    and info.type_ref not in {"line", "label", "box", "table", "PineObjectId", "array", "matrix", "map"}
+                    and info.type_ref
+                    not in {
+                        "line",
+                        "label",
+                        "box",
+                        "table",
+                        "PineObjectId",
+                        "array",
+                        "matrix",
+                        "map",
+                    }
                 ):
-                    return make_type_info(
-                        info.type_ref, info.qualifier, is_series=info.is_series
-                    )
+                    return make_type_info(info.type_ref, info.qualifier, is_series=info.is_series)
                 # Visual object types (line/label/box/table): use PineObjectId base type
                 # so that binding for visual methods (line.set_xy1, etc.) succeeds.
                 if info.type_ref in {"line", "label", "box", "table", "PineObjectId"}:
@@ -84,13 +92,18 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         if chain is not None and chain.startswith("strategy."):
             field = chain.split(".", 1)[1]
             if field in STRATEGY_READONLY_FIELDS:
-                base = "int" if field in {
-                    "opentrades",
-                    "closedtrades",
-                    "wintrades",
-                    "losstrades",
-                    "eventrades",
-                } else "float"
+                base = (
+                    "int"
+                    if field
+                    in {
+                        "opentrades",
+                        "closedtrades",
+                        "wintrades",
+                        "losstrades",
+                        "eventrades",
+                    }
+                    else "float"
+                )
                 return make_type_info(base, "series", is_series=True, can_be_na=False)
         if chain is not None and chain.startswith("syminfo."):
             member = chain.split(".", 1)[1]
@@ -125,7 +138,11 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         if callee is not None and callee.kind == "MemberAccess":
             obj = callee.child("object")
             member = callee.field("member")
-            if obj is not None and str(obj.field("name")) == "ta" and member in DERIVED_BUILTIN_SERIES:
+            if (
+                obj is not None
+                and str(obj.field("name")) == "ta"
+                and member in DERIVED_BUILTIN_SERIES
+            ):
                 # ta.hlc3(), ta.hl2() as explicit function calls → float series
                 return make_type_info("float", "series", is_series=True)
         # Handle time() and time_close() function calls (e.g. time("D"), time_close("W"))
@@ -159,12 +176,8 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 "bool", join_qualifiers(left.qualifier, right.qualifier), can_be_na=False
             )
         # String concatenation: if either side is string, result is string
-        if op == "+" and (
-            left.base_type == "string" or right.base_type == "string"
-        ):
-            return make_type_info(
-                "string", join_qualifiers(left.qualifier, right.qualifier)
-            )
+        if op == "+" and (left.base_type == "string" or right.base_type == "string"):
+            return make_type_info("string", join_qualifiers(left.qualifier, right.qualifier))
         base = "float" if "float" in {left.base_type, right.base_type} else left.base_type
         return make_type_info(base, join_qualifiers(left.qualifier, right.qualifier))
     if node.kind == "UnaryExpr":
@@ -173,9 +186,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         condition = translator._infer_type_info(node.child("condition"))
         if_true = translator._infer_type_info(node.child("then") or node.child("if_true"))
         if_false = translator._infer_type_info(node.child("else") or node.child("if_false"))
-        base = (
-            "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
-        )
+        base = "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
         return make_type_info(
             base,
             join_qualifiers(condition.qualifier, if_true.qualifier, if_false.qualifier),
@@ -258,7 +269,14 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             return make_type_info("float", "series", is_series=chain.startswith("ta."))
         if chain == "str.tonumber":
             return make_type_info("float", "series", is_series=True)
-        if chain in {"str.tostring", "str.substring", "str.lower", "str.upper", "str.replace", "str.format"}:
+        if chain in {
+            "str.tostring",
+            "str.substring",
+            "str.lower",
+            "str.upper",
+            "str.replace",
+            "str.format",
+        }:
             return make_type_info("string", "series", is_series=True)
         if chain in {"str.contains", "str.startswith", "str.endswith"}:
             return make_type_info("bool", "series", is_series=True)
@@ -294,7 +312,9 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                     # request.security with a tuple-returning builtin expression preserves tuple type
                     return make_type_info("tuple", "series", is_series=True, can_be_na=True)
                 expr_type = translator._infer_type_info(expr_node)
-                return make_type_info(expr_type.base_type, "series", is_series=True, can_be_na=expr_type.can_be_na)
+                return make_type_info(
+                    expr_type.base_type, "series", is_series=True, can_be_na=expr_type.can_be_na
+                )
         if chain in {"input.string", "input.timeframe", "input.session"}:
             return make_type_info("string", "input", can_be_na=False)
         if chain == "input.time":
@@ -318,7 +338,11 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 if args:
                     first_type = translator._infer_type_info(args[0])
                     return make_type_info(
-                        first_type.base_type if first_type.base_type not in {"object", "na"} else "float",
+                        (
+                            first_type.base_type
+                            if first_type.base_type not in {"object", "na"}
+                            else "float"
+                        ),
                         "series",
                         is_series=True,
                     )
@@ -328,7 +352,11 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 translator._infer_type_info(arg) for _, arg in translator._call_arguments(node)
             ]
             qualifier = join_qualifiers(*(info.qualifier for info in arg_infos))
-            base = "int" if arg_infos and all(info.base_type == "int" for info in arg_infos) else "float"
+            base = (
+                "int"
+                if arg_infos and all(info.base_type == "int" for info in arg_infos)
+                else "float"
+            )
             return make_type_info(base, qualifier, is_series=qualifier == "series")
         # math.* functions return a numeric value with the strongest argument qualifier.
         if chain and chain.startswith("math."):

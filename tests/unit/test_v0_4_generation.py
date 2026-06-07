@@ -41,13 +41,15 @@ def arg(value, name=None):
 
 
 def program(items):
-    return with_valid_producer_metadata({
-        "kind": "Program",
-        "language": "pine",
-        "version": 6,
-        "declaration": decl(),
-        "items": items,
-    })
+    return with_valid_producer_metadata(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": decl(),
+            "items": items,
+        }
+    )
 
 
 def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():

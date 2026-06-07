@@ -65,13 +65,15 @@ def expr(expression: dict) -> dict:
 
 
 def program(items, kind: str = "indicator") -> dict:
-    return with_valid_producer_metadata({
-        "kind": "Program",
-        "language": "pine",
-        "version": 6,
-        "declaration": decl(kind),
-        "items": items,
-    })
+    return with_valid_producer_metadata(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": decl(kind),
+            "items": items,
+        }
+    )
 
 
 def load_generated(code: str, name: str = "generated_contract") -> ModuleType:
@@ -201,25 +203,27 @@ def test_visual_strategy_operator_input_time_and_stateful_ta_smoke_without_attri
 
 
 def test_strategy_default_qty_type_constants_lower_to_runtime_strings():
-    p = with_valid_producer_metadata({
-        "kind": "Program",
-        "language": "pine",
-        "version": 6,
-        "declaration": {
-            "kind": "DeclarationStatement",
-            "script_type": "strategy",
-            "call": {
-                "kind": "CallExpr",
-                "callee": ident("strategy"),
-                "arguments": [
-                    arg(lit("qty contract", "string")),
-                    arg(member("strategy", "cash"), "default_qty_type"),
-                    arg(lit(100), "default_qty_value"),
-                ],
+    p = with_valid_producer_metadata(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "strategy",
+                "call": {
+                    "kind": "CallExpr",
+                    "callee": ident("strategy"),
+                    "arguments": [
+                        arg(lit("qty contract", "string")),
+                        arg(member("strategy", "cash"), "default_qty_type"),
+                        arg(lit(100), "default_qty_value"),
+                    ],
+                },
             },
-        },
-        "items": [],
-    })
+            "items": [],
+        }
+    )
     result = translate_ast(p, module_name="strategy_qty_type_contract")
 
     assert 'default_qty_type="cash"' in result.code
@@ -288,7 +292,12 @@ def test_varip_local_simulation_lowers_to_runtime_varip_state_and_executes():
     p = program(
         [
             var("ticks", lit(0), mode="varip"),
-            {"kind": "Reassignment", "target": ident("ticks"), "op": ":=", "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)}},
+            {
+                "kind": "Reassignment",
+                "target": ident("ticks"),
+                "op": ":=",
+                "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)},
+            },
         ],
         kind="strategy",
     )
@@ -315,7 +324,12 @@ def test_varip_realtime_rollback_checkpoint_preserves_generated_varip_state():
     p = program(
         [
             var("ticks", lit(0), mode="varip"),
-            {"kind": "Reassignment", "target": ident("ticks"), "op": ":=", "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)}},
+            {
+                "kind": "Reassignment",
+                "target": ident("ticks"),
+                "op": ":=",
+                "value": {"kind": "BinaryExpr", "left": ident("ticks"), "op": "+", "right": lit(1)},
+            },
         ],
         kind="strategy",
     )

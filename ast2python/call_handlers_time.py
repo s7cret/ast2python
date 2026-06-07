@@ -22,9 +22,7 @@ def builtin_time_exact(translator: CallTranslator, node: CallNode, runtime_expr:
     return translator.time_emitter.translate_time_call("time", node, runtime_expr=runtime_expr)
 
 
-def builtin_time_close_exact(
-    translator: CallTranslator, node: CallNode, runtime_expr: str
-) -> str:
+def builtin_time_close_exact(translator: CallTranslator, node: CallNode, runtime_expr: str) -> str:
     return translator.time_emitter.translate_time_call(
         "time_close",
         node,

@@ -1,4 +1,5 @@
 """Translator metadata helpers — extracted from translator.py."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
@@ -16,10 +17,19 @@ if TYPE_CHECKING:
 
 
 BUILTIN_SERIES = {
-    "open", "high", "low", "close", "volume",
-    "hl2", "hlc3", "ohlc4",
-    "time", "time_close", "bar_index",
-    "timenow", "syminfo",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "hl2",
+    "hlc3",
+    "ohlc4",
+    "time",
+    "time_close",
+    "bar_index",
+    "timenow",
+    "syminfo",
 }
 
 STRATEGY_READONLY_FIELDS = {
@@ -40,19 +50,25 @@ STRATEGY_READONLY_FIELDS = {
 }
 
 FUNCTION_DECLARATIONS = {
-    "FunctionDeclaration", "FunctionDecl", "FunctionDefinition",
+    "FunctionDeclaration",
+    "FunctionDecl",
+    "FunctionDefinition",
 }
 
 METHOD_DECLARATIONS = {
-    "MethodDeclaration", "MethodDecl",
+    "MethodDeclaration",
+    "MethodDecl",
 }
 
 UDT_DECLARATIONS = {
-    "TypeDeclaration", "UserTypeDeclaration", "UDTDeclaration",
+    "TypeDeclaration",
+    "UserTypeDeclaration",
+    "UDTDeclaration",
 }
 
 ENUM_DECLARATIONS = {
-    "EnumDeclaration", "EnumDecl",
+    "EnumDeclaration",
+    "EnumDecl",
 }
 
 
@@ -95,9 +111,7 @@ def _call_arguments(node: ASTNode) -> list[tuple[str | None, ASTNode]]:
     return args
 
 
-def collect_globals(
-    translator: Any, program: ASTProgram
-) -> None:
+def collect_globals(translator: Any, program: ASTProgram) -> None:
     """Collect global variables, inputs, and series declarations."""
     for item in program.items:
         if item.kind == "ImportDeclaration":
@@ -336,9 +350,7 @@ def is_input_call(node: ASTNode) -> bool:
     return chain is not None and chain.startswith("input.")
 
 
-def diagnose_request_security_lower_tf_safety(
-    translator: Any, expression: ASTNode
-) -> None:
+def diagnose_request_security_lower_tf_safety(translator: Any, expression: ASTNode) -> None:
     """Check expression safety for request.security_lower_tf captures."""
     from ast2python.diagnostics import REQUEST_SECURITY_CAPTURE_UNSAFE, Severity
     from ast2python.errors import ScopeResolutionError
@@ -443,7 +455,11 @@ def build_input_metadata(
     for arg_name, arg_node in _call_arguments(initializer):
         if arg_name == "options":
             options = (
-                [literal_value(c) for c in arg_node.children() if hasattr(c, "kind") and c.kind == "Literal"]
+                [
+                    literal_value(c)
+                    for c in arg_node.children()
+                    if hasattr(c, "kind") and c.kind == "Literal"
+                ]
                 if arg_node.kind == "ArrayLiteral"
                 else None
             )
@@ -555,20 +571,34 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         if chain is not None and chain.startswith("strategy."):
             field = chain.split(".", 1)[1]
             if field in STRATEGY_READONLY_FIELDS:
-                base = "int" if field in {
-                    "opentrades",
-                    "closedtrades",
-                    "wintrades",
-                    "losstrades",
-                    "eventrades",
-                } else "float"
+                base = (
+                    "int"
+                    if field
+                    in {
+                        "opentrades",
+                        "closedtrades",
+                        "wintrades",
+                        "losstrades",
+                        "eventrades",
+                    }
+                    else "float"
+                )
                 return make_type_info(base, "series", is_series=True, can_be_na=False)
         if chain is not None and chain.startswith("syminfo."):
             return make_type_info("string", "simple", can_be_na=False)
-        if chain is not None and chain.startswith((
-            "barmerge.", "display.", "currency.", "location.",
-            "shape.", "size.", "position.", "plot.style_", "alert.",
-        )):
+        if chain is not None and chain.startswith(
+            (
+                "barmerge.",
+                "display.",
+                "currency.",
+                "location.",
+                "shape.",
+                "size.",
+                "position.",
+                "plot.style_",
+                "alert.",
+            )
+        ):
             return make_type_info("string", "const", can_be_na=False)
         if chain is not None and chain.startswith("color."):
             return make_type_info("color", "const", can_be_na=False)
@@ -596,9 +626,7 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
         condition = infer_type_info(translator, node.child("condition"))
         if_true = infer_type_info(translator, node.child("then") or node.child("if_true"))
         if_false = infer_type_info(translator, node.child("else") or node.child("if_false"))
-        base = (
-            "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
-        )
+        base = "float" if "float" in {if_true.base_type, if_false.base_type} else if_true.base_type
         return make_type_info(
             base,
             join_qualifiers(

@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path.home())).expanduser().resolve()
-WORKSPACE = Path(
-    os.environ.get("PINE_STACK_WORKSPACE", ROOT / "workspace/btcusdt_v6_stage_c_current")
-).expanduser().resolve()
+WORKSPACE = (
+    Path(os.environ.get("PINE_STACK_WORKSPACE", ROOT / "workspace/btcusdt_v6_stage_c_current"))
+    .expanduser()
+    .resolve()
+)
 AST2PYTHON = ROOT / "ast2python"
 PINE2AST = ROOT / "pine2ast"
 PINELIB = ROOT / "pinelib"
@@ -33,17 +35,22 @@ from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, is_na
 from pinelib.request import InMemoryDataProvider
 
 # Long OHLCV for prehistory loading
-LONG_OHLCV = Path(
-    os.environ.get(
-        "PINE_STACK_LONG_OHLCV",
-        ROOT / "workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv",
+LONG_OHLCV = (
+    Path(
+        os.environ.get(
+            "PINE_STACK_LONG_OHLCV",
+            ROOT / "workspace/pine_strategy_harness/data/btcusdt_15m_20240101_20260510_binance.csv",
+        )
     )
-).expanduser().resolve()
+    .expanduser()
+    .resolve()
+)
 
 
 @dataclass
 class MTFPrehistoryConfig:
     """Configuration for MTF prehistory loading."""
+
     requested_timeframe: str = "D"
     warmup_bars: int = 250
     include_previous_confirmed: bool = True
@@ -69,24 +76,24 @@ def calculate_mtf_prehistory_start(
 ) -> int:
     """
     Calculate the start timestamp for MTF prehistory loading.
-    
+
     Args:
         target_start_ms: Chart start timestamp in ms
         requested_timeframe: HTF to load (e.g., "D", "60")
         warmup_bars: Number of HTF bars to load before target
         include_previous_confirmed: Include previous confirmed HTF bar
-    
+
     Returns:
         Start timestamp in ms for loading base bars
     """
     tf_period = TF_PERIODS.get(requested_timeframe, 86_400_000)
-    
+
     # Calculate how many bars we need
     bars_needed = warmup_bars + (1 if include_previous_confirmed else 0)
-    
+
     # Calculate prehistory duration in ms
     prehistory_ms = bars_needed * tf_period
-    
+
     # For D bars, we need to extend to full day boundaries
     # because we aggregate from 15m bars
     # Each D bar needs 96 x 15m bars = 86,400,000 ms
@@ -95,7 +102,7 @@ def calculate_mtf_prehistory_start(
         # The prehistory in days = bars_needed * D period / DAY_MS
         days_needed = bars_needed
         prehistory_ms = days_needed * 86_400_000
-    
+
     return target_start_ms - prehistory_ms
 
 
@@ -108,14 +115,14 @@ def load_with_mtf_prehistory(
 ) -> dict[str, list[Bar]]:
     """
     Load base timeframe bars plus aggregated HTF bars with prehistory.
-    
+
     Args:
         symbol: Trading symbol
         base_tf: Base timeframe (e.g., "15")
         target_start_ms: Target window start in ms
         target_end_ms: Target window end in ms
         config: MTF prehistory configuration
-    
+
     Returns:
         Dict with "base" and "htf" keys containing bars
     """
@@ -126,7 +133,7 @@ def load_with_mtf_prehistory(
         config.warmup_bars,
         config.include_previous_confirmed,
     )
-    
+
     # Load 15m bars from long OHLCV
     all_bars = []
     if LONG_OHLCV.exists():
@@ -134,13 +141,13 @@ def load_with_mtf_prehistory(
             for row in csv.DictReader(fh):
                 raw_time = int(float(row["time"]))
                 time_ms = raw_time * 1000 if raw_time < 10_000_000_000 else raw_time
-                
+
                 # Only load bars within our range
                 if time_ms < prehistory_start:
                     continue
                 if time_ms > target_end_ms:
                     break
-                
+
                 all_bars.append(
                     Bar(
                         time=time_ms,
@@ -152,19 +159,19 @@ def load_with_mtf_prehistory(
                         volume=float(row.get("volume", 0) or 0),
                     )
                 )
-    
+
     if not all_bars:
         raise ValueError(f"No bars loaded from {LONG_OHLCV}")
-    
+
     # Aggregate to D bars if needed
     if config.requested_timeframe == "D":
         daily_bars = aggregate_daily(all_bars)
     else:
         daily_bars = []
-    
+
     # Extract chart bars (within target window)
     chart_bars = [b for b in all_bars if b.time >= target_start_ms]
-    
+
     return {
         "base": chart_bars,
         "htf": daily_bars,
@@ -175,7 +182,9 @@ def load_with_mtf_prehistory(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pine", default=str(WORKSPACE / "02_PINE/oracle_max_part4_mtf_strategy.pine"))
+    parser.add_argument(
+        "--pine", default=str(WORKSPACE / "02_PINE/oracle_max_part4_mtf_strategy.pine")
+    )
     parser.add_argument("--tv-csv", default=str(WORKSPACE / "00_INPUT/tv_pine_oracle_max_v6.csv"))
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--symbol", default="BINANCE:BTCUSDT")
@@ -284,22 +293,32 @@ def visual_rows(script: Any, bars: list[Bar]) -> tuple[list[str], list[dict[str,
     if not bars:
         return list(), list()
     if len(records) % len(bars) != 0:
-        raise RuntimeError(f"visual event count {len(records)} is not divisible by bars {len(bars)}")
+        raise RuntimeError(
+            f"visual event count {len(records)} is not divisible by bars {len(bars)}"
+        )
     per_bar = len(records) // len(bars)
     first_chunk = records[:per_bar]
+
     # Support both PlotRecord (new) and dict (legacy)
     def get_title(rec):
-        if hasattr(rec, 'title'):
+        if hasattr(rec, "title"):
             return str(rec.title)
-        return str(rec.get("args", ())[1] if len(rec.get("args", ())) > 1 else rec.get("kwargs", {}).get("title", ""))
+        return str(
+            rec.get("args", ())[1]
+            if len(rec.get("args", ())) > 1
+            else rec.get("kwargs", {}).get("title", "")
+        )
+
     def get_name(rec):
-        if hasattr(rec, 'name'):
+        if hasattr(rec, "name"):
             return rec.name
         return rec.get("name", "")
+
     def get_value(rec):
-        if hasattr(rec, 'value'):
+        if hasattr(rec, "value"):
             return rec.value
         return rec.get("args", ())[0] if rec.get("args") else None
+
     columns = [get_title(r) for r in first_chunk if get_name(r) == "plot"]
     rows: list[dict[str, str]] = []
     for index, bar in enumerate(bars):
@@ -421,7 +440,16 @@ def main() -> int:
     generated_py = modules_dir / "oracle_v6_p4.py"
 
     run_cmd(
-        [str(PYTHON), "-m", "pine2ast", "parse", str(pine_path), "--json", str(ast_path), "--runtime-contract-v1-4"],
+        [
+            str(PYTHON),
+            "-m",
+            "pine2ast",
+            "parse",
+            str(pine_path),
+            "--json",
+            str(ast_path),
+            "--runtime-contract-v1-4",
+        ],
         cwd=PINE2AST,
         log_path=logs_dir / "p4_parse.log",
     )
@@ -454,7 +482,7 @@ def main() -> int:
         tv_bars = load_15m_bars(tv_csv)
         target_start = tv_bars[0].time
         target_end = tv_bars[-1].time_close or tv_bars[-1].time
-        
+
         # Load with prehistory
         loaded = load_with_mtf_prehistory(
             args.symbol,
@@ -505,7 +533,11 @@ def main() -> int:
         }
     except Exception as exc:  # pragma: no cover - artifact runner path
         (logs_dir / "p4_execute.stderr").write_text(traceback.format_exc(), encoding="utf-8")
-        execute_status = {"status": "FAIL", "error": repr(exc), "traceback": str(logs_dir / "p4_execute.stderr")}
+        execute_status = {
+            "status": "FAIL",
+            "error": repr(exc),
+            "traceback": str(logs_dir / "p4_execute.stderr"),
+        }
 
     daily_rows = [
         {
@@ -539,10 +571,14 @@ def main() -> int:
             "first": daily_rows[0] if daily_rows else None,
             "last": daily_rows[-1] if daily_rows else None,
         },
-        "provider_keys": sorted(f"{symbol}:{tf}" for symbol, tf in provider._bars_by_key),  # noqa: SLF001
+        "provider_keys": sorted(
+            f"{symbol}:{tf}" for symbol, tf in provider._bars_by_key
+        ),  # noqa: SLF001
         "compare": compare,
     }
-    (out_dir / "p4_mtf_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (out_dir / "p4_mtf_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if execute_status["status"] == "OK" else 1
 

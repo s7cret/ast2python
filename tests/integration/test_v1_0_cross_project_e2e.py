@@ -60,7 +60,8 @@ def _pine_to_module(
     out = tmp_path / "generated"
     pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
 
-    parse = _run([
+    parse = _run(
+        [
             sys.executable,
             "-m",
             "pine2ast",
@@ -69,7 +70,8 @@ def _pine_to_module(
             "--json",
             str(ast_json),
             "--runtime-contract-v1-4",
-        ])
+        ]
+    )
     assert parse.returncode == 0, parse.stderr + parse.stdout
     assert ast_json.exists()
 
@@ -133,17 +135,15 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
     ast_json = tmp_path / "bad_overload.ast.json"
     out = tmp_path / "generated_bad"
     pine.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             //@version=6
             indicator("bad")
             plot(close, definitely_not_a_plot_arg=1)
-            """
-        ).strip()
-        + "\n",
+            """).strip() + "\n",
         encoding="utf-8",
     )
-    parse = _run([
+    parse = _run(
+        [
             sys.executable,
             "-m",
             "pine2ast",
@@ -152,7 +152,8 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
             "--json",
             str(ast_json),
             "--runtime-contract-v1-4",
-        ])
+        ]
+    )
     assert parse.returncode == 0, parse.stderr + parse.stdout
     translate = _run(
         [
@@ -168,7 +169,10 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
         ]
     )
     assert translate.returncode != 0
-    assert "ERROR/FATAL diagnostics" in translate.stderr or "semantic binding failed" in translate.stderr
+    assert (
+        "ERROR/FATAL diagnostics" in translate.stderr
+        or "semantic binding failed" in translate.stderr
+    )
 
 
 def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
@@ -247,15 +251,15 @@ def test_cross_project_request_security_lower_tf_negative_cli_fixtures(tmp_path:
         pine.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")
         parse = _run(
             [
-            sys.executable,
-            "-m",
-            "pine2ast",
-            "parse",
-            str(pine),
-            "--json",
-            str(ast_json),
-            "--runtime-contract-v1-4",
-        ]
+                sys.executable,
+                "-m",
+                "pine2ast",
+                "parse",
+                str(pine),
+                "--json",
+                str(ast_json),
+                "--runtime-contract-v1-4",
+            ]
         )
         assert parse.returncode == 0, parse.stderr + parse.stdout
         translate = _run(

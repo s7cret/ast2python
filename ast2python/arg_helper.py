@@ -17,14 +17,13 @@ def call_arguments(node: ASTNode) -> list[tuple[str | None, ASTNode]]:
         value = argument.child("value") or argument.child("expression")
         if value is None:
             from ast2python.errors import UnsupportedNodeError
+
             raise UnsupportedNodeError("Argument missing value")
         result.append((argument.field("name"), value))
     return result
 
 
-def ordered_call_arguments(
-    name: str, node: ASTNode
-) -> list[tuple[str | None, ASTNode]]:
+def ordered_call_arguments(name: str, node: ASTNode) -> list[tuple[str | None, ASTNode]]:
     """Reorder call arguments to match BUILTIN_SIGNATURES parameter order."""
     spec = BUILTIN_SIGNATURES[name]
     raw = call_arguments(node)

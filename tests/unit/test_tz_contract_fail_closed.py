@@ -29,7 +29,13 @@ BASE = {
         "call": {
             "kind": "CallExpr",
             "callee": {"kind": "Identifier", "name": "indicator"},
-            "arguments": [{"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "x"}}],
+            "arguments": [
+                {
+                    "kind": "Argument",
+                    "name": None,
+                    "value": {"kind": "Literal", "literal_type": "string", "value": "x"},
+                }
+            ],
         },
     },
     "items": [],
@@ -105,7 +111,9 @@ def test_contract_override_marks_unsafe():
     ],
 )
 def test_production_compile_profile_rejects_unsafe_overrides(kwargs):
-    with pytest.raises(ValidationError, match="production compile profile forbids unsafe overrides"):
+    with pytest.raises(
+        ValidationError, match="production compile profile forbids unsafe overrides"
+    ):
         translate_ast(program(), module_name="unsafe", **kwargs)
 
 
@@ -126,10 +134,22 @@ def test_compile_profile_factories_cover_diagnostic_unsafe_gates():
 
 
 def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():
-    p = program(items=[{
-        "kind": "ExpressionStatement",
-        "expression": {"kind": "CallExpr", "callee": {"kind": "MemberAccessExpr", "object": {"kind": "Identifier", "name": "request"}, "member": "dividends"}, "arguments": []},
-    }])
+    p = program(
+        items=[
+            {
+                "kind": "ExpressionStatement",
+                "expression": {
+                    "kind": "CallExpr",
+                    "callee": {
+                        "kind": "MemberAccessExpr",
+                        "object": {"kind": "Identifier", "name": "request"},
+                        "member": "dividends",
+                    },
+                    "arguments": [],
+                },
+            }
+        ]
+    )
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(p, module_name="request_bad")
     result = translate_ast(
@@ -144,7 +164,18 @@ def test_unsupported_request_fails_by_default_and_stub_marks_unsafe():
 
 
 def test_external_import_fails_by_default_and_stub_marks_unsafe():
-    p = program(items=[{"kind": "ImportDeclaration", "path": "user/lib/1", "owner": "user", "library": "lib", "version": "1", "alias": "lib"}])
+    p = program(
+        items=[
+            {
+                "kind": "ImportDeclaration",
+                "path": "user/lib/1",
+                "owner": "user",
+                "library": "lib",
+                "version": "1",
+                "alias": "lib",
+            }
+        ]
+    )
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(p, module_name="import_bad")
     result = translate_ast(
@@ -167,8 +198,16 @@ def test_calc_on_every_tick_rejected_by_default_and_override_marks_unsafe():
             "kind": "CallExpr",
             "callee": {"kind": "Identifier", "name": "strategy"},
             "arguments": [
-                {"kind": "Argument", "name": None, "value": {"kind": "Literal", "literal_type": "string", "value": "rt"}},
-                {"kind": "Argument", "name": "calc_on_every_tick", "value": {"kind": "Literal", "literal_type": "bool", "value": True}},
+                {
+                    "kind": "Argument",
+                    "name": None,
+                    "value": {"kind": "Literal", "literal_type": "string", "value": "rt"},
+                },
+                {
+                    "kind": "Argument",
+                    "name": "calc_on_every_tick",
+                    "value": {"kind": "Literal", "literal_type": "bool", "value": True},
+                },
             ],
         },
     }
@@ -186,12 +225,16 @@ def test_calc_on_every_tick_rejected_by_default_and_override_marks_unsafe():
 
 
 def test_varip_rejected_by_default_and_override_marks_unsafe():
-    p = program(items=[{
-        "kind": "VarDeclaration",
-        "mode": "varip",
-        "name": "ticks",
-        "initializer": {"kind": "Literal", "literal_type": "int", "value": 0},
-    }])
+    p = program(
+        items=[
+            {
+                "kind": "VarDeclaration",
+                "mode": "varip",
+                "name": "ticks",
+                "initializer": {"kind": "Literal", "literal_type": "int", "value": 0},
+            }
+        ]
+    )
     with pytest.raises(ValidationError):
         translate_ast(p, module_name="varip_bad")
     result = translate_ast(
@@ -211,7 +254,9 @@ def test_cli_rejects_error_and_allow_risk_writes_unsafe_metadata(tmp_path):
     ast_path.write_text(json.dumps(p), encoding="utf-8")
     out = tmp_path / "out"
     cmd = [sys.executable, "-m", "ast2python.cli.main", "translate", str(ast_path), "-o", str(out)]
-    fail = subprocess.run(cmd, cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
+    fail = subprocess.run(
+        cmd, cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True
+    )
     assert fail.returncode != 0
     prod_unsafe = subprocess.run(
         cmd + ["--allow-invalid-ast"],

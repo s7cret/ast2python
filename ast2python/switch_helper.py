@@ -16,10 +16,7 @@ def switch_cases(node: ASTNode) -> list[ASTNode]:
 def case_condition(case: ASTNode) -> ASTNode | None:
     """Return the condition/test/match/value child of a case node."""
     return (
-        case.child("condition")
-        or case.child("match")
-        or case.child("value")
-        or case.child("test")
+        case.child("condition") or case.child("match") or case.child("value") or case.child("test")
     )
 
 

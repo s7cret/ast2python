@@ -1,4 +1,5 @@
 """Translator mixins: boundary enforcement (contract, realtime, varip)."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -22,8 +23,7 @@ def enforce_frontend_contract(self: Any, program: ASTProgram) -> None:
     frontend_diagnostics = [
         item
         for item in program.field("diagnostics", default=[]) or []
-        if isinstance(item, dict)
-        and str(item.get("severity", "")).lower() in {"error", "fatal"}
+        if isinstance(item, dict) and str(item.get("severity", "")).lower() in {"error", "fatal"}
     ]
     if frontend_diagnostics:
         self.ctx.add_diagnostic(

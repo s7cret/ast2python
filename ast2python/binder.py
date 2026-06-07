@@ -137,9 +137,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         "ta.dev", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
     ),
     # ta.wpr (Williams %R)
-    "ta.wpr": S(
-        "ta.wpr", (P("length", frozenset({"int"}), "simple"),)
-    ),
+    "ta.wpr": S("ta.wpr", (P("length", frozenset({"int"}), "simple"),)),
     # ta.kc / ta.kcw (Keltner Channels)
     "ta.kc": S(
         "ta.kc",
@@ -162,22 +160,12 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
         ),
     ),
     # matrix.rows / matrix.cols / matrix.columns
-    "matrix.rows": S(
-        "matrix.rows", (P("id", REFERENCE, "series"),)
-    ),
-    "matrix.cols": S(
-        "matrix.cols", (P("id", REFERENCE, "series"),)
-    ),
-    "matrix.columns": S(
-        "matrix.columns", (P("id", REFERENCE, "series"),)
-    ),
+    "matrix.rows": S("matrix.rows", (P("id", REFERENCE, "series"),)),
+    "matrix.cols": S("matrix.cols", (P("id", REFERENCE, "series"),)),
+    "matrix.columns": S("matrix.columns", (P("id", REFERENCE, "series"),)),
     # map.contains / map.size
-    "map.contains": S(
-        "map.contains", (P("id", REFERENCE, "series"), P("key", ANY, "series"))
-    ),
-    "map.size": S(
-        "map.size", (P("id", REFERENCE, "series"),)
-    ),
+    "map.contains": S("map.contains", (P("id", REFERENCE, "series"), P("key", ANY, "series"))),
+    "map.size": S("map.size", (P("id", REFERENCE, "series"),)),
     "ta.wma": S(
         "ta.wma", (P("source", NUMERIC, "series"), P("length", frozenset({"int"}), "simple"))
     ),
@@ -422,9 +410,7 @@ BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {
     ),
     "str.tonumber": S("str.tonumber", (P("string", ANY, "series"),)),
     "str.contains": S("str.contains", (P("source", ANY, "series"), P("str", ANY, "series"))),
-    "str.startswith": S(
-        "str.startswith", (P("source", ANY, "series"), P("str", ANY, "series"))
-    ),
+    "str.startswith": S("str.startswith", (P("source", ANY, "series"), P("str", ANY, "series"))),
     "str.endswith": S("str.endswith", (P("source", ANY, "series"), P("str", ANY, "series"))),
     "str.lower": S("str.lower", (P("source", ANY, "series"),)),
     "str.upper": S("str.upper", (P("source", ANY, "series"),)),
@@ -1085,7 +1071,11 @@ def _allows_untyped_numeric_parameter(
 ) -> bool:
     # Pine2AST leaves untyped user-function parameters as object/simple. Keep this
     # escape hatch tied to that origin and to the HMA shape that needs it.
-    if actual.origin != "untyped_param" or actual.base_type != "object" or actual.qualifier != "simple":
+    if (
+        actual.origin != "untyped_param"
+        or actual.base_type != "object"
+        or actual.qualifier != "simple"
+    ):
         return False
     if builtin == "math.sqrt" and expected.name == "number":
         return True

@@ -1,4 +1,5 @@
 """Pine input call emitters and metadata helpers."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
@@ -59,9 +60,7 @@ class PineInputEmitter:
         default_node = args[0][1]
         default_rendered = translator.translate_expression(default_node)
         default_value = (
-            default_node.field("value")
-            if default_node.kind == "Literal"
-            else default_rendered
+            default_node.field("value") if default_node.kind == "Literal" else default_rendered
         )
         metadata = {
             "pine_name": declaration.field("name"),

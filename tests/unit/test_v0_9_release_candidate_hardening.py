@@ -13,7 +13,10 @@ from ast2python.version import __version__
 from tests.contract_metadata import with_valid_producer_metadata
 
 STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
-FIXTURE = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
+FIXTURE = (
+    STACK_ROOT
+    / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke/01_ma_indicator.ast.json"
+)
 
 
 def test_v0_9_public_api_is_explicit_and_semver_aligned() -> None:
@@ -46,7 +49,7 @@ def test_translator_delegates_global_collection_to_metadata_helper() -> None:
     method_source = source[method_start:method_end]
 
     assert "collect_globals(self, program)" in method_source
-    assert "item.kind == \"VarDeclaration\"" not in method_source
+    assert 'item.kind == "VarDeclaration"' not in method_source
     assert "ctx.declare_var" not in method_source
 
 
@@ -57,7 +60,10 @@ def test_translator_delegates_declaration_metadata_to_helper() -> None:
     method_end = source.index("    def _strategy_context_kwargs", method_start)
     method_source = source[method_start:method_end]
 
-    assert "collect_declaration_metadata(self, declaration, DECLARATION_CONTEXT_FIELDS)" in method_source
+    assert (
+        "collect_declaration_metadata(self, declaration, DECLARATION_CONTEXT_FIELDS)"
+        in method_source
+    )
     assert "unsupported_declaration_args.append" not in method_source
     assert "ctx.strategy_metadata = metadata" not in method_source
 
@@ -86,7 +92,7 @@ def test_translator_delegates_request_detection_to_metadata_helper() -> None:
     assert "return contains_request_call(node)" in source[request_start:request_end]
     assert "return contains_any_request_call(node)" in source[any_start:any_end]
     assert "for descendant in" not in source[request_start:request_end]
-    assert "chain.startswith(\"request.\")" not in source[any_start:any_end]
+    assert 'chain.startswith("request.")' not in source[any_start:any_end]
 
 
 def test_translator_delegates_input_helpers_to_input_emitter() -> None:
@@ -99,7 +105,10 @@ def test_translator_delegates_input_helpers_to_input_emitter() -> None:
     metadata_start = is_end
     metadata_end = source.index("    def _infer_dtype", metadata_start)
 
-    assert "return self.input_emitter.translate_runtime_lookup(node)" in source[runtime_start:runtime_end]
+    assert (
+        "return self.input_emitter.translate_runtime_lookup(node)"
+        in source[runtime_start:runtime_end]
+    )
     assert "return self.input_emitter.is_input_call(node)" in source[is_start:is_end]
     assert (
         "return self.input_emitter.build_metadata(declaration, initializer, py_name)"
