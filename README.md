@@ -8,6 +8,41 @@ AST2Python translates Pine2AST JSON into readable, deterministic Python modules 
 
 It does **not** parse Pine source, emulate TradingView bars/orders, fetch market data, run backtests, or optimize strategies.
 
+## Scope & Status
+
+| Claim | Status |
+|---|---|
+| Pine2AST JSON → Python module translation | supported for verified subset |
+| Deterministic lowering, source maps, coverage | supported |
+| Production profile (fail-closed) | supported — `runtime/profile=production` blocks unsupported nodes/builtins |
+| Strategy intent events | generated — broker fills/equity live in `pinelib` runtime |
+| **Full TradingView Strategy Tester parity** | **not claimed** — fills, equity curve, metrics are runtime concern |
+| Realtime tick / rollback semantics | not implemented — fail-closed in production profile |
+| `request.*` data fetching | not implemented — emits runtime data plan only |
+| Generated code `eval`/`exec` of user fragments | forbidden |
+
+## Release compatibility
+
+| pine2ast | AST contract | Runtime contract | ast2python | pinelib |
+|---|---|---|---|---|
+| 2.17.x | `pain.ast_contract.v1` | `1.4` | 2.17.x | 2.17.x |
+| 2.18.x | `pain.ast_contract.v1` | `1.4` | 2.18.x | 2.18.x |
+
+A contract mismatch is a deterministic `P2A_CONTRACT_VERSION_MISMATCH` error — no silent fallback.
+
+## Production profile — what's blocked
+
+The `production` compile profile refuses to lower:
+
+- Invalid AST envelopes
+- Contract version mismatches
+- Unsupported builtins (unknown in registry)
+- Unsupported request forms
+- External library stubs
+- Realtime-unsafe features without runtime parity (`varip`, `calc_on_every_tick`, etc.)
+
+Set `OPENPINE_AST2PYTHON_PROFILE=diagnostic` to allow stubs with explicit warnings; production refuses silently — never.
+
 ## What It Supports
 
 - Translation of Pine2AST indicator and strategy envelopes into Python modules.
