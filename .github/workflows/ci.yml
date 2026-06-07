@@ -30,8 +30,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install -e pinelib[dev] -e pine2ast[dev] -e ast2python[dev]
-        working-directory: ${{ github.workspace }}
+          python -m pip install -e ./pinelib[dev]
+          python -m pip install -e ./pine2ast[dev]
+          python -m pip install -e ./ast2python[dev]
       - name: Ruff lint
         run: python -m ruff check .
         working-directory: ast2python
