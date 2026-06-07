@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dev dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e .[dev]
+      - name: Ruff lint
+        run: python -m ruff check .
+      - name: Black format check
+        run: python -m black --check .
+      - name: Tests
+        run: python -m pytest tests/ -v --tb=short
+      - name: Wheel install smoke test
+        run: |
+          python -m build
+          python -m venv /tmp/wheel-test
+          /tmp/wheel-test/bin/pip install dist/*.whl --no-deps
+          /tmp/wheel-test/bin/python -c "import ast2python; import ast2python.translator; from ast2python.translator_mixins.metadata import *; print('wheel OK')"
