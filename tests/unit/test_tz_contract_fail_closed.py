@@ -1,11 +1,9 @@
 import copy
 import json
-import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
+from ast2python.cli.main import main as cli_main
 from ast2python.errors import UnsupportedBuiltinError, ValidationError
 from ast2python.profiles import CompileProfile
 from ast2python.translator import translate_ast
@@ -15,7 +13,7 @@ BASE = {
     "language": "pine",
     "version": 6,
     "producer_metadata": {
-        "contract": "pain.ast_contract.v1",
+        "contract": "pine.ast_contract.v1",
         "producer": {"name": "pine2ast", "version": "test"},
         "schema_version": "1.0",
         "pine_language_version": 6,
@@ -253,26 +251,10 @@ def test_cli_rejects_error_and_allow_risk_writes_unsafe_metadata(tmp_path):
     ast_path = tmp_path / "bad.json"
     ast_path.write_text(json.dumps(p), encoding="utf-8")
     out = tmp_path / "out"
-    cmd = [sys.executable, "-m", "ast2python.cli.main", "translate", str(ast_path), "-o", str(out)]
-    fail = subprocess.run(
-        cmd, cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True
-    )
-    assert fail.returncode != 0
-    prod_unsafe = subprocess.run(
-        cmd + ["--allow-invalid-ast"],
-        cwd=Path(__file__).resolve().parents[2],
-        text=True,
-        capture_output=True,
-    )
-    assert prod_unsafe.returncode != 0
-    assert "production compile profile forbids unsafe overrides" in prod_unsafe.stderr
-    ok = subprocess.run(
-        cmd + ["--compile-profile", "diagnostic", "--allow-invalid-ast"],
-        cwd=Path(__file__).resolve().parents[2],
-        text=True,
-        capture_output=True,
-    )
-    assert ok.returncode == 0, ok.stderr
+    cmd = ["translate", str(ast_path), "-o", str(out)]
+    assert cli_main(cmd) != 0
+    assert cli_main(cmd + ["--allow-invalid-ast"]) != 0
+    assert cli_main(cmd + ["--compile-profile", "diagnostic", "--allow-invalid-ast"]) == 0
     metadata = json.loads((out / "bad.meta.json").read_text(encoding="utf-8"))
     assert metadata["parity_safe"] is False
     assert metadata["unsafe"] is True

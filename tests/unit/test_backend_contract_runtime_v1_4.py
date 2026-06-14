@@ -9,6 +9,8 @@ if str(PINELIB_ROOT) not in sys.path:
     sys.path.insert(0, str(PINELIB_ROOT))
 
 import pytest  # noqa: E402
+
+pytest.importorskip("pinelib")
 from pinelib.core import Bar, PineRuntime, SymbolInfo, TimeframeInfo, na  # noqa: E402
 from pinelib.request.providers import InMemoryDataProvider  # noqa: E402
 

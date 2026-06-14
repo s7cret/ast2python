@@ -147,7 +147,7 @@ def test_history_reference_over_runtime_ta_call_materializes_expression_series()
             }
         ]
     )
-    result = translate_ast(p, module_name="expr_history_rsi")
+    result = translate_ast(p, module_name="expr_history_rsi", visual_policy="record")
     assert "self.rt.expr_history(rsi(" in result.code
     assert ".history(rsi(" not in result.code
     assert 'state_id="L3_C6_expr_history_1"' in result.code
@@ -205,7 +205,7 @@ def test_history_reference_over_ema_and_atr_calls_materializes_expression_series
             },
         ]
     )
-    result = translate_ast(p, module_name="expr_history_ema_atr")
+    result = translate_ast(p, module_name="expr_history_ema_atr", visual_policy="record")
     assert "self.rt.expr_history(ema(" in result.code
     assert "self.rt.expr_history(atr(" in result.code
     assert ".history(ema(" not in result.code
@@ -309,12 +309,14 @@ def test_cli_smoke_runs_generated_code_against_sample_bars(tmp_path):
             "smoke_min",
         ],
         check=True,
+        timeout=30,
     )
     proc = subprocess.run(
         [sys.executable, "-m", "ast2python.cli.main", "smoke", str(out / "smoke_min.py")],
         check=True,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     payload = json.loads(proc.stdout)
     assert payload["ok"] is True

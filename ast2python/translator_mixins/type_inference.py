@@ -13,7 +13,7 @@ from ast2python.translator_constants import (
     STRATEGY_READONLY_FIELDS,
     VISUAL_OBJECT_PRODUCERS,
 )
-from ast2python.translator_mixins.metadata import member_chain
+from ast2python.translator_support import member_chain
 from ast2python.types import TypeInfo, join_qualifiers, make_type_info
 
 
@@ -297,11 +297,9 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             if method in {"entry_time", "exit_time", "entry_bar_index", "exit_bar_index"}:
                 return make_type_info("int", "series", is_series=True)
             return make_type_info("float", "series", is_series=True)
-        # request.financial/economic/currency_rate/earnings/dividends/splits
-        # all return float series (financial/economic data is time-series)
-        if chain and chain.startswith("request."):
-            return make_type_info("float", "series", is_series=True)
-        # request.security returns the same type as its expression argument (arg index 2)
+        # request.security returns the same type as its expression argument (arg index 2).
+        # Keep this before the generic request.* fallback so tuple-returning expressions
+        # such as ta.bb()/ta.macd() preserve their shape for downstream tuple lowering.
         if chain == "request.security" and translator._call_arguments(node):
             args = translator._call_arguments(node)
             if len(args) >= 3:
@@ -309,12 +307,15 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
                 expr_callee = expr_node.child("callee") if expr_node.kind == "CallExpr" else None
                 expr_chain = member_chain(expr_callee) if expr_callee else None
                 if expr_chain in translator.TUPLE_RETURNING_BUILTINS:
-                    # request.security with a tuple-returning builtin expression preserves tuple type
                     return make_type_info("tuple", "series", is_series=True, can_be_na=True)
                 expr_type = translator._infer_type_info(expr_node)
                 return make_type_info(
                     expr_type.base_type, "series", is_series=True, can_be_na=expr_type.can_be_na
                 )
+        # request.financial/economic/currency_rate/earnings/dividends/splits
+        # all return float series (financial/economic data is time-series).
+        if chain and chain.startswith("request."):
+            return make_type_info("float", "series", is_series=True)
         if chain in {"input.string", "input.timeframe", "input.session"}:
             return make_type_info("string", "input", can_be_na=False)
         if chain == "input.time":
@@ -332,20 +333,19 @@ def infer_type_info(translator: Any, node: ASTNode | None) -> TypeInfo:
             return make_type_info("bool", "simple", can_be_na=False)
         # nz and fixnan preserve the type of the first argument.
         if chain in {"nz", "fixnan"}:
-            first_arg = node.child("arguments") or node.child("args")
-            if first_arg is not None:
-                args = list(first_arg) if hasattr(first_arg, "__iter__") else [first_arg]
-                if args:
-                    first_type = translator._infer_type_info(args[0])
-                    return make_type_info(
-                        (
-                            first_type.base_type
-                            if first_type.base_type not in {"object", "na"}
-                            else "float"
-                        ),
-                        "series",
-                        is_series=True,
-                    )
+            args = translator._call_arguments(node)
+            if args:
+                first_type = translator._infer_type_info(args[0][1])
+                return make_type_info(
+                    (
+                        first_type.base_type
+                        if first_type.base_type not in {"object", "na"}
+                        else "float"
+                    ),
+                    first_type.qualifier,
+                    is_series=first_type.qualifier == "series",
+                    can_be_na=first_type.can_be_na,
+                )
             return make_type_info("float", "series", is_series=True)
         if chain in {"math.min", "math.max"}:
             arg_infos = [

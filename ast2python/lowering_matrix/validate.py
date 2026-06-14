@@ -24,8 +24,8 @@ def _fail(errors: list[str]) -> None:
 
 def validate_lowering_matrix_payload(payload: dict[str, Any]) -> None:
     errors: list[str] = []
-    if payload.get("schema_version") != "pain.ast2python.lowering_matrix.v1":
-        errors.append("lowering matrix schema_version must be pain.ast2python.lowering_matrix.v1")
+    if payload.get("schema_version") != "pine.ast2python.lowering_matrix.v1":
+        errors.append("lowering matrix schema_version must be pine.ast2python.lowering_matrix.v1")
     if payload.get("runtime_contract") != "1.4":
         errors.append("lowering matrix runtime_contract must be 1.4")
     entries = payload.get("entries")
@@ -65,9 +65,9 @@ def validate_lowering_matrix_payload(payload: dict[str, Any]) -> None:
 
 def validate_source_map_contract_payload(payload: dict[str, Any]) -> None:
     errors: list[str] = []
-    if payload.get("schema_version") != "pain.ast2python.source_map_contract.v1":
+    if payload.get("schema_version") != "pine.ast2python.source_map_contract.v1":
         errors.append(
-            "source-map contract schema_version must be pain.ast2python.source_map_contract.v1"
+            "source-map contract schema_version must be pine.ast2python.source_map_contract.v1"
         )
     if payload.get("runtime_contract") != "1.4":
         errors.append("source-map contract runtime_contract must be 1.4")
@@ -89,3 +89,21 @@ def validate_lowering_matrix(path: str | None = None) -> None:
 
 def validate_source_map_contract(path: str | None = None) -> None:
     validate_source_map_contract_payload(load_source_map_contract(path))
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="python -m ast2python.lowering_matrix.validate")
+    parser.add_argument("--matrix")
+    parser.add_argument("--source-map-contract")
+    args = parser.parse_args(argv)
+    validate_lowering_matrix(args.matrix)
+    validate_source_map_contract(args.source_map_contract)
+    print("lowering_matrix: ok")
+    print("source_map_contract: ok")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

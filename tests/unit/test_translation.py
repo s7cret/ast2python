@@ -171,7 +171,9 @@ def test_nested_request_security_emits_diagnostic():
 
 def test_v0_2_tuple_history_input_metadata_and_color_member_access():
     result = translate_ast(
-        load_fixture("v0_2_foundation_indicator.ast.json"), module_name="v0_2_foundation"
+        load_fixture("v0_2_foundation_indicator.ast.json"),
+        module_name="v0_2_foundation",
+        visual_policy="record",
     )
     assert "from pinelib import color as pine_color" in result.code
     assert "from pinelib.ta import bb" in result.code

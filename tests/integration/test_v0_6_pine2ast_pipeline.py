@@ -54,6 +54,7 @@ def test_pine2ast_inspect_envelope_unwraps_for_cli_translate(tmp_path):
         check=False,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
@@ -66,6 +67,7 @@ def test_pine2ast_inspect_envelope_unwraps_for_cli_translate(tmp_path):
         check=False,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     assert smoke.returncode == 0, smoke.stderr
     smoke_payload = json.loads(smoke.stdout)
@@ -80,6 +82,7 @@ def test_cli_coverage_includes_schema_catalog():
         check=False,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)

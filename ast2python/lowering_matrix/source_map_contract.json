@@ -1,5 +1,5 @@
 {
-  "schema_version": "pain.ast2python.source_map_contract.v1",
+  "schema_version": "pine.ast2python.source_map_contract.v1",
   "runtime_contract": "1.4",
   "artifact": "<module>.sourcemap.json",
   "format": "json-array",

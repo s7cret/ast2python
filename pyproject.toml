@@ -1,18 +1,18 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ast2python"
-version = "2.17.0"
+version = "4.0.0"
 description = "AST2Python generator for Pine AST to PineLib Python modules"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
-  "pinelib @ git+https://github.com/s7cret/pinelib.git@v2.17.0",
-  "pine2ast @ git+https://github.com/s7cret/pine2ast.git@v2.17.0",
+  "pinelib @ git+https://github.com/s7cret/pinelib.git@v4.0.0",
+  "pine2ast @ git+https://github.com/s7cret/pine2ast.git@v4.0.0",
 ]
 
 [project.urls]
@@ -45,7 +45,7 @@ target-version = ["py311"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-exclude = ["dist", "build", "tests/fixtures"]
+exclude = ["dist", "build", "tests/fixtures", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -55,6 +55,8 @@ ignore = ["E402", "E501"]
 # Golden generated-code snapshots intentionally mirror emitter output byte-for-byte;
 # tests assert exact strings, so lint/format changes belong in the emitter first.
 "tests/fixtures/expected/**/*.py" = ["E501", "F401", "I001", "B905"]
+"ast2python/translator_parts/shared.py" = ["F401"]
+"ast2python/translator_parts/*.py" = ["F403", "F405"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -69,4 +71,12 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 warn_return_any = true
 strict_optional = true
-exclude = ["dist", "build", "tests/fixtures"]
+exclude = ["dist", "build", "tests/fixtures", ".venv"]
+
+[[tool.mypy.overrides]]
+module = ["pinelib", "pinelib.*", "pine2ast", "pine2ast.*"]
+ignore_missing_imports = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = false

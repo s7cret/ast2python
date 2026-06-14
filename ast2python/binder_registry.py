@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+from ast2python.binder_model import SignatureSpec
+from ast2python.binder_signatures.array import ARRAY_SIGNATURES
+from ast2python.binder_signatures.box import BOX_SIGNATURES
+from ast2python.binder_signatures.color import COLOR_SIGNATURES
+from ast2python.binder_signatures.label import LABEL_SIGNATURES
+from ast2python.binder_signatures.line import LINE_SIGNATURES
+from ast2python.binder_signatures.map import MAP_SIGNATURES
+from ast2python.binder_signatures.math import MATH_SIGNATURES
+from ast2python.binder_signatures.matrix import MATRIX_SIGNATURES
+from ast2python.binder_signatures.misc import MISC_SIGNATURES
+from ast2python.binder_signatures.request import REQUEST_SIGNATURES
+from ast2python.binder_signatures.str import STR_SIGNATURES
+from ast2python.binder_signatures.strategy import STRATEGY_SIGNATURES
+from ast2python.binder_signatures.ta import TA_SIGNATURES
+from ast2python.binder_signatures.table import TABLE_SIGNATURES
+from ast2python.binder_signatures.timeframe import TIMEFRAME_SIGNATURES
+
+BUILTIN_SIGNATURES: dict[str, SignatureSpec] = {}
+BUILTIN_SIGNATURES.update(ARRAY_SIGNATURES)
+BUILTIN_SIGNATURES.update(BOX_SIGNATURES)
+BUILTIN_SIGNATURES.update(COLOR_SIGNATURES)
+BUILTIN_SIGNATURES.update(LABEL_SIGNATURES)
+BUILTIN_SIGNATURES.update(LINE_SIGNATURES)
+BUILTIN_SIGNATURES.update(MAP_SIGNATURES)
+BUILTIN_SIGNATURES.update(MATH_SIGNATURES)
+BUILTIN_SIGNATURES.update(MATRIX_SIGNATURES)
+BUILTIN_SIGNATURES.update(MISC_SIGNATURES)
+BUILTIN_SIGNATURES.update(REQUEST_SIGNATURES)
+BUILTIN_SIGNATURES.update(STR_SIGNATURES)
+BUILTIN_SIGNATURES.update(STRATEGY_SIGNATURES)
+BUILTIN_SIGNATURES.update(TA_SIGNATURES)
+BUILTIN_SIGNATURES.update(TABLE_SIGNATURES)
+BUILTIN_SIGNATURES.update(TIMEFRAME_SIGNATURES)

@@ -13,7 +13,7 @@ def test_strategy_realtime_and_broker_flags_lower_to_strategy_context_and_run_lo
         "language": "pine",
         "version": 6,
         "producer_metadata": {
-            "contract": "pain.ast_contract.v1",
+            "contract": "pine.ast_contract.v1",
             "producer": {"name": "pine2ast", "version": "test"},
             "schema_version": "1.0",
             "pine_language_version": 6,

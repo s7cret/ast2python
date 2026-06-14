@@ -222,7 +222,7 @@ def test_plot_positional_title_captured_in_generated_code():
         ),
         kind="indicator",
     )
-    result = translate_ast(p, module_name="plot_positional_title")
+    result = translate_ast(p, module_name="plot_positional_title", visual_policy="record")
     assert not result.diagnostics
     assert "title='P092_EMA9'" in result.code
 
@@ -237,6 +237,6 @@ def test_plot_named_title_still_works():
         ),
         kind="indicator",
     )
-    result = translate_ast(p, module_name="plot_named_title")
+    result = translate_ast(p, module_name="plot_named_title", visual_policy="record")
     assert not result.diagnostics
     assert "title='P092_EMA9'" in result.code

@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 VALID_PRODUCER_METADATA: dict[str, Any] = {
-    "contract": "pain.ast_contract.v1",
+    "contract": "pine.ast_contract.v1",
     "producer": {"name": "pine2ast", "version": "test-fixture"},
     "schema_version": "1.0",
     "pine_language_version": 6,

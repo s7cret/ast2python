@@ -42,16 +42,32 @@ jobs:
         run: python -m ruff check .
         working-directory: ast2python
       - name: Black format check
-        run: python -m black --check .
+        run: python -m black --check . --workers 1
+        working-directory: ast2python
+      - name: MyPy type check
+        run: python -m mypy ast2python
         working-directory: ast2python
       - name: Unit tests
-        run: python -m pytest tests/unit/ -v --tb=short
+        run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/unit/ -v --tb=short
         working-directory: ast2python
       - name: Integration tests (non-E2E)
-        run: python -m pytest tests/integration/ -v --tb=short -k "not cross_project"
+        run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/integration/ -v --tb=short -k "not cross_project"
         working-directory: ast2python
         env:
           PINE_STACK_ROOT: ${{ github.workspace }}
+      - name: Coverage gate
+        run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q -p pytest_cov --cache-clear tests/unit tests/integration --cov=ast2python --cov-report=term
+        working-directory: ast2python
+        env:
+          PINE_STACK_ROOT: ${{ github.workspace }}
+      - name: Release checks
+        run: |
+          python -m ast2python.quality duplicates ast2python
+          python -m ast2python.quality architecture ast2python --max-lines 700
+          python -m ast2python.lowering_matrix.validate
+          python -m ast2python.distribution manifest --root .
+          python -m ast2python.release --root .
+        working-directory: ast2python
       - name: Wheel install smoke test
         run: |
           python -m build

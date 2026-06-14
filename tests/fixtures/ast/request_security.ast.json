@@ -233,7 +233,7 @@
     }
   ],
   "producer_metadata": {
-    "contract": "pain.ast_contract.v1",
+    "contract": "pine.ast_contract.v1",
     "producer": {
       "name": "pine2ast",
       "version": "test-fixture"

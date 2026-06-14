@@ -1,8 +1,0 @@
-{
-  "version": "1.0.0",
-  "archive": "dist/ast2python_v1_0_0.zip",
-  "include": [
-    "docs/LIMITATIONS_v1.0.0.md",
-    "docs/SOURCE_MAP_AUDIT_v1.0.0.md"
-  ]
-}

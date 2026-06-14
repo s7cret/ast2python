@@ -277,7 +277,7 @@ def test_v0_4_visual_recorder_storage_methods_and_misuse_diagnostic():
             },
         ]
     )
-    result = translate_ast(ok, module_name="visual_ok")
+    result = translate_ast(ok, module_name="visual_ok", visual_policy="record")
     assert "self._visual_call('line.new'" in result.code
     assert "self.ln.set_current(self._visual_call('line.new'" in result.code
     assert "self._visual_call('line.set_xy1', self.ln.current" in result.code

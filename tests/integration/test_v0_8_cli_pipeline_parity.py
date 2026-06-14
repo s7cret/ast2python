@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from ast2python.ast.schema import load_ast
 from ast2python.translator import translate_ast as _translate_ast
 from ast2python.version import __version__
@@ -30,6 +32,8 @@ def metadata_fixture_copy(src: Path, dst_dir: Path) -> Path:
 
 
 def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path) -> None:
+    if not FIXTURES.exists():
+        pytest.skip("pine2ast real-world smoke fixtures are not available in this checkout")
     source_inputs = [
         FIXTURES / "01_ma_indicator.ast.json",
         FIXTURES / "13_input_source_strategy_state.ast.json",
@@ -48,6 +52,7 @@ def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path
         check=True,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     payload = json.loads(proc.stdout)
     assert payload["ok"] is True
@@ -63,6 +68,8 @@ def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path
 
 
 def test_v0_8_runtime_contract_metadata_shape_is_pipeline_stable() -> None:
+    if not FIXTURES.exists():
+        pytest.skip("pine2ast real-world smoke fixtures are not available in this checkout")
     result = translate_ast(
         load_ast(FIXTURES / "13_input_source_strategy_state.ast.json"), module_name="state_strategy"
     )
