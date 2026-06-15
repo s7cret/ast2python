@@ -2,9 +2,8 @@
 
 > Code-generation layer that lowers Pine2AST contracts into deterministic Python modules targeting the PineLib runtime.
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue)
-![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![Version](https://img.shields.io/badge/version-4.0.0-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
+
 
 **GitHub description:** AST2Python converts Pine2AST JSON into PineLib-compatible Python modules with source maps, lowering diagnostics, visual-call policy, and OpenPine runtime metadata.
 
