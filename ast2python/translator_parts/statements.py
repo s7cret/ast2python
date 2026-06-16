@@ -5,6 +5,7 @@ from ast2python.translator_parts.shared import *  # noqa: F403,F401
 
 class TranslatorStatementMixin(TranslatorMixinBase):
     def _collect_globals(self, program: ASTProgram) -> None:
+        self._var_init_emitted = set()
         collect_globals(self, program)
 
     def _emit_statement(self, node: ASTNode) -> None:
@@ -113,6 +114,18 @@ class TranslatorStatementMixin(TranslatorMixinBase):
             return
         info = self._resolve_or_declare_var(node, name, initializer)
         expr = self.translate_expression(initializer)
+        # When `var x := rhs` is a reassign (not the first init), the RHS must
+        # see the previous bar's value of every series that was updated earlier
+        # in the same `_process_bar` call. The default codegen emits
+        # `self.<series>.current`, but that is the *just-assigned* value, not
+        # the previous bar's value. Rewrite those references in the RHS to
+        # `self.<series>[1]` to restore Pine's one-bar-deferred semantics.
+        if (
+            info.declaration_kind == "var"
+            and self.ctx.current_scope.kind == "global"
+            and info.pine_name in getattr(self, "_var_init_emitted", set())
+        ):
+            expr = self._defer_series_reads_to_previous_bar(expr)
         if self.ctx.current_scope.kind == "global":
             if info.declaration_kind == "varip":
                 key = self._varip_key(info)
@@ -147,6 +160,7 @@ class TranslatorStatementMixin(TranslatorMixinBase):
                 self.emitter.line(
                     f"self.{info.py_name}.set_current({expr})", loc=node.loc, source=node.source
                 )
+            self._var_init_emitted.add(info.pine_name)
             return
         if info.declaration_kind == "varip":
             self.emitter.line(
@@ -156,6 +170,20 @@ class TranslatorStatementMixin(TranslatorMixinBase):
             )
         else:
             self.emitter.line(f"{info.py_name} = {expr}", loc=node.loc, source=node.source)
+
+    def _defer_series_reads_to_previous_bar(self, expr: str) -> str:
+        """Replace `self.<py_name>.current` with `self.<py_name>[1]` for every
+        series variable currently declared in the active scope. Used to give
+        `var := rhs` reassign the Pine one-bar-deferred semantics.
+        """
+        rewritten = expr
+        for other in self.ctx.current_scope.variables.values():
+            if not other.is_series or other.py_name == "":
+                continue
+            rewritten = rewritten.replace(
+                f"self.{other.py_name}.current", f"self.{other.py_name}[1]"
+            )
+        return rewritten
 
     def _tuple_targets(self, node: ASTNode) -> list[str]:
         raw_targets = (

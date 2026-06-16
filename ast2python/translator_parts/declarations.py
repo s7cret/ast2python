@@ -99,7 +99,8 @@ class TranslatorDeclarationMixin(TranslatorMixinBase):
             )
         else:
             for index, statement in enumerate(statements):
-                if index == len(statements) - 1 and statement.kind == "ExpressionStatement":
+                is_last_statement = index == len(statements) - 1
+                if is_last_statement and statement.kind == "ExpressionStatement":
                     expr = statement.child("expression")
                     self.emitter.source_comment(statement.loc, statement.source)
                     self.emitter.line(
@@ -111,6 +112,19 @@ class TranslatorDeclarationMixin(TranslatorMixinBase):
                         loc=statement.loc,
                         source=statement.source,
                     )
+                elif is_last_statement and statement.kind == "VarDeclaration":
+                    self._emit_statement(statement)
+                    var_name = str(statement.field("name"))
+                    try:
+                        info = self.ctx.resolve_var(var_name)
+                    except ScopeResolutionError:
+                        self.emitter.line("return None", loc=statement.loc, source=statement.source)
+                    else:
+                        self.emitter.line(
+                            f"return {info.py_name}",
+                            loc=statement.loc,
+                            source=statement.source,
+                        )
                 else:
                     self._emit_statement(statement)
         self.ctx.exit_scope()

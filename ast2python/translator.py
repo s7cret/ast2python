@@ -93,6 +93,10 @@ class Translator(
         self.ctx = TranslationContext(strict=strict)
         self.emitter = CodeEmitter(self.ctx.source_map, emit_source_comments=emit_source_comments)
         self.member_chain = member_chain
+        # Per-translation state tracking which var-declaration pine names have
+        # been emitted at least once; used to give `var x := rhs` reassign the
+        # Pine one-bar-deferred read semantics.
+        self._var_init_emitted: set[str] = set()
         self.alert_emitter = PineAlertEmitter(self)
         self.input_emitter = PineInputEmitter(self)
         self.time_emitter = PineTimeEmitter(self)
@@ -113,6 +117,8 @@ class Translator(
     ) -> TranslationResult:
         if isinstance(program, dict):
             program = ensure_program_node(program)
+        # Reset per-translation state that lives on the Translator instance.
+        self._var_init_emitted = set()
         problems = validate_ast(program)
         if problems:
             raise ValidationError("; ".join(problems))

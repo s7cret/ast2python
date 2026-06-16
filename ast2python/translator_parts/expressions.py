@@ -359,6 +359,9 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
                 raise TypeResolutionError("reference type history is unsupported")
             if info.is_series:
                 return f"self.{info.py_name}[{offset}]"
+            rendered = self.translate_expression(base, runtime_expr=runtime_expr)
+            state_id = f"{info.scope_id}_{info.py_name}_history"
+            return f'{runtime_expr}.expr_history({rendered}, {offset}, state_id="{state_id}")'
         rendered = self.translate_expression(base, runtime_expr=runtime_expr)
         state_id = state_id_for_call(self.ctx, node, "expr_history")
         return f'{runtime_expr}.expr_history({rendered}, {offset}, state_id="{state_id}")'

@@ -62,6 +62,134 @@ def test_fixnan_series_identifier_passes_series_object_for_history_backfill():
     assert "fixnan(self.maybe_na.current)" not in result.code
 
 
+def test_var_assignment_referencing_just_set_series_uses_previous_bar_value():
+    """Pine `var dot := na(zigzag) ? dot[1] : zigzag` must read the previous
+    bar's `zigzag`, not the value just set on the same bar. The codegen
+    therefore must emit `self.zigzag[1]` rather than `self.zigzag.current`
+    for the ternary branches when the right-hand side is a `var` reassign.
+    """
+
+    def ident(name): return {"kind": "Identifier", "name": name}
+    def arg(v): return {"kind": "Argument", "name": None, "value": v}
+    def call(callee, args):
+        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+    def lit(v, t="int"):
+        return {"kind": "Literal", "literal_type": t, "value": v}
+    def member_chain(name, member):
+        return {"kind": "MemberAccessExpr", "object": ident(name), "member": member}
+    def var_decl(name, init, *, var_kind="series", type_name="float"):
+        decl = {
+            "kind": "VarDeclaration",
+            "name": name,
+            "initializer": init,
+            "type": {"kind": "TypeName", "name": type_name},
+        }
+        if var_kind == "var":
+            decl["mode"] = "var"
+        return decl
+    def is_na_call(x):
+        return {"kind": "CallExpr", "callee": ident("na"), "arguments": [arg(x)]}
+
+    program = {
+        "kind": "Program",
+        "language": "pine",
+        "version": 6,
+        "declaration": {
+            "kind": "DeclarationStatement",
+            "script_type": "indicator",
+            "call": call("indicator", [arg(lit("t", "string"))]),
+        },
+        "items": [
+            var_decl(
+                "zigzag",
+                call(member_chain("ta", "highest"), [arg(ident("high")), arg(lit(3))]),
+            ),
+            var_decl(
+                "dot",
+                {"kind": "Identifier", "name": "na"},
+                var_kind="var",
+                type_name="float",
+            ),
+            var_decl(
+                "dot",
+                {
+                    "kind": "ConditionalExpr",
+                    "condition": is_na_call(ident("zigzag")),
+                    "then": ident("dot"),
+                    "else": ident("zigzag"),
+                },
+                var_kind="var",
+                type_name="float",
+            ),
+        ],
+    }
+
+    result = translate_ast(program, module_name="var_deferred_read", visual_policy="record")
+    fatal = [
+        d for d in (getattr(result, "diagnostics", []) or [])
+        if str(getattr(getattr(d, "severity", None), "value", "")).lower() in {"error", "fatal"}
+    ]
+    assert not fatal, f"translation errors: {[d.message for d in fatal]}"
+    # The reassign is the SECOND `dot.set_current` line in the generated code.
+    dot_lines = [line for line in result.code.splitlines() if "dot.set_current" in line]
+    assert len(dot_lines) >= 2, (
+        f"expected at least two dot.set_current assignments (init + reassign), got: {dot_lines!r}"
+    )
+    dot_line = dot_lines[-1]
+    # The RHS must NOT read the just-assigned self.zigzag.current; it must
+    # use the previous bar's value via `self.zigzag[1]`.
+    assert "self.zigzag.current" not in dot_line, (
+        "var := RHS reads self.zigzag.current (post-assign), but Pine requires the "
+        "previous bar's value: " + dot_line
+    )
+    assert "self.zigzag[1]" in dot_line, (
+        "expected `self.zigzag[1]` in the deferred-read ternary, got: " + dot_line
+    )
+
+
+def test_highest_lowest_receive_state_ids_for_conditional_call_history():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def member(obj: str, name: str) -> dict[str, Any]:
+        return {"kind": "MemberAccessExpr", "object": ident(obj), "member": name}
+
+    def arg(value: dict[str, Any]) -> dict[str, Any]:
+        return {"kind": "Argument", "name": None, "value": value}
+
+    def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+
+    result = translate_ast(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "indicator",
+                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "hl"})]),
+            },
+            "items": [
+                {
+                    "kind": "VarDeclaration",
+                    "name": "h",
+                    "initializer": call(member("ta", "highest"), [arg(ident("high")), arg({"kind": "Literal", "literal_type": "int", "value": 3})]),
+                },
+                {
+                    "kind": "VarDeclaration",
+                    "name": "l",
+                    "initializer": call(member("ta", "lowest"), [arg(ident("low")), arg({"kind": "Literal", "literal_type": "int", "value": 3})]),
+                },
+            ],
+        },
+        module_name="highest_lowest_state_ids",
+    )
+
+    assert "highest(self.rt.high, 3, runtime=self.rt, state_id=" in result.code
+    assert "lowest(self.rt.low, 3, runtime=self.rt, state_id=" in result.code
+
+
 def test_contract_header_and_minimal_indicator_compiles():
     result = translate_ast(
         load_fixture("minimal_indicator.ast.json"), module_name="minimal_indicator"

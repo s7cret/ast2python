@@ -25,6 +25,8 @@ STATEFUL_TA_FUNCTIONS = {
     "mfi",
     "cum",
     "range",
+    "highest",
+    "lowest",
     "tsi",
     "cmo",
     "tr",
