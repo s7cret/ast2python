@@ -218,9 +218,9 @@ def test_v0_4_switch_loop_function_method_udt_enum_compile_snapshot():
     result = translate_ast(program(items), module_name="v0_4")
     assert "@dataclass\nclass Pivot:" in result.code
     assert "class Direction(Enum):" in result.code
-    assert "def add_one(self, x):" in result.code
+    assert "def add_one(self, x, _cs_id=\"\"):" in result.code
     assert "return pine_add(x, 1)" in result.code
-    assert "def price_plus(self, this, n):" in result.code
+    assert "def price_plus(self, this, n, _cs_id=\"\"):" in result.code
     assert "(self.p[10]).price" in result.code
     assert "self.price_plus(self.p.current, 2.0)" in result.code
     assert "for i in pine_range(0, 2):" in result.code

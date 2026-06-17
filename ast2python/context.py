@@ -51,6 +51,7 @@ class TranslationContext:
     strict: bool = False
     request_depth: int = 0
     state_id_counts: dict[tuple[int | None, int | None, str], int] = field(default_factory=dict)
+    function_call_site_ids: dict[str, int] = field(default_factory=dict)
     input_metadata: list[dict[str, Any]] = field(default_factory=list)
     strategy_metadata: dict[str, Any] = field(default_factory=dict)
     unsupported_declaration_args: list[str] = field(default_factory=list)

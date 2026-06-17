@@ -96,18 +96,30 @@ def dispatch_fallback_call(
         return translator._translate_visual_call(callee_chain, node, runtime_expr=runtime_expr)
 
     if callee_chain in translator.functions:
+        # Generate a unique call-site ID so each invocation of a UDF
+        # gets its own isolated stateful series (ta.ema, ta.lowest, etc.).
+        func_name = snake_case(callee_chain)
+        ordinal = translator.ctx.function_call_site_ids.get(func_name, 0) + 1
+        translator.ctx.function_call_site_ids[func_name] = ordinal
+        cs_id = f"cs_{func_name}_{ordinal}_"
         pieces = [
             translator._translate_user_func_arg(arg, runtime_expr=runtime_expr)
             for _, arg in translator._call_arguments(node)
         ]
-        return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        pieces.append(f'_cs_id="{cs_id}"')
+        return f"self.{func_name}({', '.join(pieces)})"
 
     if callee_chain in translator.methods:
+        func_name = snake_case(callee_chain)
+        ordinal = translator.ctx.function_call_site_ids.get(func_name, 0) + 1
+        translator.ctx.function_call_site_ids[func_name] = ordinal
+        cs_id = f"cs_{func_name}_{ordinal}_"
         pieces = [
             translator._translate_user_func_arg(arg, runtime_expr=runtime_expr)
             for _, arg in translator._call_arguments(node)
         ]
-        return f"self.{snake_case(callee_chain)}({', '.join(pieces)})"
+        pieces.append(f'_cs_id="{cs_id}"')
+        return f"self.{func_name}({', '.join(pieces)})"
 
     if callee_chain and callee_chain[:1].isupper():
         pieces = []

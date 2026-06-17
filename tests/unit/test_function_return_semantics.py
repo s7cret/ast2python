@@ -188,7 +188,7 @@ def test_local_variable_history_uses_one_stable_state_id_per_variable() -> None:
     result = translate_ast(program, module_name="function_history_semantics")
 
     rising_history_ids = re.findall(
-        r'expr_history\(rising, 1, state_id="([^"]+)"\)', result.code
+        r'expr_history\(rising, 1, state_id=_cs_id \+ "([^"]+)"\)', result.code
     )
     assert len(rising_history_ids) == 2, result.code
     assert len(set(rising_history_ids)) == 1, result.code

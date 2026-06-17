@@ -50,7 +50,7 @@ from ast2python.errors import (
 from ast2python.naming import snake_case
 from ast2python.profiles import CompileProfile
 from ast2python.result import TranslationResult
-from ast2python.state import state_id_for_call
+from ast2python.state import state_id_for_call, state_id_py_expr
 from ast2python.switch_helper import case_body, case_condition, switch_cases
 from ast2python.templates.module import base_class_for_mode, class_name_for_mode
 from ast2python.translator_constants import (

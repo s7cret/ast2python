@@ -69,13 +69,18 @@ class TranslatorDeclarationMixin(TranslatorMixinBase):
         name = snake_case(str(node.field("name")))
         params = node.children("params", "parameters", "arguments")
         py_params = [self._param_name(param) for param in params]
+        # UDFs that may contain stateful TA calls (ta.ema, ta.lowest, etc.)
+        # get an extra _cs_id parameter so each call site gets isolated state.
+        py_params_with_cs = list(py_params) + ["_cs_id=\"\""]
         self.emitter.line(
-            f"def {name}(self{', ' if py_params else ''}{', '.join(py_params)}):",
+            f"def {name}(self{', ' if py_params_with_cs else ''}{', '.join(py_params_with_cs)}):",
             loc=node.loc,
             source=node.source,
         )
         self.emitter.indent()
         self.ctx.enter_scope("function")
+        prev_function = self.ctx.current_function
+        self.ctx.current_function = name
         for param, py_name in zip(params, py_params, strict=False):
             info = self.ctx.declare_var(
                 str(param.field("name") or py_name),
@@ -128,6 +133,7 @@ class TranslatorDeclarationMixin(TranslatorMixinBase):
                 else:
                     self._emit_statement(statement)
         self.ctx.exit_scope()
+        self.ctx.current_function = prev_function
         self.emitter.dedent()
 
     def _python_type_name(self, pine_type: str | None) -> str:

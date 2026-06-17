@@ -103,7 +103,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
         kwargs.extend(
             [
                 f"runtime={runtime_expr}",
-                f'state_id="{state_id}"',
+                f"state_id={state_id_py_expr(self.ctx, state_id)}",
             ]
         )
         self.ctx.coverage.builtin("request.security")
@@ -137,7 +137,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
         kwargs.extend(
             [
                 f"runtime={runtime_expr}",
-                f'state_id="{state_id}"',
+                f"state_id={state_id_py_expr(self.ctx, state_id)}",
             ]
         )
         self.ctx.coverage.builtin("request.security_lower_tf")
@@ -150,7 +150,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
             for _, arg in self._call_arguments(node)
         ]
         state_id = state_id_for_call(self.ctx, node, "footprint")
-        call_args.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
+        call_args.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
         self.ctx.coverage.builtin("request.footprint")
         self.ctx.imports.require_from("pinelib.request", "footprint", alias="request_footprint")
         return f"request_footprint({', '.join(call_args)})"
@@ -590,7 +590,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
             arguments = []
         if canonical_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, canonical_name)
-            arguments.extend([f"runtime={runtime_expr}", f'state_id="{state_id}"'])
+            arguments.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(arguments)})"
 
