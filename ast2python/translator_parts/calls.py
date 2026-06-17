@@ -592,7 +592,16 @@ class TranslatorCallMixin(TranslatorMixinBase):
             state_id = state_id_for_call(self.ctx, node, canonical_name)
             arguments.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
         self.ctx.coverage.builtin(name)
-        return f"{import_name}({', '.join(arguments)})"
+        result = f"{import_name}({', '.join(arguments)})"
+        # Pine ternary evaluates ALL branches eagerly for side effects.
+        # Stateful TA calls inside ternary branches must be hoisted into
+        # unconditional temp vars so their rolling state advances every bar.
+        if self._ternary_depth > 0 and canonical_name in STATEFUL_TA_FUNCTIONS:
+            self._ternary_hoist_counter += 1
+            temp_name = f"_th{self._ternary_hoist_counter}"
+            self._ternary_hoists.append(f"{temp_name} = {result}")
+            return temp_name
+        return result
 
     def _translate_math_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
