@@ -145,17 +145,8 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
                 raise UnsupportedNodeError("ConditionalExpr requires condition/then/else")
             self._reject_visual_value(condition_node)
             condition = self.translate_expression(condition_node, runtime_expr=runtime_expr)
-            # Enter ternary branch context: stateful TA calls in branches are
-            # hoisted into unconditional temp vars (Pine evaluates ALL branches
-            # eagerly for side effects; Python ternary is lazy).
-            self._ternary_depth += 1
             when_true = self.translate_expression(true_node, runtime_expr=runtime_expr)
             when_false = self.translate_expression(false_node, runtime_expr=runtime_expr)
-            self._ternary_depth -= 1
-            if self._ternary_depth == 0:
-                for h in self._ternary_hoists:
-                    self.emitter.line(h)
-                self._ternary_hoists = []
             return f"({when_true} if pine_bool({condition}) else {when_false})"
         if node.kind == "IfStructure":
             return self._translate_if_expression(node, runtime_expr=runtime_expr)
@@ -377,25 +368,13 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
 
     def _translate_if_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
         condition = node.child("condition")
-        if condition is None:
-            raise UnsupportedNodeError("IfStructure expression form requires a condition")
-        # Translate condition first (no hoisting — condition is always evaluated).
-        cond_str = self.translate_expression(condition, runtime_expr=runtime_expr)
-        # Enter ternary branch context: stateful TA calls in branches are
-        # hoisted into unconditional temp vars (Pine eager-evaluation semantics).
-        self._ternary_depth += 1
         then_expr = self._block_expression(node.child("then_block"), runtime_expr=runtime_expr)
         else_expr = self._block_expression(node.child("else_block"), runtime_expr=runtime_expr)
-        self._ternary_depth -= 1
-        if self._ternary_depth == 0:
-            for h in self._ternary_hoists:
-                self.emitter.line(h)
-            self._ternary_hoists = []
-        if then_expr is None or else_expr is None:
+        if condition is None or then_expr is None or else_expr is None:
             raise UnsupportedNodeError(
                 "IfStructure expression form requires expression-only branches"
             )
-        return f"({then_expr} if pine_bool({cond_str}) else {else_expr})"  # noqa: E501
+        return f"({then_expr} if pine_bool({self.translate_expression(condition, runtime_expr=runtime_expr)}) else {else_expr})"  # noqa: E501
 
     def _block_expression(self, block: ASTNode | None, *, runtime_expr: str) -> str | None:
         if block is None:

@@ -106,14 +106,6 @@ class Translator(
         self.functions: set[str] = set()
         self.methods: set[str] = set()
         self._temp_series_index: int = 0
-        # Ternary eager-evaluation hoisting: Pine evaluates ALL branches of a
-        # ternary for side effects (stateful ta.* calls advance their rolling
-        # state on every bar). Python ternary is lazy (only the selected branch
-        # runs). To bridge this, when we detect stateful TA calls inside ternary
-        # branches, we hoist them into unconditional temp vars before the ternary.
-        self._ternary_depth: int = 0
-        self._ternary_hoists: list[str] = []
-        self._ternary_hoist_counter: int = 0
 
     def translate_file(
         self, path: str | Path, *, module_name: str | None = None
