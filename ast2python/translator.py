@@ -106,6 +106,7 @@ class Translator(
         self.functions: set[str] = set()
         self.methods: set[str] = set()
         self._temp_series_index: int = 0
+        self._lazy_branch_depth: int = 0
 
     def translate_file(
         self, path: str | Path, *, module_name: str | None = None

@@ -342,11 +342,15 @@ class TranslatorStatementMixin(TranslatorMixinBase):
         )
         self.emitter.indent()
         self.ctx.enter_scope("block")
-        if then_block.children("statements"):
-            for statement in then_block.children("statements"):
-                self._emit_statement(statement)
-        else:
-            self.emitter.line("pass")
+        self._enter_lazy_branch()
+        try:
+            if then_block.children("statements"):
+                for statement in then_block.children("statements"):
+                    self._emit_statement(statement)
+            else:
+                self.emitter.line("pass")
+        finally:
+            self._exit_lazy_branch()
         self.ctx.exit_scope()
         self.emitter.dedent()
         for branch in node.children("else_if_branches"):
@@ -358,19 +362,27 @@ class TranslatorStatementMixin(TranslatorMixinBase):
             self.emitter.line(f"elif pine_bool({self.translate_expression(branch_condition)}):")
             self.emitter.indent()
             self.ctx.enter_scope("block")
-            for statement in branch_block.children("statements"):
-                self._emit_statement(statement)
+            self._enter_lazy_branch()
+            try:
+                for statement in branch_block.children("statements"):
+                    self._emit_statement(statement)
+            finally:
+                self._exit_lazy_branch()
             self.ctx.exit_scope()
             self.emitter.dedent()
         if else_block is not None:
             self.emitter.line("else:")
             self.emitter.indent()
             self.ctx.enter_scope("block")
-            if else_block.children("statements"):
-                for statement in else_block.children("statements"):
-                    self._emit_statement(statement)
-            else:
-                self.emitter.line("pass")
+            self._enter_lazy_branch()
+            try:
+                if else_block.children("statements"):
+                    for statement in else_block.children("statements"):
+                        self._emit_statement(statement)
+                else:
+                    self.emitter.line("pass")
+            finally:
+                self._exit_lazy_branch()
             self.ctx.exit_scope()
             self.emitter.dedent()
 
@@ -581,17 +593,21 @@ class TranslatorStatementMixin(TranslatorMixinBase):
             emitted = True
             self.emitter.indent()
             statements = [] if body is None else body.children("statements")
-            if statements:
-                self.ctx.enter_scope("block")
-                for statement in statements:
-                    self._emit_statement(statement)
-                self.ctx.exit_scope()
-            else:
-                expr = case.child("expression") or case.child("result")
-                if expr is not None:
-                    self.emitter.line(self.translate_expression(expr))
+            self._enter_lazy_branch()
+            try:
+                if statements:
+                    self.ctx.enter_scope("block")
+                    for statement in statements:
+                        self._emit_statement(statement)
+                    self.ctx.exit_scope()
                 else:
-                    self.emitter.line("pass")
+                    expr = case.child("expression") or case.child("result")
+                    if expr is not None:
+                        self.emitter.line(self.translate_expression(expr))
+                    else:
+                        self.emitter.line("pass")
+            finally:
+                self._exit_lazy_branch()
             self.emitter.dedent()
         if not emitted:
             self.emitter.line("pass", loc=node.loc, source=node.source)

@@ -4,6 +4,28 @@ from ast2python.translator_parts.shared import *  # noqa: F403,F401
 
 
 class TranslatorExpressionMixin(TranslatorMixinBase):
+    def _enter_lazy_branch(self) -> None:
+        self._lazy_branch_depth = getattr(self, "_lazy_branch_depth", 0) + 1
+
+    def _exit_lazy_branch(self) -> None:
+        self._lazy_branch_depth = max(0, getattr(self, "_lazy_branch_depth", 0) - 1)
+
+    def _translate_lazy_branch_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
+        self._enter_lazy_branch()
+        try:
+            return self.translate_expression(node, runtime_expr=runtime_expr)
+        finally:
+            self._exit_lazy_branch()
+
+    def _translate_lazy_block_expression(
+        self, block: ASTNode | None, *, runtime_expr: str
+    ) -> str | None:
+        self._enter_lazy_branch()
+        try:
+            return self._block_expression(block, runtime_expr=runtime_expr)
+        finally:
+            self._exit_lazy_branch()
+
     def _is_visual_method_call(self, name: str) -> bool:
         if not name.startswith(VISUAL_OBJECT_METHOD_PREFIXES):
             return False
@@ -34,11 +56,11 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
             if body is None:
                 body_expr = None
             elif body.kind == "Block":
-                body_expr = self._block_expression(body, runtime_expr=runtime_expr)
+                body_expr = self._translate_lazy_block_expression(body, runtime_expr=runtime_expr)
             else:
-                body_expr = self.translate_expression(body, runtime_expr=runtime_expr)
+                body_expr = self._translate_lazy_branch_expression(body, runtime_expr=runtime_expr)
             value = (
-                self.translate_expression(expr, runtime_expr=runtime_expr)
+                self._translate_lazy_branch_expression(expr, runtime_expr=runtime_expr)
                 if expr is not None
                 else (body_expr or "na")
             )
@@ -145,8 +167,8 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
                 raise UnsupportedNodeError("ConditionalExpr requires condition/then/else")
             self._reject_visual_value(condition_node)
             condition = self.translate_expression(condition_node, runtime_expr=runtime_expr)
-            when_true = self.translate_expression(true_node, runtime_expr=runtime_expr)
-            when_false = self.translate_expression(false_node, runtime_expr=runtime_expr)
+            when_true = self._translate_lazy_branch_expression(true_node, runtime_expr=runtime_expr)
+            when_false = self._translate_lazy_branch_expression(false_node, runtime_expr=runtime_expr)
             return f"({when_true} if pine_bool({condition}) else {when_false})"
         if node.kind == "IfStructure":
             return self._translate_if_expression(node, runtime_expr=runtime_expr)
@@ -368,8 +390,12 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
 
     def _translate_if_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
         condition = node.child("condition")
-        then_expr = self._block_expression(node.child("then_block"), runtime_expr=runtime_expr)
-        else_expr = self._block_expression(node.child("else_block"), runtime_expr=runtime_expr)
+        then_expr = self._translate_lazy_block_expression(
+            node.child("then_block"), runtime_expr=runtime_expr
+        )
+        else_expr = self._translate_lazy_block_expression(
+            node.child("else_block"), runtime_expr=runtime_expr
+        )
         if condition is None or then_expr is None or else_expr is None:
             raise UnsupportedNodeError(
                 "IfStructure expression form requires expression-only branches"

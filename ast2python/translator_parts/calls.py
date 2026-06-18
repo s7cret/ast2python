@@ -591,6 +591,8 @@ class TranslatorCallMixin(TranslatorMixinBase):
         if canonical_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, canonical_name)
             arguments.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
+            if getattr(self, "_lazy_branch_depth", 0) > 0 and canonical_name in {"highest", "lowest"}:
+                arguments.append("tv_lazy_state=True")
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(arguments)})"
 

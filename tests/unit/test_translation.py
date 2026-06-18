@@ -190,6 +190,102 @@ def test_highest_lowest_receive_state_ids_for_conditional_call_history():
     assert "lowest(self.rt.low, 3, runtime=self.rt, state_id=" in result.code
 
 
+def test_stateful_ta_inside_lazy_conditional_branch_is_marked_tv_lazy():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def member(obj: str, name: str) -> dict[str, Any]:
+        return {"kind": "MemberAccessExpr", "object": ident(obj), "member": name}
+
+    def arg(value: dict[str, Any]) -> dict[str, Any]:
+        return {"kind": "Argument", "name": None, "value": value}
+
+    def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+
+    def lit_int(value: int) -> dict[str, Any]:
+        return {"kind": "Literal", "literal_type": "int", "value": value}
+
+    result = translate_ast(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "indicator",
+                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "lazy"})]),
+            },
+            "items": [
+                {
+                    "kind": "VarDeclaration",
+                    "name": "z",
+                    "initializer": {
+                        "kind": "ConditionalExpr",
+                        "condition": {"kind": "BinaryExpr", "op": ">", "left": ident("close"), "right": ident("open")},
+                        "then": call(member("ta", "lowest"), [arg(ident("low")), arg(lit_int(3))]),
+                        "else": call(member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))]),
+                    },
+                }
+            ],
+        },
+        module_name="lazy_stateful_ta_conditional",
+    )
+
+    assert "lowest(self.rt.low, 3, runtime=self.rt, state_id=" in result.code
+    assert "highest(self.rt.high, 3, runtime=self.rt, state_id=" in result.code
+    assert result.code.count("tv_lazy_state=True") == 2
+
+
+def test_precomputed_stateful_ta_outside_conditional_keeps_rolling_mode():
+    def ident(name: str) -> dict[str, Any]:
+        return {"kind": "Identifier", "name": name}
+
+    def member(obj: str, name: str) -> dict[str, Any]:
+        return {"kind": "MemberAccessExpr", "object": ident(obj), "member": name}
+
+    def arg(value: dict[str, Any]) -> dict[str, Any]:
+        return {"kind": "Argument", "name": None, "value": value}
+
+    def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+
+    def lit_int(value: int) -> dict[str, Any]:
+        return {"kind": "Literal", "literal_type": "int", "value": value}
+
+    result = translate_ast(
+        {
+            "kind": "Program",
+            "language": "pine",
+            "version": 6,
+            "declaration": {
+                "kind": "DeclarationStatement",
+                "script_type": "indicator",
+                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "rolling"})]),
+            },
+            "items": [
+                {"kind": "VarDeclaration", "name": "lo", "initializer": call(member("ta", "lowest"), [arg(ident("low")), arg(lit_int(3))])},
+                {"kind": "VarDeclaration", "name": "hi", "initializer": call(member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))])},
+                {
+                    "kind": "VarDeclaration",
+                    "name": "z",
+                    "initializer": {
+                        "kind": "ConditionalExpr",
+                        "condition": {"kind": "BinaryExpr", "op": ">", "left": ident("close"), "right": ident("open")},
+                        "then": ident("lo"),
+                        "else": ident("hi"),
+                    },
+                },
+            ],
+        },
+        module_name="rolling_stateful_ta_precomputed",
+    )
+
+    assert "lowest(self.rt.low, 3, runtime=self.rt, state_id=" in result.code
+    assert "highest(self.rt.high, 3, runtime=self.rt, state_id=" in result.code
+    assert "tv_lazy_state=True" not in result.code
+
+
 def test_contract_header_and_minimal_indicator_compiles():
     result = translate_ast(
         load_fixture("minimal_indicator.ast.json"), module_name="minimal_indicator"
