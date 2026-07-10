@@ -39,6 +39,19 @@ def test_pine2ast_dependency_is_pinned_to_the_release_evidence_sha() -> None:
     )
 
 
+def test_pinelib_dependency_is_pinned_to_the_release_evidence_sha() -> None:
+    root = Path(__file__).resolve().parents[2]
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    dependency = next(
+        item for item in config["project"]["dependencies"] if item.startswith("pinelib @ ")
+    )
+    assert dependency == (
+        "pinelib @ git+https://github.com/s7cret/pinelib.git"
+        "@33239a0093fa5d548058d79d5d079104db0ef43e"
+    )
+
+
 def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> None:
     root = Path(__file__).resolve().parents[2]
     workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
