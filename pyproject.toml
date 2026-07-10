@@ -12,7 +12,7 @@ license = "MIT"
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
   "pinelib @ git+https://github.com/s7cret/pinelib.git@v4.0.0",
-  "pine2ast @ git+https://github.com/s7cret/pine2ast.git@v4.0.0",
+  "pine2ast @ git+https://github.com/s7cret/pine2ast.git@bf2614855851e0626bbe802b6d945ce23593e886",
 ]
 
 [project.urls]

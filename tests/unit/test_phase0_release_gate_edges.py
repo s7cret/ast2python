@@ -24,6 +24,19 @@ def test_mypy_follows_sibling_types_without_reporting_sibling_internals() -> Non
     assert sibling_override["follow_imports"] == "silent"
 
 
+def test_pine2ast_dependency_is_pinned_to_the_release_evidence_sha() -> None:
+    root = Path(__file__).resolve().parents[2]
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    dependency = next(
+        item for item in config["project"]["dependencies"] if item.startswith("pine2ast @ ")
+    )
+    assert dependency == (
+        "pine2ast @ git+https://github.com/s7cret/pine2ast.git"
+        "@bf2614855851e0626bbe802b6d945ce23593e886"
+    )
+
+
 def test_cli_smoke_reports_a_clean_skip_when_pinelib_is_unavailable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
