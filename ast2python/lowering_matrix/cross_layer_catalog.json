@@ -1,0 +1,129 @@
+{
+  "schema_version": "ast2python.cross_layer_catalog.v1",
+  "source_manifest": "tests/integration/canonical_phase1_corpus.json",
+  "evidence_test": "tests/integration/test_phase1_canonical_corpus.py",
+  "minimum_case_count": 20,
+  "case_count": 20,
+  "evidence": [
+    {
+      "case_id": "basic-entry",
+      "features": ["control.if", "strategy.close", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "history-na",
+      "features": ["history", "na", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-sma",
+      "features": ["rolling-series", "strategy.entry", "ta.sma"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-ema",
+      "features": ["rolling-series", "strategy.entry", "ta.ema"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-wma",
+      "features": ["rolling-series", "strategy.entry", "ta.wma"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-rsi",
+      "features": ["rolling-series", "strategy.entry", "ta.rsi"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-highest",
+      "features": ["rolling-series", "strategy.entry", "ta.highest"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-lowest",
+      "features": ["rolling-series", "strategy.entry", "ta.lowest"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-stdev",
+      "features": ["rolling-series", "strategy.entry", "ta.stdev"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-change",
+      "features": ["history", "strategy.entry", "ta.change"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ta-crossover",
+      "features": ["strategy.entry", "ta.crossover", "ta.sma"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "math-composition",
+      "features": ["math.max", "math.sqrt", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "modulo",
+      "features": ["bar_index", "operator.modulo", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "ternary",
+      "features": ["conditional.ternary", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "udf-series",
+      "features": ["function", "history", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "for-loop",
+      "features": ["control.for", "history", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "switch-expression",
+      "features": ["control.switch", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "time-components",
+      "features": ["strategy.entry", "time.hour"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "request-security",
+      "features": ["request.security", "strategy.entry"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    },
+    {
+      "case_id": "visual-atr",
+      "features": ["plot", "strategy.entry", "ta.atr", "visual-drop-evaluates"],
+      "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+      "status": "DONE_VERIFIED"
+    }
+  ]
+}

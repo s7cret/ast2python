@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 from typing import Any, cast
-import re
 
 from ast2python.translator import translate_ast
 from tests.contract_metadata import with_valid_producer_metadata

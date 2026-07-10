@@ -5,7 +5,7 @@ from ast2python.translator_parts.shared import *  # noqa: F403,F401
 
 class TranslatorStatementMixin(TranslatorMixinBase):
     def _collect_globals(self, program: ASTProgram) -> None:
-        self._var_init_emitted = set()
+        self._var_init_emitted: set[str] = set()
         collect_globals(self, program)
 
     def _emit_statement(self, node: ASTNode) -> None:

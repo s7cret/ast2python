@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import pytest
 import subprocess
 import sys
 import textwrap
@@ -106,7 +105,6 @@ def _pine_to_module(
     return _load_module(py_path, name), metadata, inspect_payload
 
 
-@pytest.mark.xfail(reason="history-operator / na codegen handler not yet ported in 4.0")
 def test_cross_project_minimal_indicator_history_operator_na_and_plot(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,
@@ -177,7 +175,6 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
     )
 
 
-@pytest.mark.xfail(reason="request.security() codegen handler not yet ported in 4.0")
 def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,
@@ -202,7 +199,6 @@ def test_cross_project_request_security_bounded_path(tmp_path: Path) -> None:
     assert inspect_payload["request_calls"][0]["name"] == "request.security"
 
 
-@pytest.mark.xfail(reason="request.security() lower-tf array path not yet ported in 4.0")
 def test_cross_project_request_security_lower_tf_array_path(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,
@@ -231,7 +227,11 @@ def test_cross_project_request_security_lower_tf_array_path(tmp_path: Path) -> N
     rt = _runtime(provider)
     mod.GeneratedIndicator(runtime=rt).run(chart)
     assert rt.series_registry["n"]._history == [2, 1]
-    assert [list(cast(Any, arr)) for arr in rt.series_registry["a"]._history] == [[1, 2], [3]]
+    # Collection variables are reference values; runtime contract 1.4 does not
+    # retain private collection history by default. The scalar count history
+    # proves both chart-bar arrays, while current exposes the final array.
+    assert list(cast(Any, rt.series_registry["a"].current)) == [3]
+    assert rt.series_registry["a"]._history == []
     assert inspect_payload["request_calls"][0]["name"] == "request.security_lower_tf"
 
 
@@ -307,7 +307,6 @@ def test_cross_project_strategy_order_path(tmp_path: Path) -> None:
     assert inspect_payload["strategy_calls"][0]["name"] == "strategy.entry"
 
 
-@pytest.mark.xfail(reason="visual recorder codegen path not yet ported in 4.0")
 def test_cross_project_visual_recorder_path_uses_current_bar_index(tmp_path: Path) -> None:
     mod, _, inspect_payload = _pine_to_module(
         tmp_path,

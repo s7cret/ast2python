@@ -69,14 +69,25 @@ def test_var_assignment_referencing_just_set_series_uses_previous_bar_value():
     for the ternary branches when the right-hand side is a `var` reassign.
     """
 
-    def ident(name): return {"kind": "Identifier", "name": name}
-    def arg(v): return {"kind": "Argument", "name": None, "value": v}
+    def ident(name):
+        return {"kind": "Identifier", "name": name}
+
+    def arg(v):
+        return {"kind": "Argument", "name": None, "value": v}
+
     def call(callee, args):
-        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+        return {
+            "kind": "CallExpr",
+            "callee": ident(callee) if isinstance(callee, str) else callee,
+            "arguments": args,
+        }
+
     def lit(v, t="int"):
         return {"kind": "Literal", "literal_type": t, "value": v}
+
     def member_chain(name, member):
         return {"kind": "MemberAccessExpr", "object": ident(name), "member": member}
+
     def var_decl(name, init, *, var_kind="series", type_name="float"):
         decl = {
             "kind": "VarDeclaration",
@@ -87,6 +98,7 @@ def test_var_assignment_referencing_just_set_series_uses_previous_bar_value():
         if var_kind == "var":
             decl["mode"] = "var"
         return decl
+
     def is_na_call(x):
         return {"kind": "CallExpr", "callee": ident("na"), "arguments": [arg(x)]}
 
@@ -126,15 +138,16 @@ def test_var_assignment_referencing_just_set_series_uses_previous_bar_value():
 
     result = translate_ast(program, module_name="var_deferred_read", visual_policy="record")
     fatal = [
-        d for d in (getattr(result, "diagnostics", []) or [])
+        d
+        for d in (getattr(result, "diagnostics", []) or [])
         if str(getattr(getattr(d, "severity", None), "value", "")).lower() in {"error", "fatal"}
     ]
     assert not fatal, f"translation errors: {[d.message for d in fatal]}"
     # The reassign is the SECOND `dot.set_current` line in the generated code.
     dot_lines = [line for line in result.code.splitlines() if "dot.set_current" in line]
-    assert len(dot_lines) >= 2, (
-        f"expected at least two dot.set_current assignments (init + reassign), got: {dot_lines!r}"
-    )
+    assert (
+        len(dot_lines) >= 2
+    ), f"expected at least two dot.set_current assignments (init + reassign), got: {dot_lines!r}"
     dot_line = dot_lines[-1]
     # The RHS must NOT read the just-assigned self.zigzag.current; it must
     # use the previous bar's value via `self.zigzag[1]`.
@@ -158,7 +171,11 @@ def test_highest_lowest_receive_state_ids_for_conditional_call_history():
         return {"kind": "Argument", "name": None, "value": value}
 
     def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
-        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+        return {
+            "kind": "CallExpr",
+            "callee": ident(callee) if isinstance(callee, str) else callee,
+            "arguments": args,
+        }
 
     result = translate_ast(
         {
@@ -168,18 +185,32 @@ def test_highest_lowest_receive_state_ids_for_conditional_call_history():
             "declaration": {
                 "kind": "DeclarationStatement",
                 "script_type": "indicator",
-                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "hl"})]),
+                "call": call(
+                    "indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "hl"})]
+                ),
             },
             "items": [
                 {
                     "kind": "VarDeclaration",
                     "name": "h",
-                    "initializer": call(member("ta", "highest"), [arg(ident("high")), arg({"kind": "Literal", "literal_type": "int", "value": 3})]),
+                    "initializer": call(
+                        member("ta", "highest"),
+                        [
+                            arg(ident("high")),
+                            arg({"kind": "Literal", "literal_type": "int", "value": 3}),
+                        ],
+                    ),
                 },
                 {
                     "kind": "VarDeclaration",
                     "name": "l",
-                    "initializer": call(member("ta", "lowest"), [arg(ident("low")), arg({"kind": "Literal", "literal_type": "int", "value": 3})]),
+                    "initializer": call(
+                        member("ta", "lowest"),
+                        [
+                            arg(ident("low")),
+                            arg({"kind": "Literal", "literal_type": "int", "value": 3}),
+                        ],
+                    ),
                 },
             ],
         },
@@ -201,7 +232,11 @@ def test_stateful_ta_inside_lazy_conditional_branch_is_marked_tv_lazy():
         return {"kind": "Argument", "name": None, "value": value}
 
     def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
-        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+        return {
+            "kind": "CallExpr",
+            "callee": ident(callee) if isinstance(callee, str) else callee,
+            "arguments": args,
+        }
 
     def lit_int(value: int) -> dict[str, Any]:
         return {"kind": "Literal", "literal_type": "int", "value": value}
@@ -214,7 +249,10 @@ def test_stateful_ta_inside_lazy_conditional_branch_is_marked_tv_lazy():
             "declaration": {
                 "kind": "DeclarationStatement",
                 "script_type": "indicator",
-                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "lazy"})]),
+                "call": call(
+                    "indicator",
+                    [arg({"kind": "Literal", "literal_type": "string", "value": "lazy"})],
+                ),
             },
             "items": [
                 {
@@ -222,9 +260,16 @@ def test_stateful_ta_inside_lazy_conditional_branch_is_marked_tv_lazy():
                     "name": "z",
                     "initializer": {
                         "kind": "ConditionalExpr",
-                        "condition": {"kind": "BinaryExpr", "op": ">", "left": ident("close"), "right": ident("open")},
+                        "condition": {
+                            "kind": "BinaryExpr",
+                            "op": ">",
+                            "left": ident("close"),
+                            "right": ident("open"),
+                        },
                         "then": call(member("ta", "lowest"), [arg(ident("low")), arg(lit_int(3))]),
-                        "else": call(member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))]),
+                        "else": call(
+                            member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))]
+                        ),
                     },
                 }
             ],
@@ -248,7 +293,11 @@ def test_precomputed_stateful_ta_outside_conditional_keeps_rolling_mode():
         return {"kind": "Argument", "name": None, "value": value}
 
     def call(callee: dict[str, Any] | str, args: list[dict[str, Any]]) -> dict[str, Any]:
-        return {"kind": "CallExpr", "callee": ident(callee) if isinstance(callee, str) else callee, "arguments": args}
+        return {
+            "kind": "CallExpr",
+            "callee": ident(callee) if isinstance(callee, str) else callee,
+            "arguments": args,
+        }
 
     def lit_int(value: int) -> dict[str, Any]:
         return {"kind": "Literal", "literal_type": "int", "value": value}
@@ -261,17 +310,37 @@ def test_precomputed_stateful_ta_outside_conditional_keeps_rolling_mode():
             "declaration": {
                 "kind": "DeclarationStatement",
                 "script_type": "indicator",
-                "call": call("indicator", [arg({"kind": "Literal", "literal_type": "string", "value": "rolling"})]),
+                "call": call(
+                    "indicator",
+                    [arg({"kind": "Literal", "literal_type": "string", "value": "rolling"})],
+                ),
             },
             "items": [
-                {"kind": "VarDeclaration", "name": "lo", "initializer": call(member("ta", "lowest"), [arg(ident("low")), arg(lit_int(3))])},
-                {"kind": "VarDeclaration", "name": "hi", "initializer": call(member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))])},
+                {
+                    "kind": "VarDeclaration",
+                    "name": "lo",
+                    "initializer": call(
+                        member("ta", "lowest"), [arg(ident("low")), arg(lit_int(3))]
+                    ),
+                },
+                {
+                    "kind": "VarDeclaration",
+                    "name": "hi",
+                    "initializer": call(
+                        member("ta", "highest"), [arg(ident("high")), arg(lit_int(3))]
+                    ),
+                },
                 {
                     "kind": "VarDeclaration",
                     "name": "z",
                     "initializer": {
                         "kind": "ConditionalExpr",
-                        "condition": {"kind": "BinaryExpr", "op": ">", "left": ident("close"), "right": ident("open")},
+                        "condition": {
+                            "kind": "BinaryExpr",
+                            "op": ">",
+                            "left": ident("close"),
+                            "right": ident("open"),
+                        },
                         "then": ident("lo"),
                         "else": ident("hi"),
                     },

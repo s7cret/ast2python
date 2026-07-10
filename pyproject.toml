@@ -27,6 +27,7 @@ dev = [
   "black>=24",
   "mypy>=1.10",
   "build>=1.2",
+  "backtest-engine @ git+https://github.com/s7cret/backtest_engine.git@v4.0.0",
 ]
 
 [project.scripts]
@@ -76,6 +77,7 @@ exclude = ["dist", "build", "tests/fixtures", ".venv"]
 [[tool.mypy.overrides]]
 module = ["pinelib", "pinelib.*", "pine2ast", "pine2ast.*"]
 ignore_missing_imports = true
+follow_imports = "silent"
 
 [tool.coverage.report]
 fail_under = 100

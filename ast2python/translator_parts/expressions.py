@@ -168,7 +168,9 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
             self._reject_visual_value(condition_node)
             condition = self.translate_expression(condition_node, runtime_expr=runtime_expr)
             when_true = self._translate_lazy_branch_expression(true_node, runtime_expr=runtime_expr)
-            when_false = self._translate_lazy_branch_expression(false_node, runtime_expr=runtime_expr)
+            when_false = self._translate_lazy_branch_expression(
+                false_node, runtime_expr=runtime_expr
+            )
             return f"({when_true} if pine_bool({condition}) else {when_false})"
         if node.kind == "IfStructure":
             return self._translate_if_expression(node, runtime_expr=runtime_expr)
@@ -326,7 +328,7 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
                 period = ATR_SHORTHANDS[chain]
                 self.ctx.imports.require_from("pinelib.ta", "atr")
                 state_id = state_id_for_call(self.ctx, node, f"atr_{period}")
-                return f'atr({period}, runtime={runtime_expr}, state_id={state_id_py_expr(self.ctx, state_id)})'
+                return f"atr({period}, runtime={runtime_expr}, state_id={state_id_py_expr(self.ctx, state_id)})"
             # Other ta.* names (ta.sma, ta.ema, etc.) return as-is
             return chain
         if chain.startswith("math.") or chain.startswith("str."):
@@ -383,10 +385,10 @@ class TranslatorExpressionMixin(TranslatorMixinBase):
                 return f"self.{info.py_name}[{offset}]"
             rendered = self.translate_expression(base, runtime_expr=runtime_expr)
             state_id = f"{info.scope_id}_{info.py_name}_history"
-            return f'{runtime_expr}.expr_history({rendered}, {offset}, state_id={state_id_py_expr(self.ctx, state_id)})'
+            return f"{runtime_expr}.expr_history({rendered}, {offset}, state_id={state_id_py_expr(self.ctx, state_id)})"
         rendered = self.translate_expression(base, runtime_expr=runtime_expr)
         state_id = state_id_for_call(self.ctx, node, "expr_history")
-        return f'{runtime_expr}.expr_history({rendered}, {offset}, state_id={state_id_py_expr(self.ctx, state_id)})'
+        return f"{runtime_expr}.expr_history({rendered}, {offset}, state_id={state_id_py_expr(self.ctx, state_id)})"
 
     def _translate_if_expression(self, node: ASTNode, *, runtime_expr: str) -> str:
         condition = node.child("condition")

@@ -71,7 +71,7 @@ class TranslatorDeclarationMixin(TranslatorMixinBase):
         py_params = [self._param_name(param) for param in params]
         # UDFs that may contain stateful TA calls (ta.ema, ta.lowest, etc.)
         # get an extra _cs_id parameter so each call site gets isolated state.
-        py_params_with_cs = list(py_params) + ["_cs_id=\"\""]
+        py_params_with_cs = list(py_params) + ['_cs_id=""']
         self.emitter.line(
             f"def {name}(self{', ' if py_params_with_cs else ''}{', '.join(py_params_with_cs)}):",
             loc=node.loc,

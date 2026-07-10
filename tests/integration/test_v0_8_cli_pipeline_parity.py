@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 from ast2python.ast.schema import load_ast
 from ast2python.translator import translate_ast as _translate_ast
@@ -18,27 +15,41 @@ def translate_ast(program, *args, **kwargs):
     return _translate_ast(with_valid_producer_metadata(program), *args, **kwargs)
 
 
-STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
-FIXTURES = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid/real_world_smoke"
+SOURCES = {
+    "01_ma_indicator": """//@version=6
+indicator("MA Indicator", overlay=true)
+len = input.int(20, title="Length", minval=1)
+ma = ta.sma(close, len)
+plot(ma)
+""",
+    "13_input_source_strategy_state": """//@version=6
+strategy("Input Source Strategy", overlay=true)
+src = close
+len = input.int(21, "Length", minval=1, options=[10, 21, 50])
+ma = ta.ema(src, len)
+if ta.crossover(src, ma) and strategy.position_size <= 0
+    strategy.entry("L", strategy.long)
+plot(ma, color=color.orange)
+""",
+}
 
 
-def metadata_fixture_copy(src: Path, dst_dir: Path) -> Path:
-    dst = dst_dir / src.name
+def metadata_fixture_source(name: str, source: str, dst_dir: Path) -> Path:
+    from pine2ast.api import ParseOptions, parse_code
+
+    parsed = parse_code(source, ParseOptions(run_semantic=True, source_name=f"{name}.pine"))
+    assert parsed.ok, [item.to_dict() for item in parsed.diagnostics]
+    dst = dst_dir / f"{name}.ast.json"
     dst.write_text(
-        json.dumps(with_valid_producer_metadata(load_ast(src).raw), indent=2) + "\n",
+        json.dumps(with_valid_producer_metadata(parsed.ast.to_dict()), indent=2) + "\n",
         encoding="utf-8",
     )
     return dst
 
 
 def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path) -> None:
-    if not FIXTURES.exists():
-        pytest.skip("pine2ast real-world smoke fixtures are not available in this checkout")
-    source_inputs = [
-        FIXTURES / "01_ma_indicator.ast.json",
-        FIXTURES / "13_input_source_strategy_state.ast.json",
-    ]
-    inputs = [metadata_fixture_copy(path, tmp_path) for path in source_inputs]
+    source_names = ["01_ma_indicator", "13_input_source_strategy_state"]
+    inputs = [metadata_fixture_source(name, SOURCES[name], tmp_path) for name in source_names]
     proc = subprocess.run(
         [
             sys.executable,
@@ -67,12 +78,13 @@ def test_v0_8_translate_many_cli_matches_api_and_writes_artifacts(tmp_path: Path
         compile(generated, str(path), "exec")
 
 
-def test_v0_8_runtime_contract_metadata_shape_is_pipeline_stable() -> None:
-    if not FIXTURES.exists():
-        pytest.skip("pine2ast real-world smoke fixtures are not available in this checkout")
-    result = translate_ast(
-        load_ast(FIXTURES / "13_input_source_strategy_state.ast.json"), module_name="state_strategy"
+def test_v0_8_runtime_contract_metadata_shape_is_pipeline_stable(tmp_path: Path) -> None:
+    fixture = metadata_fixture_source(
+        "13_input_source_strategy_state",
+        SOURCES["13_input_source_strategy_state"],
+        tmp_path,
     )
+    result = translate_ast(load_ast(fixture), module_name="state_strategy")
     metadata = result.metadata
     assert metadata["generator_milestone"] == f"v{__version__}"
     assert metadata["target_runtime_contract"] == "1.4"

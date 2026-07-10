@@ -1,18 +1,8 @@
-"""Tests for rolling TA call: Series source must be passed, not .current scalar.
+"""Regression coverage for rolling TA Series source materialisation.
 
-NOTE: skipped in 4.0. The codegen path that materialises Series for rolling
-TA sources was retired when the translator was split into
-translator_parts/translator_mixins. These tests are pre-4.0 (v2.17) and
-will be re-enabled once the rolling-TA Series-materialisation pass is
-ported to the 4.0 translator. Tracked on the AST2Python 4.0 backlog.
+These tests are mandatory in 4.0+: stateful/window TA calls must receive Series
+sources, while nested computed sources are materialised under stable identities.
 """
-
-import pytest
-
-pytestmark = pytest.mark.skip(
-    reason="4.0 codegen rewrite retired the Series-materialisation pass; "
-    "re-enable when the rolling-TA pass is ported (see AST2Python 4.0 backlog)"
-)
 
 from pine2ast.api import parse_code, runtime_contract_v1_4_options
 from pine2ast.ast.serialize import ast_to_dict  # noqa: E402
@@ -376,8 +366,9 @@ plot(f(close, 20), "F")"""
         # close must be Series, not .current
         assert "self.f(self.rt.close," in src, "f did not receive Series close"
         assert "self.f(self.rt.close.current," not in src, "f received scalar .current!"
-        # length is a literal scalar, no .current
-        assert "self.f(self.rt.close, 20)" in src, f"f call wrong: {src}"
+        # length remains a literal scalar and the generated call carries the
+        # mandatory stable call-site identity for stateful TA nested in the UDF.
+        assert "self.f(self.rt.close, 20, _cs_id=" in src, f"f call wrong: {src}"
 
     def test_computed_source_wma_materializes_temp_series(self):
         """Test 1: ta.wma(2.0 * ta.wma(close, 10) - ta.wma(close, 20), 4)

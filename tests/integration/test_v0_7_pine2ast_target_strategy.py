@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from ast2python.ast.schema import load_ast
+from ast2python.ast.schema import ensure_program_node
 from ast2python.coverage import static_coverage_report
 from ast2python.errors import UnsupportedBuiltinError
 from ast2python.translator import translate_ast as _translate_ast
@@ -21,7 +20,6 @@ def translate_ast(program, *args, **kwargs):
 
 
 def parse_pine(source: str) -> dict:
-    pytest.importorskip("pine2ast")
     from pine2ast.api import ParseOptions, parse_code
 
     result = parse_code(source, ParseOptions(run_semantic=True))
@@ -30,51 +28,92 @@ def parse_pine(source: str) -> dict:
     return result.ast.to_dict()
 
 
-STACK_ROOT = Path(os.environ.get("PINE_STACK_ROOT", Path(__file__).resolve().parents[3]))
-PINE2AST = STACK_ROOT / "pine2ast/tests/fixtures/golden_ast/valid"
-
-
-def require_pine2ast_fixtures() -> None:
-    if not PINE2AST.exists():
-        pytest.skip("pine2ast golden fixtures are not available in this checkout")
-
-
 @pytest.mark.parametrize(
-    "relative, expected",
+    "fixture_name, source, expected, external",
     [
-        ("collections/generic_array.ast.json", {"array.new"}),
-        ("collections/map_matrix_types.ast.json", {"map.new", "matrix.new"}),
-        ("imports/import_alias_external_call.ast.json", {"lib.someFunction"}),
-        ("optimizer_contract/strategy_exit.ast.json", {"strategy.entry", "strategy.exit"}),
         (
-            "real_world_smoke/13_input_source_strategy_state.ast.json",
+            "generic_array",
+            """//@version=6
+indicator("Array")
+var array<float> values = array.new<float>()
+sum = 0.0
+for item in values
+    sum += item
+plot(sum)
+""",
+            {"array.new"},
+            False,
+        ),
+        (
+            "map_matrix_types",
+            """//@version=6
+indicator("Map matrix")
+var matrix<float> m = matrix.new<float>(2, 2, 0.0)
+var map<string, float> mp = map.new<string, float>()
+plot(close)
+""",
+            {"map.new", "matrix.new"},
+            False,
+        ),
+        (
+            "import_alias_external_call",
+            """//@version=6
+indicator("Import")
+import user/Lib/1 as lib
+x = lib.someFunction(close)
+plot(close)
+""",
+            {"lib.someFunction"},
+            True,
+        ),
+        (
+            "strategy_exit",
+            """//@version=6
+strategy("Exit")
+strategy.entry("L", strategy.long)
+strategy.exit("LX", "L", stop=low, limit=high)
+""",
+            {"strategy.entry", "strategy.exit"},
+            False,
+        ),
+        (
+            "input_source_strategy_state",
+            """//@version=6
+strategy("Input Source Strategy", overlay=true)
+src = close
+len = input.int(21, "Length", minval=1, options=[10, 21, 50])
+ma = ta.ema(src, len)
+if ta.crossover(src, ma) and strategy.position_size <= 0
+    strategy.entry("L", strategy.long)
+plot(ma, color=color.orange)
+""",
             {"input.int", "ta.ema", "strategy.entry"},
+            False,
         ),
     ],
 )
 def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
-    relative: str, expected: set[str]
+    fixture_name: str, source: str, expected: set[str], external: bool
 ) -> None:
-    require_pine2ast_fixtures()
-    program = load_ast(PINE2AST / relative)
-    static = static_coverage_report(program)
+    program = parse_pine(source)
+    static = static_coverage_report(ensure_program_node(program))
     assert static["schema_supported_ratio"] >= 0.98
 
-    if relative.startswith("imports/"):
+    if external:
         with pytest.raises(UnsupportedBuiltinError):
-            translate_ast(program, module_name=Path(relative).stem)
+            translate_ast(program, module_name=fixture_name)
         result = translate_ast(
             program,
-            module_name=Path(relative).stem,
+            module_name=fixture_name,
             compile_profile="diagnostic",
             allow_external_library_stubs=True,
         )
         assert result.metadata["parity_safe"] is False
         assert "external_library_stubs" in result.metadata["unsupported_features"]
     else:
-        result = translate_ast(program, module_name=Path(relative).stem)
+        result = translate_ast(program, module_name=fixture_name)
 
-    compile(result.code, relative, "exec")
+    compile(result.code, f"{fixture_name}.py", "exec")
 
     assert result.coverage["source_map_executable_line_ratio"] >= 0.95
     assert expected <= set(result.coverage["builtins"])
@@ -82,8 +121,12 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
 
 
 def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash() -> None:
-    require_pine2ast_fixtures()
-    program = load_ast(PINE2AST / "real_world_smoke/14_na_request_financial.ast.json")
+    program = parse_pine("""//@version=6
+indicator("Financial NA")
+eps = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE", "FQ")
+confirmed = barstate.isconfirmed and not na(eps)
+plot(confirmed ? eps : na)
+""")
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(program, module_name="request_financial")
 
@@ -102,7 +145,6 @@ def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash(
     assert "unsupported_request_stub" in result.metadata["unsupported_features"]
 
 
-@pytest.mark.xfail(reason="color.new() codegen handler not yet ported in 4.0 translator_parts")
 def test_v0_7_color_new_and_plot_style_translate_from_pine2ast() -> None:
     program = parse_pine("""//@version=6
 indicator("T")
@@ -138,9 +180,13 @@ plot(not na(fp) ? fp.delta() : close)
     assert "request_footprint_stub" not in result.metadata["unsupported_features"]
 
 
-def test_v0_7_supported_real_fixture_smoke_runs_or_skips_cleanly(tmp_path: Path) -> None:
-    require_pine2ast_fixtures()
-    program = load_ast(PINE2AST / "real_world_smoke/01_ma_indicator.ast.json")
+def test_v0_7_supported_real_fixture_smoke_executes(tmp_path: Path) -> None:
+    program = parse_pine("""//@version=6
+indicator("MA Indicator", overlay=true)
+len = input.int(20, title="Length", minval=1)
+ma = ta.sma(close, len)
+plot(ma)
+""")
     result = translate_ast(program, module_name="real_world_ma")
     paths = result.write_to(tmp_path)
     proc = subprocess.run(
@@ -152,7 +198,7 @@ def test_v0_7_supported_real_fixture_smoke_runs_or_skips_cleanly(tmp_path: Path)
     )
     payload = json.loads(proc.stdout)
     assert payload["ok"] is True
-    assert payload["runtime"] in {"executed", "skipped"}
+    assert payload["runtime"] == "executed"
 
 
 def test_v0_7_alert_recorder_generation() -> None:

@@ -197,16 +197,14 @@ def test_binder_edge_cases() -> None:
 
 def test_call_dispatch_fallbacks_and_visuals() -> None:
     t_drop = Translator(compile_profile="diagnostic", visual_policy="drop")
-    assert (
-        dispatch_fallback_call(
-            t_drop,
-            "plot",
-            ASTNode(call("plot", [arg(ident("close"))])),
-            ASTNode(ident("plot")),
-            runtime_expr="self.rt",
-        )
-        == "None"
+    dropped = dispatch_fallback_call(
+        t_drop,
+        "plot",
+        ASTNode(call("plot", [arg(ident("close"))])),
+        ASTNode(ident("plot")),
+        runtime_expr="self.rt",
     )
+    assert dropped == "(self.rt.close.current, None,)[-1]"
     with pytest.raises(AST2PythonError):
         dispatch_fallback_call(
             Translator(compile_profile="diagnostic", visual_policy="error"),
@@ -365,6 +363,9 @@ def test_distribution_release_quality_and_matrix(
     ]:
         (root / "docs" / doc).write_text("x", encoding="utf-8")
     (root / "RELEASE_MANIFEST_v4.0.0.json").write_text("{}", encoding="utf-8")
+    catalog = root / "ast2python/lowering_matrix/cross_layer_catalog.json"
+    catalog.parent.mkdir(parents=True)
+    catalog.write_text(json.dumps({"case_count": 20, "minimum_case_count": 20}), encoding="utf-8")
     (root / "build").mkdir()
     (root / "build" / "x.pyc").write_bytes(b"x")
     manifest = distribution_manifest(root)
@@ -380,6 +381,14 @@ def test_distribution_release_quality_and_matrix(
     )
     assert release_report(root).ok
     assert release_main(["--root", str(root), "--json", str(tmp_path / "release.json")]) == 0
+    catalog.write_text(json.dumps({"case_count": 19, "minimum_case_count": 20}), encoding="utf-8")
+    below_floor = release_report(root)
+    assert below_floor.cross_layer_catalog_ok is False
+    assert below_floor.cross_layer_case_count == 19
+    catalog.write_text("{", encoding="utf-8")
+    malformed = release_report(root)
+    assert malformed.cross_layer_catalog_ok is False
+    assert malformed.cross_layer_case_count == 0
     assert quality_main(["duplicates", str(root / "ast2python")]) == 0
     assert quality_main(["architecture", str(root / "ast2python"), "--max-lines", "1"]) == 1
     assert architecture_report(root / "ast2python", max_lines=1).oversized_count == 1
@@ -451,6 +460,22 @@ def test_emitters_imports_profiles_and_misc() -> None:
     assert (
         frontend_diagnostic_visual_call({"code": "P2A1507", "message": "Builtin plot unsupported"})
         == "plot"
+    )
+    assert (
+        frontend_diagnostic_visual_call({"code": "P2A1507", "details": {"builtin": "line.set_xy1"}})
+        == "line.set_xy1"
+    )
+    assert (
+        frontend_diagnostic_visual_call(
+            {"code": "P2A1507", "message": "Builtin line.new has no runtime-contract support"}
+        )
+        == "line.new"
+    )
+    assert (
+        frontend_diagnostic_visual_call(
+            {"code": "P2A1507", "message": "Builtin request.financial unsupported"}
+        )
+        is None
     )
     with pytest.raises(ValueError):
         normalize_visual_policy("bad")

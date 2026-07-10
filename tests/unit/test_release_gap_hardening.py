@@ -17,7 +17,12 @@ from ast2python.diagnostics import (
     VISUAL_FRONTEND_DIAGNOSTIC_IGNORED,
     Severity,
 )
-from ast2python.errors import TypeResolutionError, UnsupportedBuiltinError, UnsupportedNodeError
+from ast2python.errors import (
+    TypeResolutionError,
+    UnsupportedBuiltinError,
+    UnsupportedNodeError,
+    ValidationError,
+)
 from ast2python.quality import architecture_report, duplicate_report
 from ast2python.release import release_report
 from ast2python.translator import Translator
@@ -136,6 +141,24 @@ def test_visual_policy_default_drops_plot_and_frontend_visual_diagnostic() -> No
     assert "None" in result.code
     assert result.metadata["visual_policy"] == "drop"
     assert [d.code for d in result.diagnostics] == [VISUAL_FRONTEND_DIAGNOSTIC_IGNORED]
+
+
+def test_visual_diagnostic_never_overrides_failed_producer_gates() -> None:
+    p = program(
+        stmt(call("plot", [arg(ident("close"))])),
+        diagnostics=[
+            {
+                "code": "P2A1507",
+                "severity": "error",
+                "message": "Builtin plot has no runtime-contract support",
+                "details": {"builtin": "plot"},
+            }
+        ],
+    )
+    p["producer_metadata"]["parser_gate"] = "fail"
+
+    with pytest.raises(ValidationError, match="producer metadata gates"):
+        translate(p)
 
 
 def test_visual_policy_record_and_error_modes() -> None:
@@ -397,7 +420,10 @@ def test_cli_quality_release_and_distribution_paths(
     (small_pkg / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
     assert architecture_report(small_pkg, max_lines=10).oversized_count == 0
     assert duplicate_report(small_pkg).duplicate_group_count == 0
-    assert release_report(Path.cwd()).ok
+    report = release_report(Path.cwd())
+    assert report.ok
+    assert report.cross_layer_catalog_ok is True
+    assert report.cross_layer_case_count >= 20
 
 
 def test_scheduler_protocol_and_facade_modules_cover_release_surfaces() -> None:

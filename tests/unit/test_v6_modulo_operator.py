@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import pytest
 import subprocess
 import sys
 import textwrap
@@ -302,7 +301,6 @@ def test_v6_request_security_daily_previous_close_compile_shape(tmp_path: Path) 
     assert "lookahead='barmerge.lookahead_off'" in code
 
 
-@pytest.mark.xfail(reason="time / time_close codegen handler not yet ported in 4.0")
 def test_v6_daily_time_and_time_close_compile_shape(tmp_path: Path) -> None:
     ast_path = _parse_pine(
         tmp_path,

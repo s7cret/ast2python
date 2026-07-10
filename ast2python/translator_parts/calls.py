@@ -150,7 +150,9 @@ class TranslatorCallMixin(TranslatorMixinBase):
             for _, arg in self._call_arguments(node)
         ]
         state_id = state_id_for_call(self.ctx, node, "footprint")
-        call_args.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
+        call_args.extend(
+            [f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"]
+        )
         self.ctx.coverage.builtin("request.footprint")
         self.ctx.imports.require_from("pinelib.request", "footprint", alias="request_footprint")
         return f"request_footprint({', '.join(call_args)})"
@@ -310,6 +312,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
     def _translate_visual_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         self._bind_or_raise(name, node)
         visual_statement = visual_call_from_call_chain(name)
+        arguments = self._ordered_call_arguments(name, node)
         if visual_statement is not None:
             if self.visual_policy == "error":
                 self.ctx.add_diagnostic(
@@ -321,9 +324,15 @@ class TranslatorCallMixin(TranslatorMixinBase):
                 )
                 raise UnsupportedBuiltinError(name)
             if self.visual_policy == "drop":
+                # Dropping the visual side effect must not drop argument evaluation:
+                # stateful TA calls and user expressions nested in plot* still run
+                # on every Pine bar even when no recorder output is requested.
+                evaluated = [
+                    self.translate_expression(arg, runtime_expr=runtime_expr)
+                    for _, arg in arguments
+                ]
                 self.ctx.coverage.builtin(name)
-                return "None"
-        arguments = self._ordered_call_arguments(name, node)
+                return f"({', '.join([*evaluated, 'None'])},)[-1]"
 
         # Fast-path for plot(): emit direct record_plot() call
         # to avoid _visual_call function-call + conditional overhead
@@ -590,8 +599,13 @@ class TranslatorCallMixin(TranslatorMixinBase):
             arguments = []
         if canonical_name in STATEFUL_TA_FUNCTIONS:
             state_id = state_id_for_call(self.ctx, node, canonical_name)
-            arguments.extend([f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"])
-            if getattr(self, "_lazy_branch_depth", 0) > 0 and canonical_name in {"highest", "lowest"}:
+            arguments.extend(
+                [f"runtime={runtime_expr}", f"state_id={state_id_py_expr(self.ctx, state_id)}"]
+            )
+            if getattr(self, "_lazy_branch_depth", 0) > 0 and canonical_name in {
+                "highest",
+                "lowest",
+            }:
                 arguments.append("tv_lazy_state=True")
         self.ctx.coverage.builtin(name)
         return f"{import_name}({', '.join(arguments)})"

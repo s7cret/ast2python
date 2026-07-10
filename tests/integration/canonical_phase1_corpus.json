@@ -1,0 +1,106 @@
+{
+  "schema_version": "ast2python.canonical_corpus.v1",
+  "minimum_case_count": 20,
+  "cases": [
+    {
+      "id": "basic-entry",
+      "features": ["strategy.entry", "strategy.close", "control.if"],
+      "source": "//@version=6\nstrategy(\"basic entry\")\nlongCondition = close > open\nif longCondition\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "history-na",
+      "features": ["history", "na", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"history na\")\nprev = close[1]\nlongCondition = not na(prev) and close > prev\nif longCondition\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-sma",
+      "features": ["ta.sma", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"sma\")\nbasis = ta.sma(close, 3)\nif not na(basis) and close > basis\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-ema",
+      "features": ["ta.ema", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"ema\")\nbasis = ta.ema(close, 3)\nif not na(basis) and close > basis\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-wma",
+      "features": ["ta.wma", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"wma\")\nbasis = ta.wma(close, 3)\nif not na(basis) and close > basis\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-rsi",
+      "features": ["ta.rsi", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"rsi\")\nvalue = ta.rsi(close, 3)\nif not na(value) and value > 40\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-highest",
+      "features": ["ta.highest", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"highest\")\nvalue = ta.highest(high, 3)\nif not na(value) and close <= value\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-lowest",
+      "features": ["ta.lowest", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"lowest\")\nvalue = ta.lowest(low, 3)\nif not na(value) and close >= value\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-stdev",
+      "features": ["ta.stdev", "rolling-series", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"stdev\")\ndev = ta.stdev(close, 3)\nif not na(dev) and dev >= 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-change",
+      "features": ["ta.change", "history", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"change\")\ndelta = ta.change(close)\nif not na(delta) and delta > 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ta-crossover",
+      "features": ["ta.crossover", "ta.sma", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"crossover\")\nbasis = ta.sma(close, 3)\nif ta.crossover(close, basis)\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "math-composition",
+      "features": ["math.max", "math.sqrt", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"math composition\")\nvalue = math.max(close, math.sqrt(81.0))\nif value > 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "modulo",
+      "features": ["operator.modulo", "bar_index", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"modulo\")\nif bar_index % 2 == 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "ternary",
+      "features": ["conditional.ternary", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"ternary\")\nsignal = close > open ? 1 : 0\nif signal == 1\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "udf-series",
+      "features": ["function", "history", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"udf series\")\nbull(src) => not na(src[1]) and src > src[1]\nif bull(close)\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "for-loop",
+      "features": ["control.for", "history", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"for loop\")\nfloat total = 0.0\nfor i = 0 to 2\n    total += close[i]\nif not na(total) and total > 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "switch-expression",
+      "features": ["control.switch", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"switch expression\")\nbool signal = switch\n    close > open => true\n    => false\nif signal\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "time-components",
+      "features": ["time.hour", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"time components\")\nif hour >= 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "request-security",
+      "features": ["request.security", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"request security\")\nremote = request.security(\"TEST\", \"D\", close)\nif not na(remote) and remote > 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    },
+    {
+      "id": "visual-atr",
+      "features": ["plot", "ta.atr", "visual-drop-evaluates", "strategy.entry"],
+      "source": "//@version=6\nstrategy(\"visual atr\")\nvalue = ta.atr(3)\nplot(value, \"ATR\")\nif not na(value) and value > 0\n    strategy.entry(\"L\", strategy.long)\nif bar_index >= 5\n    strategy.close(\"L\")\n"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, TypeGuard
 
 VisualPolicy: TypeAlias = Literal["drop", "record", "error"]
 VISUAL_POLICY_VALUES: tuple[VisualPolicy, ...] = ("drop", "record", "error")
@@ -20,6 +20,30 @@ VISUAL_CALLS = frozenset(
 )
 
 
+VISUAL_OBJECT_PREFIXES = ("line.", "label.", "box.", "table.")
+
+
+def _is_visual_runtime_call(value: str) -> bool:
+    return value in VISUAL_CALLS or value.startswith(VISUAL_OBJECT_PREFIXES)
+
+
+def _visual_runtime_call_from_text(text: str) -> str | None:
+    for builtin in sorted(VISUAL_CALLS, key=len, reverse=True):
+        if builtin in text:
+            return builtin
+    for prefix in VISUAL_OBJECT_PREFIXES:
+        marker = f"builtin {prefix}"
+        start = text.find(marker)
+        if start >= 0:
+            tail = text[start + len("builtin ") :]
+            return tail.split()[0].rstrip(".,:;()")
+    return None
+
+
+def _is_visual_policy(value: str) -> TypeGuard[VisualPolicy]:
+    return value in VISUAL_POLICY_VALUES
+
+
 def normalize_visual_policy(value: str | None) -> VisualPolicy:
     candidate = str(value or "drop").strip().lower().replace("_", "-")
     aliases = {
@@ -33,7 +57,7 @@ def normalize_visual_policy(value: str | None) -> VisualPolicy:
         "fail": "error",
     }
     normalized = aliases.get(candidate, candidate)
-    if normalized not in VISUAL_POLICY_VALUES:
+    if not _is_visual_policy(normalized):
         allowed = ", ".join(VISUAL_POLICY_VALUES)
         raise ValueError(f"unsupported visual policy {value!r}; expected one of: {allowed}")
     return normalized
@@ -51,7 +75,7 @@ def frontend_diagnostic_visual_call(item: dict[str, Any]) -> str | None:
     if isinstance(details, dict):
         for key in ("builtin", "name", "callee", "call", "function"):
             value = details.get(key)
-            if isinstance(value, str) and value in VISUAL_CALLS:
+            if isinstance(value, str) and _is_visual_runtime_call(value):
                 return value
         raw = json.dumps(details, sort_keys=True, default=str)
     else:
@@ -66,9 +90,7 @@ def frontend_diagnostic_visual_call(item: dict[str, Any]) -> str | None:
         if part
     ).lower()
     if item.get("code") in VISUAL_FRONTEND_DIAGNOSTIC_CODES or "runtime-contract" in text:
-        for builtin in sorted(VISUAL_CALLS, key=len, reverse=True):
-            if builtin in text:
-                return builtin
+        return _visual_runtime_call_from_text(text)
     return None
 
 
