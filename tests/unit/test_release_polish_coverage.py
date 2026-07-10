@@ -365,7 +365,38 @@ def test_distribution_release_quality_and_matrix(
     (root / "RELEASE_MANIFEST_v4.0.0.json").write_text("{}", encoding="utf-8")
     catalog = root / "ast2python/lowering_matrix/cross_layer_catalog.json"
     catalog.parent.mkdir(parents=True)
-    catalog.write_text(json.dumps({"case_count": 20, "minimum_case_count": 20}), encoding="utf-8")
+    case_ids = [f"case-{index:02d}" for index in range(20)]
+    corpus = root / "tests/integration/canonical_phase1_corpus.json"
+    corpus.parent.mkdir(parents=True)
+    corpus.write_text(
+        json.dumps(
+            {
+                "schema_version": "ast2python.canonical_corpus.v1",
+                "minimum_case_count": 20,
+                "cases": [{"id": case_id, "features": []} for case_id in case_ids],
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_test = root / "tests/integration/test_phase1_canonical_corpus.py"
+    evidence_test.write_text("# evidence contract\n", encoding="utf-8")
+    catalog_payload = {
+        "schema_version": "ast2python.cross_layer_catalog.v1",
+        "source_manifest": "tests/integration/canonical_phase1_corpus.json",
+        "evidence_test": "tests/integration/test_phase1_canonical_corpus.py",
+        "case_count": 20,
+        "minimum_case_count": 20,
+        "evidence": [
+            {
+                "case_id": case_id,
+                "features": [],
+                "layers": ["parse", "semantic", "codegen", "runtime", "backtest"],
+                "status": "DONE_VERIFIED",
+            }
+            for case_id in case_ids
+        ],
+    }
+    catalog.write_text(json.dumps(catalog_payload), encoding="utf-8")
     (root / "build").mkdir()
     (root / "build" / "x.pyc").write_bytes(b"x")
     manifest = distribution_manifest(root)
@@ -381,10 +412,30 @@ def test_distribution_release_quality_and_matrix(
     )
     assert release_report(root).ok
     assert release_main(["--root", str(root), "--json", str(tmp_path / "release.json")]) == 0
-    catalog.write_text(json.dumps({"case_count": 19, "minimum_case_count": 20}), encoding="utf-8")
+    below_floor_payload = {**catalog_payload, "case_count": 19}
+    catalog.write_text(json.dumps(below_floor_payload), encoding="utf-8")
     below_floor = release_report(root)
     assert below_floor.cross_layer_catalog_ok is False
     assert below_floor.cross_layer_case_count == 19
+
+    self_declared_zero = {
+        **catalog_payload,
+        "case_count": 0,
+        "minimum_case_count": 0,
+        "evidence": [],
+    }
+    catalog.write_text(json.dumps(self_declared_zero), encoding="utf-8")
+    assert release_report(root).cross_layer_catalog_ok is False
+
+    empty_evidence = {**catalog_payload, "evidence": []}
+    catalog.write_text(json.dumps(empty_evidence), encoding="utf-8")
+    assert release_report(root).cross_layer_catalog_ok is False
+
+    mismatched_evidence = json.loads(json.dumps(catalog_payload))
+    mismatched_evidence["evidence"][0]["case_id"] = "not-in-manifest"
+    catalog.write_text(json.dumps(mismatched_evidence), encoding="utf-8")
+    assert release_report(root).cross_layer_catalog_ok is False
+
     catalog.write_text("{", encoding="utf-8")
     malformed = release_report(root)
     assert malformed.cross_layer_catalog_ok is False

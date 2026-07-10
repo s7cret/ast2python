@@ -1,31 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 PYTHON=${PYTHON:-python}
-rm -rf dist
-if "$PYTHON" -c 'import build' >/dev/null 2>&1; then
-  "$PYTHON" -m build --wheel
-else
-  echo "python-build is unavailable; falling back to pip wheel --no-build-isolation" >&2
-  "$PYTHON" -m pip wheel --no-deps --no-build-isolation -w dist .
-fi
-TMP_VENV=$(mktemp -d)
-cleanup() { rm -rf "$TMP_VENV"; }
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+TMP_ROOT=$(mktemp -d)
+cleanup() { rm -rf "$TMP_ROOT"; }
 trap cleanup EXIT
-"$PYTHON" -m venv "$TMP_VENV/venv"
-VENV_PY="$TMP_VENV/venv/bin/python"
+
+"$PYTHON" -m build --wheel --outdir "$TMP_ROOT/dist" "$ROOT"
+shopt -s nullglob
+WHEELS=("$TMP_ROOT"/dist/*.whl)
+shopt -u nullglob
+if [[ ${#WHEELS[@]} -ne 1 ]]; then
+  echo "expected exactly one wheel, found ${#WHEELS[@]}" >&2
+  exit 1
+fi
+
+"$PYTHON" -m venv "$TMP_ROOT/venv"
+VENV_PY="$TMP_ROOT/venv/bin/python"
 if [[ "${FULL_STACK_WHEEL_SMOKE:-0}" == "1" ]]; then
-  for sibling in ../pinelib ../pine2ast; do
+  for sibling in "$ROOT/../pinelib" "$ROOT/../pine2ast"; do
     if [[ -d "$sibling" ]]; then
       "$VENV_PY" -m pip install --quiet -e "$sibling"
     fi
   done
-  "$VENV_PY" -m pip install --quiet dist/*.whl
+  "$VENV_PY" -m pip install --quiet "${WHEELS[0]}"
 else
-  "$VENV_PY" -m pip install --quiet --no-deps dist/*.whl
+  "$VENV_PY" -m pip install --quiet --no-deps "${WHEELS[0]}"
 fi
-"$VENV_PY" - <<'PY'
+
+(
+  cd "$TMP_ROOT"
+  "$VENV_PY" -I - <<'PY'
+from pathlib import Path
+import sysconfig
+
 import ast2python
 from ast2python.cli.main import main
-print(ast2python.__version__)
+
+module_path = Path(ast2python.__file__).resolve()
+purelib = Path(sysconfig.get_paths()["purelib"]).resolve()
+assert module_path.is_relative_to(purelib), (module_path, purelib)
 assert callable(main)
+print(ast2python.__version__, module_path)
 PY
+)

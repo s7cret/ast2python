@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import builtins
+import copy
+import json
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,130 @@ def test_pine2ast_dependency_is_pinned_to_the_release_evidence_sha() -> None:
         "pine2ast @ git+https://github.com/s7cret/pine2ast.git"
         "@bf2614855851e0626bbe802b6d945ce23593e886"
     )
+
+
+def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> None:
+    root = Path(__file__).resolve().parents[2]
+    workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    wheel_smoke = (root / "scripts/wheel_smoke.sh").read_text(encoding="utf-8")
+
+    refs = [line.split(":", 1)[1].strip() for line in workflow.splitlines() if "ref:" in line]
+    assert len(refs) == 3
+    assert all(len(ref) == 40 and set(ref) <= set("0123456789abcdef") for ref in refs)
+    assert "bash scripts/wheel_smoke.sh" in workflow
+    assert "pip wheel" not in wheel_smoke
+    assert "--no-build-isolation" not in wheel_smoke
+    assert "python -I" in wheel_smoke or '"$VENV_PY" -I' in wheel_smoke
+    assert "--outdir" in wheel_smoke
+
+
+def test_cross_layer_release_catalog_rejects_every_malformed_evidence_shape(
+    tmp_path: Path,
+) -> None:
+    from ast2python.release import _cross_layer_catalog_status
+
+    real_root = Path(__file__).resolve().parents[2]
+    valid_catalog = json.loads(
+        (real_root / "ast2python/lowering_matrix/cross_layer_catalog.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    valid_manifest = json.loads(
+        (real_root / "tests/integration/canonical_phase1_corpus.json").read_text(encoding="utf-8")
+    )
+    root = tmp_path / "repo"
+    catalog_path = root / "ast2python/lowering_matrix/cross_layer_catalog.json"
+    manifest_path = root / "tests/integration/canonical_phase1_corpus.json"
+    evidence_test = root / "tests/integration/test_phase1_canonical_corpus.py"
+    catalog_path.parent.mkdir(parents=True)
+    manifest_path.parent.mkdir(parents=True)
+    evidence_test.write_text("# evidence\n", encoding="utf-8")
+
+    def write_catalog(payload: object) -> None:
+        catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def write_manifest(payload: object) -> None:
+        manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    write_catalog(valid_catalog)
+    write_manifest(valid_manifest)
+    assert _cross_layer_catalog_status(root) == (True, 20)
+
+    for malformed_count in ("20", 20.9):
+        payload = copy.deepcopy(valid_catalog)
+        payload["case_count"] = malformed_count
+        write_catalog(payload)
+        assert _cross_layer_catalog_status(root)[0] is False
+    write_catalog(valid_catalog)
+    for malformed_minimum in ("20", 20.9):
+        payload = copy.deepcopy(valid_manifest)
+        payload["minimum_case_count"] = malformed_minimum
+        write_manifest(payload)
+        assert _cross_layer_catalog_status(root)[0] is False
+    write_manifest(valid_manifest)
+
+    catalog_path.unlink()
+    assert _cross_layer_catalog_status(root) == (False, 0)
+    write_catalog([])
+    assert _cross_layer_catalog_status(root) == (False, 0)
+
+    for source_manifest in ("/tmp/outside.json", "../outside.json"):
+        payload = copy.deepcopy(valid_catalog)
+        payload["source_manifest"] = source_manifest
+        write_catalog(payload)
+        assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"][0] = "bad"
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"][0]["layers"] = ["parse"]
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"][1]["case_id"] = payload["evidence"][0]["case_id"]
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["minimum_case_count"] = valid_catalog["minimum_case_count"] + 1
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"] = list(reversed(payload["evidence"]))
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"][0]["features"] = ["tampered"]
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    payload = copy.deepcopy(valid_catalog)
+    payload["evidence"][0]["unexpected"] = True
+    write_catalog(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    write_catalog(valid_catalog)
+    malformed_features = copy.deepcopy(valid_manifest)
+    malformed_features["cases"][0]["features"] = [""]
+    write_manifest(malformed_features)
+    assert _cross_layer_catalog_status(root)[0] is False
+
+    write_manifest(valid_manifest)
+    write_catalog(valid_catalog)
+    write_manifest([])
+    assert _cross_layer_catalog_status(root)[0] is False
+    manifest_path.write_text("{", encoding="utf-8")
+    assert _cross_layer_catalog_status(root)[0] is False
+    payload = copy.deepcopy(valid_manifest)
+    payload["schema_version"] = "bad"
+    write_manifest(payload)
+    assert _cross_layer_catalog_status(root)[0] is False
 
 
 def test_cli_smoke_reports_a_clean_skip_when_pinelib_is_unavailable(
