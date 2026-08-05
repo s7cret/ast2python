@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from ast2python.distribution import distribution_manifest
+from ast2python.lowering_matrix.validate import (
+    LoweringMatrixError,
+    validate_lowering_matrix_payload,
+)
 from ast2python.quality import architecture_report, duplicate_report
 from ast2python.version import __version__
 
@@ -38,6 +43,11 @@ class ReleaseReport:
     distribution_ok: bool
     cross_layer_catalog_ok: bool
     cross_layer_case_count: int
+    cross_layer_evidence_scope: str
+    lowering_matrix_ok: bool
+    lowering_entry_count: int
+    lowering_status_summary: dict[str, int]
+    full_pine_v6_coverage_claimed: bool
     manifest_file: str
 
 
@@ -147,6 +157,54 @@ def _cross_layer_catalog_status(root_path: Path) -> tuple[bool, int]:
     return True, case_count
 
 
+def _lowering_matrix_status(root_path: Path) -> tuple[bool, dict[str, Any]]:
+    """Validate evidence-bearing lowering statuses without claiming full Pine v6."""
+
+    matrix_path = root_path / "ast2python" / "lowering_matrix" / "lowering_matrix.json"
+    errors: list[str] = []
+    payload: Any = None
+    try:
+        payload = json.loads(matrix_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise LoweringMatrixError("lowering matrix must be an object")
+        validate_lowering_matrix_payload(payload)
+    except (OSError, json.JSONDecodeError, LoweringMatrixError) as exc:
+        errors.append(str(exc))
+
+    entries: list[dict[str, Any]] = []
+    if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
+        entries = [entry for entry in payload["entries"] if isinstance(entry, dict)]
+
+    summaries = {
+        field: dict(Counter(str(entry.get(field)) for entry in entries))
+        for field in ("lowering_status", "source_map_status", "coverage_status")
+    }
+    for entry in entries:
+        kind = str(entry.get("ast_kind", "<unknown>"))
+        lowering_status = entry.get("lowering_status")
+        if entry.get("priority") == "P0" and lowering_status in {
+            "NOT_STARTED",
+            "IMPLEMENTED_UNVERIFIED",
+        }:
+            errors.append(f"P0 lowering is not release-ready: {kind}={lowering_status}")
+        if lowering_status == "DONE_VERIFIED":
+            if entry.get("coverage_status") != "DONE_VERIFIED":
+                errors.append(f"verified lowering lacks verified coverage: {kind}")
+            if entry.get("source_map_status") not in {"DONE_VERIFIED", "NOT_APPLICABLE"}:
+                errors.append(f"verified lowering lacks source-map evidence: {kind}")
+
+    details: dict[str, Any] = {
+        "scope": "verified_lowering_subset",
+        "full_pine_v6_coverage_claimed": False,
+        "entry_count": len(entries),
+        "lowering_status_summary": summaries["lowering_status"],
+        "source_map_status_summary": summaries["source_map_status"],
+        "coverage_status_summary": summaries["coverage_status"],
+        "errors": errors,
+    }
+    return not errors, details
+
+
 def release_report(root: str | Path = ".") -> ReleaseReport:
     root_path = Path(root)
     missing_docs = tuple(path for path in REQUIRED_DOCS if not (root_path / path).exists())
@@ -154,6 +212,7 @@ def release_report(root: str | Path = ".") -> ReleaseReport:
     dup = duplicate_report(root_path / "ast2python")
     dist = distribution_manifest(root_path)
     cross_layer_catalog_ok, cross_layer_case_count = _cross_layer_catalog_status(root_path)
+    lowering_matrix_ok, lowering = _lowering_matrix_status(root_path)
     manifest_file = f"RELEASE_MANIFEST_v{__version__}.json"
     manifest_exists = (root_path / manifest_file).exists()
     docs_ok = not missing_docs and manifest_exists
@@ -163,6 +222,7 @@ def release_report(root: str | Path = ".") -> ReleaseReport:
         and dup.duplicate_group_count == 0
         and dist.hygiene_ok
         and cross_layer_catalog_ok
+        and lowering_matrix_ok
     )
     return ReleaseReport(
         version=__version__,
@@ -174,6 +234,11 @@ def release_report(root: str | Path = ".") -> ReleaseReport:
         distribution_ok=dist.hygiene_ok,
         cross_layer_catalog_ok=cross_layer_catalog_ok,
         cross_layer_case_count=cross_layer_case_count,
+        cross_layer_evidence_scope="canonical_subset",
+        lowering_matrix_ok=lowering_matrix_ok,
+        lowering_entry_count=int(lowering["entry_count"]),
+        lowering_status_summary=dict(lowering["lowering_status_summary"]),
+        full_pine_v6_coverage_claimed=False,
         manifest_file=manifest_file,
     )
 

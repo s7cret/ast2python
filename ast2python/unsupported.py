@@ -63,6 +63,7 @@ SUPPORTED_NODE_KINDS = {
     "ForInStructure",
     "ArrayLiteral",
     "MapLiteral",
+    "MapEntry",
     "AlertCondition",
 }
 

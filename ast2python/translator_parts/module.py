@@ -89,6 +89,10 @@ class TranslatorModuleMixin(TranslatorMixinBase):
     def _declare_dynamic_imports(self, program: ASTProgram) -> None:
         """Predeclare imports needed by generated statements before rendering the header."""
         for node in program.descendants():
+            if node.kind == "ArrayLiteral":
+                self.ctx.imports.require_from("pinelib.reference", "PineArray")
+            elif node.kind == "MapLiteral":
+                self.ctx.imports.require_from("pinelib.reference", "PineMap")
             if node.kind == "CallExpr":
                 callee = node.child("callee")
                 if callee is not None and member_chain(callee) == "request.security_lower_tf":

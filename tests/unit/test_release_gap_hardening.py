@@ -424,6 +424,11 @@ def test_cli_quality_release_and_distribution_paths(
     assert report.ok
     assert report.cross_layer_catalog_ok is True
     assert report.cross_layer_case_count >= 20
+    assert report.cross_layer_evidence_scope == "canonical_subset"
+    assert report.lowering_matrix_ok is True
+    assert report.lowering_entry_count >= 40
+    assert report.lowering_status_summary["PARTIAL"] > 0
+    assert report.full_pine_v6_coverage_claimed is False
 
 
 def test_scheduler_protocol_and_facade_modules_cover_release_surfaces() -> None:

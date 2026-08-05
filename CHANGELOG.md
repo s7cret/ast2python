@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.1
+
+- Published the hardened OpenPine 4.0.1 stack with unchanged AST/runtime contract IDs.
+- Aligned package, documentation, release-manifest, and immutable downstream dependency metadata.
+
 ## 4.0.0
 
 - Aligned generator input with `pine.ast_contract.v1` and the OpenPine 4.0 release line.

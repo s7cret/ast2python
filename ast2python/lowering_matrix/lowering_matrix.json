@@ -311,14 +311,12 @@
       "category": "expression",
       "priority": "P0",
       "runtime_contract": "1.4",
-      "lowering_status": "UNSUPPORTED_DIAGNOSTIC",
+      "lowering_status": "DONE_VERIFIED",
       "source_map_status": "NOT_APPLICABLE",
       "coverage_status": "DONE_VERIFIED",
-      "owner_method": "Translator._unsupported",
-      "diagnostics": [
-        "UNSUPPORTED_NODE"
-      ],
-      "notes": "Must fail explicitly until lowering/runtime semantics are implemented."
+      "owner_method": "Translator.translate_expression",
+      "diagnostics": [],
+      "notes": "Lowers to PineArray with recursively translated elements."
     },
     {
       "ast_kind": "BinaryExpr",
@@ -409,14 +407,12 @@
       "category": "expression",
       "priority": "P0",
       "runtime_contract": "1.4",
-      "lowering_status": "UNSUPPORTED_DIAGNOSTIC",
+      "lowering_status": "DONE_VERIFIED",
       "source_map_status": "NOT_APPLICABLE",
       "coverage_status": "DONE_VERIFIED",
-      "owner_method": "Translator._unsupported",
-      "diagnostics": [
-        "UNSUPPORTED_NODE"
-      ],
-      "notes": "Must fail explicitly until lowering/runtime semantics are implemented."
+      "owner_method": "Translator.translate_expression",
+      "diagnostics": [],
+      "notes": "Lowers to PineMap with recursively translated key/value entries."
     },
     {
       "ast_kind": "MatrixLiteral",

@@ -44,6 +44,21 @@ def test_lowering_matrix_covers_p0_runtime_contract_nodes() -> None:
         assert entries[kind].runtime_contract == "1.4"
 
 
+def test_literal_container_statuses_do_not_overclaim_runtime_lowering() -> None:
+    entries = {entry.ast_kind: entry for entry in load_lowering_entries()}
+
+    for kind in ("ArrayLiteral", "MapLiteral"):
+        assert entries[kind].lowering_status == "DONE_VERIFIED"
+        assert entries[kind].coverage_status == "DONE_VERIFIED"
+        assert entries[kind].diagnostics == []
+        assert entries[kind].owner_method == "Translator.translate_expression"
+
+    for kind in ("MatrixLiteral", "ObjectLiteral"):
+        assert entries[kind].lowering_status == "UNSUPPORTED_DIAGNOSTIC"
+        assert entries[kind].coverage_status == "DONE_VERIFIED"
+        assert entries[kind].diagnostics == ["UNSUPPORTED_NODE"]
+
+
 def test_lowering_matrix_markdown_exports_status_table() -> None:
     text = lowering_matrix_markdown()
 

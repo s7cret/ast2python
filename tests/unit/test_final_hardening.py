@@ -18,6 +18,7 @@ def test_distribution_excludes_local_build_and_cache_artifacts(tmp_path: Path) -
     (root / "__pycache__" / "x.pyc").write_bytes(b"cache")
     (root / ".coverage").write_text("coverage", encoding="utf-8")
     (root / f"ast2python-{__version__}.zip").write_bytes(b"zip")
+    (root / ".codex").write_text("local agent metadata", encoding="utf-8")
 
     files = {path.relative_to(root).as_posix() for path in iter_distribution_files(root)}
     assert "ast2python/__init__.py" in files
@@ -25,6 +26,8 @@ def test_distribution_excludes_local_build_and_cache_artifacts(tmp_path: Path) -
     assert "__pycache__/x.pyc" not in files
     assert ".coverage" not in files
     assert f"ast2python-{__version__}.zip" not in files
+    assert ".codex" not in files
+    assert "`4.0.1`, aligned with Pine2AST/PineLib 4.0.1" in Path("README.md").read_text()
     assert distribution_manifest(root).hygiene_ok is True
 
 

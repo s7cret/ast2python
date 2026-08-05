@@ -26,7 +26,7 @@ EXCLUDED_DIRS = {
     ".vscode",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log"}
-EXCLUDED_NAMES = {".DS_Store", ".coverage"}
+EXCLUDED_NAMES = {".DS_Store", ".coverage", ".codex"}
 
 
 @dataclass(frozen=True)

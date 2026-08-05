@@ -176,6 +176,50 @@ def test_cross_layer_release_catalog_rejects_every_malformed_evidence_shape(
     assert _cross_layer_catalog_status(root)[0] is False
 
 
+def test_lowering_release_gate_is_truthful_and_rejects_not_started_p0(
+    tmp_path: Path,
+) -> None:
+    from ast2python.release import _lowering_matrix_status
+
+    real_root = Path(__file__).resolve().parents[2]
+    source = real_root / "ast2python/lowering_matrix/lowering_matrix.json"
+    root = tmp_path / "repo"
+    matrix_path = root / "ast2python/lowering_matrix/lowering_matrix.json"
+    matrix_path.parent.mkdir(parents=True)
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    matrix_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    ok, details = _lowering_matrix_status(root)
+
+    assert ok is True
+    assert details["scope"] == "verified_lowering_subset"
+    assert details["full_pine_v6_coverage_claimed"] is False
+    assert details["entry_count"] == len(payload["entries"])
+    assert details["lowering_status_summary"]["PARTIAL"] > 0
+    assert details["lowering_status_summary"]["UNSUPPORTED_DIAGNOSTIC"] > 0
+    assert details["lowering_status_summary"].get("NOT_STARTED", 0) == 0
+
+    payload["entries"][0]["lowering_status"] = "NOT_STARTED"
+    matrix_path.write_text(json.dumps(payload), encoding="utf-8")
+    assert _lowering_matrix_status(root)[0] is False
+
+    matrix_path.write_text("[]", encoding="utf-8")
+    assert _lowering_matrix_status(root)[0] is False
+
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    verified_entry = next(
+        entry for entry in payload["entries"] if entry["lowering_status"] == "DONE_VERIFIED"
+    )
+    verified_entry["coverage_status"] = "PARTIAL"
+    matrix_path.write_text(json.dumps(payload), encoding="utf-8")
+    assert _lowering_matrix_status(root)[0] is False
+
+    verified_entry["coverage_status"] = "DONE_VERIFIED"
+    verified_entry["source_map_status"] = "PARTIAL"
+    matrix_path.write_text(json.dumps(payload), encoding="utf-8")
+    assert _lowering_matrix_status(root)[0] is False
+
+
 def test_cli_smoke_reports_a_clean_skip_when_pinelib_is_unavailable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -362,9 +362,16 @@ def test_distribution_release_quality_and_matrix(
         "SECURITY.md",
     ]:
         (root / "docs" / doc).write_text("x", encoding="utf-8")
-    (root / "RELEASE_MANIFEST_v4.0.0.json").write_text("{}", encoding="utf-8")
+    (root / "RELEASE_MANIFEST_v4.0.1.json").write_text("{}", encoding="utf-8")
     catalog = root / "ast2python/lowering_matrix/cross_layer_catalog.json"
     catalog.parent.mkdir(parents=True)
+    lowering_matrix = catalog.with_name("lowering_matrix.json")
+    bundled_lowering_matrix = (
+        Path(__file__).resolve().parents[2] / "ast2python/lowering_matrix/lowering_matrix.json"
+    )
+    lowering_matrix.write_text(
+        bundled_lowering_matrix.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     case_ids = [f"case-{index:02d}" for index in range(20)]
     corpus = root / "tests/integration/canonical_phase1_corpus.json"
     corpus.parent.mkdir(parents=True)
@@ -1064,6 +1071,44 @@ def test_expression_low_level_branch_matrix() -> None:
     assert "if pine_bool" in tr.translate_expression(ASTNode(if_expr))
     with pytest.raises(UnsupportedNodeError):
         tr.translate_expression(ASTNode({"kind": "IfStructure", "condition": lit(True, "bool")}))
+
+
+def test_array_and_map_literals_emit_executable_runtime_imports() -> None:
+    result = translate_ast(
+        program(
+            [
+                {
+                    "kind": "VarDeclaration",
+                    "name": "items",
+                    "initializer": {
+                        "kind": "ArrayLiteral",
+                        "items": [lit(1), lit(2)],
+                    },
+                },
+                {
+                    "kind": "VarDeclaration",
+                    "name": "lookup",
+                    "initializer": {
+                        "kind": "MapLiteral",
+                        "entries": [
+                            {
+                                "kind": "MapEntry",
+                                "key": lit("a", "string"),
+                                "value": lit(1),
+                            }
+                        ],
+                    },
+                },
+            ]
+        ),
+        module_name="literal_containers",
+    )
+    namespace: dict[str, object] = {}
+    exec(result.code, namespace)
+
+    assert result.metadata["unsupported_nodes"] == []
+    assert "PineArray" in namespace
+    assert "PineMap" in namespace
 
 
 def test_call_low_level_branch_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
