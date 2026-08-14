@@ -48,7 +48,7 @@ def test_pinelib_dependency_is_pinned_to_the_release_evidence_sha() -> None:
     )
     assert dependency == (
         "pinelib @ git+https://github.com/s7cret/pinelib.git"
-        "@e42ccf881fbafb2c06311bcf8ba8435d055afea4"
+        "@fcf9c0f92213313db39bc42c83f676786c85400c"
     )
 
 
