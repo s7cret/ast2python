@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: s7cret/pinelib
-          ref: 38987ec94bde5158ea379b45485b7ceb8614b30b
+          ref: d16c100745f1aa21ca93f3249b1737a620307483
           path: pinelib
       - uses: actions/checkout@v4
         with:

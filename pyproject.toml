@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
-  "pinelib @ git+https://github.com/s7cret/pinelib.git@38987ec94bde5158ea379b45485b7ceb8614b30b",
+  "pinelib @ git+https://github.com/s7cret/pinelib.git@d16c100745f1aa21ca93f3249b1737a620307483",
   "pine2ast @ git+https://github.com/s7cret/pine2ast.git@b7b52d3399afc2641ad4d9623e5c63a421588c6c",
 ]
 
@@ -27,7 +27,7 @@ dev = [
   "black>=24",
   "mypy>=1.10",
   "build>=1.2",
-  "backtest-engine @ git+https://github.com/s7cret/backtest_engine.git@7d9ff8befef2295d2a87b59eb272c051761275ee",
+  "backtest-engine @ git+https://github.com/s7cret/backtest_engine.git@5256d126204229dc584b26a6171fd602e6e3b8ce",
 ]
 
 [project.scripts]
