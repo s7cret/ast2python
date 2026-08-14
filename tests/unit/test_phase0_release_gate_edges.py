@@ -35,7 +35,7 @@ def test_pine2ast_dependency_is_pinned_to_the_release_evidence_sha() -> None:
     )
     assert dependency == (
         "pine2ast @ git+https://github.com/s7cret/pine2ast.git"
-        "@b7b52d3399afc2641ad4d9623e5c63a421588c6c"
+        "@c57323351a1e638e0337e1be247883da2570ab28"
     )
 
 
@@ -48,7 +48,7 @@ def test_pinelib_dependency_is_pinned_to_the_release_evidence_sha() -> None:
     )
     assert dependency == (
         "pinelib @ git+https://github.com/s7cret/pinelib.git"
-        "@d16c100745f1aa21ca93f3249b1737a620307483"
+        "@e42ccf881fbafb2c06311bcf8ba8435d055afea4"
     )
 
 

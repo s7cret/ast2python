@@ -1,6 +1,6 @@
 {
-  "version": "4.0.1",
-  "archive": "ast2python-4.0.1.zip",
+  "version": "4.0.2",
+  "archive": "ast2python-4.0.2.zip",
   "contracts": {
     "ast": "pine.ast_contract.v1",
     "openpine_frontend": "openpine.frontend.v1",

@@ -27,7 +27,7 @@ def test_distribution_excludes_local_build_and_cache_artifacts(tmp_path: Path) -
     assert ".coverage" not in files
     assert f"ast2python-{__version__}.zip" not in files
     assert ".codex" not in files
-    assert "`4.0.1`, aligned with Pine2AST/PineLib 4.0.1" in Path("README.md").read_text()
+    assert "`4.0.2`, aligned with Pine2AST/PineLib 4.0.2" in Path("README.md").read_text()
     assert distribution_manifest(root).hygiene_ok is True
 
 

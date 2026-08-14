@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.2
+
+- Pinned the coordinated Pine2AST, PineLib, Backtest Engine, and MarketData Provider 4.0.2 release commits.
+- Refreshed release manifest and wheel evidence without changing AST, frontend, or runtime contract IDs.
+
 ## 4.0.1
 
 - Published the hardened OpenPine 4.0.1 stack with unchanged AST/runtime contract IDs.
