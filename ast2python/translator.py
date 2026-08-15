@@ -139,6 +139,13 @@ class Translator(
         result_module_name = module_name or self.ctx.naming.reserve(title or "generated")
         self._emit_module(program, declaration, title=title, module_name=result_module_name)
         metadata = self._build_metadata(program, title=title, module_name=result_module_name)
+        from ast2python.generated_artifact_v2 import build_generated_artifact_v2
+
+        metadata["generated_artifact_v2"] = build_generated_artifact_v2(
+            code=self.emitter.render(),
+            source_map=self.ctx.source_map.to_list(),
+            frontend_hash=str(getattr(program, "hash", None) or ""),
+        )
         coverage = self.ctx.coverage.to_dict()
         coverage.update(self._source_map_line_coverage(program))
         return TranslationResult(
