@@ -22,7 +22,7 @@ Pine source -> pine2ast -> AST JSON -> ast2python -> generated Python -> pinelib
 | Component | Contract / version |
 |---|---|
 | Input AST | `pine.ast_contract.v1` |
-| Optional frontend metadata | `openpine.frontend.v1` |
+| Optional frontend metadata | `openpine.frontend.v2` |
 | Runtime target | PineLib runtime contract `1.4` |
 | Supported Python | `>=3.11` |
 | Release line | `4.0.2`, aligned with Pine2AST/PineLib 4.0.2 |
