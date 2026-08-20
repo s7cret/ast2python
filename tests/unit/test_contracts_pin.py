@@ -2,13 +2,13 @@ from pathlib import Path
 
 from openpine_contracts import SemanticProfile, list_schema_ids, validate_payload
 
-from ast2python.artifact import build_generated_artifact_v2, resolve_compile_profile
+from ast2python.artifact import _digest, build_generated_artifact_v2, resolve_compile_profile
 from ast2python.contracts import (
     GENERATED_ARTIFACT_CONTRACT,
     OPENPINE_FRONTEND_CONTRACT_VERSION,
 )
 
-PIN = "51e32ebaaf02eecb81443e8ca7e89b2543cb25a3"
+PIN = "af9ecbc455e9af83cdc609f6b6ff85c40fb6c8bb"
 
 
 def test_contracts_pin_and_catalog() -> None:
@@ -26,6 +26,10 @@ def test_contracts_pin_and_catalog() -> None:
 
 def test_new_compile_defaults_to_strict_5x() -> None:
     assert resolve_compile_profile(None) is SemanticProfile.STRICT_5X
+    assert resolve_compile_profile(SemanticProfile.LEGACY_4X) is SemanticProfile.LEGACY_4X
+    assert _digest(b"artifact", GENERATED_ARTIFACT_CONTRACT) == _digest(
+        "artifact", GENERATED_ARTIFACT_CONTRACT
+    )
 
 
 def test_generated_artifact_v2_validates_and_requires_profile() -> None:

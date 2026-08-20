@@ -33,12 +33,10 @@ def _digest(payload: Mapping[str, Any] | str | bytes, schema_id: str) -> str:
     elif isinstance(payload, str):
         text = payload
     else:
-        text = payload
-    if isinstance(text, str):
-        from openpine_contracts.hashing import content_hash as _hash
+        return content_hash(payload, schema_id=schema_id)
+    from openpine_contracts.hashing import content_hash as _hash
 
-        return _hash({"body": text}, schema_id=schema_id)
-    return content_hash(text, schema_id=schema_id)
+    return _hash({"body": text}, schema_id=schema_id)
 
 
 def resolve_compile_profile(value: object | None = None) -> SemanticProfile:
@@ -90,8 +88,6 @@ def build_generated_artifact_v2(
         "import_allowlist": list(import_allowlist),
     }
     unsigned = dict(payload)
-    payload["content_hash"] = content_hash(
-        unsigned, schema_id=GENERATED_ARTIFACT_CONTRACT
-    )
+    payload["content_hash"] = content_hash(unsigned, schema_id=GENERATED_ARTIFACT_CONTRACT)
     validate_payload(GENERATED_ARTIFACT_CONTRACT, payload)
     return payload
