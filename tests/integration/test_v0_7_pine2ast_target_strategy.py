@@ -121,14 +121,12 @@ def test_v0_7_real_pine2ast_fixtures_translate_and_compile(
 
 
 def test_v0_7_unsupported_request_financial_is_diagnostic_not_placeholder_crash() -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("Financial NA")
 eps = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE", "FQ")
 confirmed = barstate.isconfirmed and not na(eps)
 plot(confirmed ? eps : na)
-"""
-    )
+""")
     with pytest.raises(UnsupportedBuiltinError):
         translate_ast(program, module_name="request_financial")
 
@@ -148,12 +146,10 @@ plot(confirmed ? eps : na)
 
 
 def test_v0_7_color_new_and_plot_style_translate_from_pine2ast() -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("T")
 plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
-"""
-    )
+""")
     result = translate_ast(program, module_name="color_new_plot_style")
 
     compile(result.code, "color_new_plot_style.py", "exec")
@@ -162,13 +158,11 @@ plot(close, color=color.new(color.lime, 0), style=plot.style_linebr)
 
 
 def test_v0_7_request_footprint_compiles_as_runtime_request() -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("T")
 fp = request.footprint(10, 70, 300)
 plot(not na(fp) ? fp.delta() : close)
-"""
-    )
+""")
     production = translate_ast(program, module_name="footprint_prod")
     assert production.metadata["parity_safe"] is True
     assert "request_footprint_stub" not in production.metadata["unsupported_features"]
@@ -187,14 +181,12 @@ plot(not na(fp) ? fp.delta() : close)
 
 
 def test_v0_7_supported_real_fixture_smoke_executes(tmp_path: Path) -> None:
-    program = parse_pine(
-        """//@version=6
+    program = parse_pine("""//@version=6
 indicator("MA Indicator", overlay=true)
 len = input.int(20, title="Length", minval=1)
 ma = ta.sma(close, len)
 plot(ma)
-"""
-    )
+""")
     result = translate_ast(program, module_name="real_world_ma")
     paths = result.write_to(tmp_path)
     proc = subprocess.run(

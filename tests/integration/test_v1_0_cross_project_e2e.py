@@ -135,14 +135,11 @@ def test_cross_project_invalid_overload_reports_binder_diagnostic(tmp_path: Path
     ast_json = tmp_path / "bad_overload.ast.json"
     out = tmp_path / "generated_bad"
     pine.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             //@version=6
             indicator("bad")
             plot(close, definitely_not_a_plot_arg=1)
-            """
-        ).strip()
-        + "\n",
+            """).strip() + "\n",
         encoding="utf-8",
     )
     parse = _run(
