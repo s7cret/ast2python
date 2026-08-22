@@ -27,6 +27,7 @@ dev = [
   "ruff>=0.6",
   "black>=24",
   "mypy>=1.10",
+  "types-jsonschema>=4.20",
   "build>=1.2",
   "backtest-engine==5.0.0rc3",
 ]
