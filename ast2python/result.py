@@ -13,6 +13,7 @@ class TranslationResult:
     code: str
     metadata: dict[str, Any]
     source_map: list[dict[str, Any]]
+    generated_artifact: dict[str, Any]
     coverage: dict[str, Any]
     diagnostics: list[Diagnostic]
     module_name: str
@@ -23,6 +24,7 @@ class TranslationResult:
         py_path = output / f"{self.module_name}.py"
         meta_path = output / f"{self.module_name}.meta.json"
         sourcemap_path = output / f"{self.module_name}.sourcemap.json"
+        artifact_path = output / f"{self.module_name}.artifact.json"
         coverage_path = output / f"{self.module_name}.coverage.json"
         py_path.write_text(self.code, encoding="utf-8")
         meta_path.write_text(
@@ -31,6 +33,10 @@ class TranslationResult:
         sourcemap_path.write_text(
             json.dumps(self.source_map, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        artifact_path.write_text(
+            json.dumps(self.generated_artifact, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         coverage_path.write_text(
             json.dumps(self.coverage, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
@@ -38,5 +44,6 @@ class TranslationResult:
             "python": py_path,
             "metadata": meta_path,
             "source_map": sourcemap_path,
+            "generated_artifact": artifact_path,
             "coverage": coverage_path,
         }

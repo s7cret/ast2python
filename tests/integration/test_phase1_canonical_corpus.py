@@ -12,6 +12,7 @@ from backtest_engine.adapters.generated_strategy import (
     make_generated_strategy_adapter,
 )
 from backtest_engine.models import Bar as EngineBar
+from openpine_contracts import Finality
 from pine2ast.api import ParseOptions, parse_code, runtime_contract_v1_4_options
 from pine2ast.ast.serialize import ast_to_dict
 from pinelib.core import Bar as PineBar
@@ -44,6 +45,7 @@ def _bars() -> list[EngineBar]:
                 close=close,
                 volume=100.0 + index,
                 time_close=start + 59_999,
+                finality=Finality.FINAL,
             )
         )
     return bars

@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.0.0rc3
+
+- Canonical translation now returns and persists a catalog-valid, sealed
+  `openpine.generated_artifact.v2` envelope alongside emitted Python and a
+  complete runtime-call source map.
+- Bound deterministic source/frontend/AST/module/source-map/support hashes,
+  immutable producer commits, computed import and capability boundaries, and a
+  unique generated entrypoint.
+- Replaced VCS requirements with exact coordinated `5.0.0rc3` package pins.
+
 ## 4.0.2
 
 - Pinned the coordinated Pine2AST, PineLib, Backtest Engine, and MarketData Provider 4.0.2 release commits.

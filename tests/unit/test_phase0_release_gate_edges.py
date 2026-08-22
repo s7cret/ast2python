@@ -26,30 +26,31 @@ def test_mypy_follows_sibling_types_without_reporting_sibling_internals() -> Non
     assert sibling_override["follow_imports"] == "silent"
 
 
-def test_pine2ast_dependency_is_pinned_to_the_release_evidence_sha() -> None:
+def test_pine2ast_dependency_is_an_exact_rc3_wheel_requirement() -> None:
     root = Path(__file__).resolve().parents[2]
     config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
     dependency = next(
-        item for item in config["project"]["dependencies"] if item.startswith("pine2ast @ ")
+        item for item in config["project"]["dependencies"] if item.startswith("pine2ast")
     )
-    assert dependency == (
-        "pine2ast @ git+https://github.com/s7cret/pine2ast.git"
-        "@4a3dd35b5b2d4385f09eed04b82804d689c080e8"
-    )
+    assert dependency == "pine2ast==5.0.0rc3"
 
 
-def test_pinelib_dependency_is_pinned_to_the_release_evidence_sha() -> None:
+def test_pinelib_dependency_is_an_exact_rc3_wheel_requirement() -> None:
     root = Path(__file__).resolve().parents[2]
     config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
     dependency = next(
-        item for item in config["project"]["dependencies"] if item.startswith("pinelib @ ")
+        item for item in config["project"]["dependencies"] if item.startswith("pinelib")
     )
-    assert dependency == (
-        "pinelib @ git+https://github.com/s7cret/pinelib.git"
-        "@801b908e0ba53d1387cfd032cb6d29aa53ba0ca0"
-    )
+    assert dependency == "pinelib==5.0.0rc3"
+
+
+def test_release_dependencies_do_not_use_vcs_urls() -> None:
+    root = Path(__file__).resolve().parents[2]
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert all("git+" not in item for item in config["project"]["dependencies"])
 
 
 def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> None:

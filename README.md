@@ -1,8 +1,8 @@
-# AST2Python 4.0.2
+# AST2Python 5.0.0rc3
 
 > Code-generation layer that lowers Pine2AST contracts into deterministic Python modules targeting the PineLib runtime.
 
-[![Version](https://img.shields.io/badge/version-4.0.2-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
+[![Version](https://img.shields.io/badge/version-5.0.0rc3-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
 
 
 **GitHub description:** AST2Python converts Pine2AST JSON into PineLib-compatible Python modules with source maps, lowering diagnostics, visual-call policy, and OpenPine runtime metadata.
@@ -25,7 +25,8 @@ Pine source -> pine2ast -> AST JSON -> ast2python -> generated Python -> pinelib
 | Optional frontend metadata | `openpine.frontend.v2` |
 | Runtime target | PineLib runtime contract `1.4` |
 | Supported Python | `>=3.11` |
-| Release line | `4.0.2`, aligned with Pine2AST/PineLib 4.0.2 |
+| Generated artifact | `openpine.generated_artifact.v2` |
+| Release line | `5.0.0rc3`, aligned with Pine2AST/PineLib 5.0.0rc3 |
 
 ## What it does
 
@@ -53,7 +54,7 @@ python -m pip install -e '.[dev]'
 Install from GitHub tag:
 
 ```bash
-python -m pip install 'git+https://github.com/s7cret/ast2python.git@v4.0.2'
+python -m pip install 'ast2python==5.0.0rc3'
 ```
 
 For source-stack development, install `pine2ast` and `pinelib` first:

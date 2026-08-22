@@ -23,7 +23,7 @@ def test_public_api_is_explicit_and_semver_aligned() -> None:
         "__version__",
         "translate_ast",
     ]
-    assert ast2python.__version__ == __version__ == "4.0.2"
+    assert ast2python.__version__ == __version__ == "5.0.0rc3"
     assert ast2python.Translator is Translator
     assert ast2python.TranslationResult is TranslationResult
     assert ast2python.translate_ast is translate_ast
@@ -107,8 +107,8 @@ def test_translation_performance_smoke() -> None:
 
 
 def test_release_manifest_has_current_archive_and_docs() -> None:
-    manifest = json.loads(Path("RELEASE_MANIFEST_v4.0.2.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "4.0.2"
-    assert manifest["archive"] == "ast2python-4.0.2.zip"
+    manifest = json.loads(Path("RELEASE_MANIFEST_v5.0.0rc3.json").read_text(encoding="utf-8"))
+    assert manifest["version"] == "5.0.0rc3"
+    assert manifest["archive"] == "ast2python-5.0.0rc3.zip"
     assert manifest["contracts"]["ast"] == "pine.ast_contract.v1"
     assert "docs/RELEASE_4_0.md" in manifest["include"]

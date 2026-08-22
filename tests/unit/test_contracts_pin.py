@@ -8,15 +8,11 @@ from ast2python.contracts import (
     OPENPINE_FRONTEND_CONTRACT_VERSION,
 )
 
-PIN = "af9ecbc455e9af83cdc609f6b6ff85c40fb6c8bb"
-
 
 def test_contracts_pin_and_catalog() -> None:
     text = Path("pyproject.toml").read_text(encoding="utf-8")
-    assert (
-        "openpine-contracts @ git+https://github.com/s7cret/openpine-contracts.git@"
-        f"{PIN}" in text
-    )
+    assert '"openpine-contracts==5.0.0rc3"' in text
+    assert "openpine-contracts @ git+" not in text
     ids = list_schema_ids()
     assert "openpine.generated_artifact.v2" in ids
     assert "openpine.intent.v2" in ids
@@ -36,8 +32,9 @@ def test_generated_artifact_v2_validates_and_requires_profile() -> None:
     payload = build_generated_artifact_v2(
         source='//@version=6\nindicator("T")\nplot(close)\n',
         ast_payload={"kind": "Program"},
-        emitted_module="VALUE = 1\n",
+        emitted_module="class GeneratedIndicator:\n    pass\n",
         source_map=[],
+        entrypoint_module="generated_indicator",
     )
     validate_payload(GENERATED_ARTIFACT_CONTRACT, payload)
     assert payload["semantic_profile"] == SemanticProfile.STRICT_5X.value
