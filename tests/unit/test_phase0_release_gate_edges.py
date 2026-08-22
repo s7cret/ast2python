@@ -59,7 +59,13 @@ def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> Non
     wheel_smoke = (root / "scripts/wheel_smoke.sh").read_text(encoding="utf-8")
 
     refs = [line.split(":", 1)[1].strip() for line in workflow.splitlines() if "ref:" in line]
-    assert len(refs) == 3
+    assert set(refs) == {
+        "91c405e759206b542d22df242ef55ac49b1f0bb4",
+        "a5870fc40b790b764d70e4eac9db0abbb31a2a15",
+        "7e681f3ce2945d2ba702833b1f82aa4da133d909",
+        "b82216eb2ee899fbfec43bdd367b375a2603c5f3",
+        "2208e0da0d14f467813e781a3c755a019079c8f3",
+    }
     assert all(len(ref) == 40 and set(ref) <= set("0123456789abcdef") for ref in refs)
     assert "bash scripts/wheel_smoke.sh" in workflow
     assert "pip wheel" not in wheel_smoke
