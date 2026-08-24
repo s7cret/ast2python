@@ -64,7 +64,7 @@ def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> Non
         "1715eef9c395b81db24224b6724f16589c1c960a",
         "e5c69acaca70613734985f84a9ef9d28c1a12b79",
         "e098947dfd30444273090e521e5c749673909c37",
-        "2208e0da0d14f467813e781a3c755a019079c8f3",
+        "0dc0b955a1b57a8ec0b9cc2f585853c6979e2a90",
     }
     assert all(len(ref) == 40 and set(ref) <= set("0123456789abcdef") for ref in refs)
     assert "bash scripts/wheel_smoke.sh" in workflow
