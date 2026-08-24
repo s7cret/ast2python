@@ -37,6 +37,8 @@ class TranslatorModuleMixin(TranslatorMixinBase):
         self._emit_run()
         self.emitter.line()
         self._emit_snapshot()
+        self.emitter.line()
+        self._emit_checkpoint_hooks()
         if self.ctx.mode != "library":
             self.emitter.line()
             self._emit_process_bar(program)
@@ -161,7 +163,12 @@ class TranslatorModuleMixin(TranslatorMixinBase):
                 )
 
     def _emit_init(self, declaration: ASTNode) -> None:
-        self.emitter.line("def __init__(self, params=None, runtime=None):")
+        parameters = (
+            "self, params=None, runtime=None, execution_context=None"
+            if self.ctx.mode == "strategy"
+            else "self, params=None, runtime=None"
+        )
+        self.emitter.line(f"def __init__({parameters}):")
         self.emitter.indent()
         self.emitter.line("self.params = params or {}")
         self.emitter.line("self.rt = runtime")
@@ -182,6 +189,9 @@ class TranslatorModuleMixin(TranslatorMixinBase):
         )
         self.emitter.dedent()
         if self.ctx.mode == "strategy":
+            self.emitter.line(
+                "self._execution_context_source_hash = None if execution_context is None else str(execution_context['source_hash'])"
+            )
             self._emit_strategy_context(declaration)
             self.emitter.line("self.ctx.attach_runtime(self.rt)")
         else:
@@ -358,15 +368,110 @@ class TranslatorModuleMixin(TranslatorMixinBase):
 
     def _emit_strategy_context(self, declaration: ASTNode) -> None:
         kwargs = self._strategy_context_kwargs(declaration)
+        declaration_call = declaration.child("call")
+        location = declaration_call.loc if declaration_call is not None else declaration.loc
+        source = declaration_call.source if declaration_call is not None else declaration.source
+        self.emitter.line("if execution_context is None:", loc=location, source=source)
+        self.emitter.indent()
+        self._emit_strategy_context_constructor(kwargs, location=location, source=source)
+        self.emitter.dedent()
+        self.emitter.line("else:")
+        self.emitter.indent()
+        self._emit_strategy_context_constructor(
+            [
+                *kwargs,
+                ("intent_execution_context", "execution_context"),
+                ("intent_strict_production", "True"),
+            ],
+            location=location,
+            source=source,
+        )
+        self.emitter.dedent()
+
+    def _emit_strategy_context_constructor(
+        self,
+        kwargs: list[tuple[str, str]],
+        *,
+        location: Any,
+        source: str | None,
+    ) -> None:
         if kwargs:
-            self.emitter.line("self.ctx = StrategyContext(")
+            self.emitter.line("self.ctx = StrategyContext(", loc=location, source=source)
             self.emitter.indent()
             for key, value in kwargs:
                 self.emitter.line(f"{key}={value},")
             self.emitter.dedent()
             self.emitter.line(")")
         else:
-            self.emitter.line("self.ctx = StrategyContext()")
+            self.emitter.line("self.ctx = StrategyContext()", loc=location, source=source)
+
+    def _emit_checkpoint_hooks(self) -> None:
+        self.emitter.line("def export_checkpoint(self):")
+        self.emitter.indent()
+        self.emitter.line("def export_owned(owner, label):")
+        self.emitter.indent()
+        self.emitter.line("exporter = getattr(owner, 'export_checkpoint', None)")
+        self.emitter.line("if not callable(exporter):")
+        self.emitter.indent()
+        self.emitter.line("exporter = getattr(owner, 'export_state', None)")
+        self.emitter.dedent()
+        self.emitter.line("if not callable(exporter):")
+        self.emitter.indent()
+        self.emitter.line(
+            "raise RuntimeContractError(f'{label} does not expose checkpoint export')"
+        )
+        self.emitter.dedent()
+        self.emitter.line("return exporter()")
+        self.emitter.dedent()
+        self.emitter.line("return {")
+        self.emitter.indent()
+        self.emitter.line("'runtime': export_owned(self.rt, 'runtime'),")
+        self.emitter.line(
+            "'strategy': None if self.ctx is None else export_owned(self.ctx, 'strategy'),"
+        )
+        self.emitter.line("'var_initialized': dict(self._var_initialized),")
+        self.emitter.line(
+            "'series_initialized': bool(getattr(self, '_series_initialized', False)),"
+        )
+        self.emitter.dedent()
+        self.emitter.line("}")
+        self.emitter.dedent()
+        self.emitter.line()
+        self.emitter.line("def restore_checkpoint(self, checkpoint):")
+        self.emitter.indent()
+        self.emitter.line(
+            "required = {'runtime', 'strategy', 'var_initialized', 'series_initialized'}"
+        )
+        self.emitter.line("if not isinstance(checkpoint, dict) or set(checkpoint) != required:")
+        self.emitter.indent()
+        self.emitter.line(
+            "raise RuntimeContractError('generated checkpoint ownership schema mismatch')"
+        )
+        self.emitter.dedent()
+        self.emitter.line("def restore_owned(owner, state, label):")
+        self.emitter.indent()
+        self.emitter.line("if owner is None and state is None:")
+        self.emitter.indent()
+        self.emitter.line("return")
+        self.emitter.dedent()
+        self.emitter.line("restorer = getattr(owner, 'restore_checkpoint', None)")
+        self.emitter.line("if not callable(restorer):")
+        self.emitter.indent()
+        self.emitter.line("restorer = getattr(owner, 'restore_state', None)")
+        self.emitter.dedent()
+        self.emitter.line("if not callable(restorer):")
+        self.emitter.indent()
+        self.emitter.line(
+            "raise RuntimeContractError(f'{label} does not expose checkpoint restore')"
+        )
+        self.emitter.dedent()
+        self.emitter.line("restorer(state)")
+        self.emitter.dedent()
+        self.emitter.line("restore_owned(self.rt, checkpoint['runtime'], 'runtime')")
+        self.emitter.line("restore_owned(self.ctx, checkpoint['strategy'], 'strategy')")
+        self.emitter.line("self._var_initialized = dict(checkpoint['var_initialized'])")
+        self.emitter.line("self._series_initialized = bool(checkpoint['series_initialized'])")
+        self.emitter.dedent()
 
     def _emit_run(self) -> None:
         if self.ctx.mode == "strategy":

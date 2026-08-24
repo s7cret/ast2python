@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.0rc4
+
+- Injects admitted execution context into generated strategies and emits paired runtime/strategy checkpoint hooks.
+- Records nested Pine calls and strategy declaration context at call-level source-map precision.
+- Pins Contracts, Pine2AST, PineLib, and Marketdata to their immutable RC.4 candidate SHAs.
+
 ## 5.0.0rc3
 
 - Canonical translation now returns and persists a catalog-valid, sealed

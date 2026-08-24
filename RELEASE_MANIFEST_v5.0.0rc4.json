@@ -1,6 +1,6 @@
 {
-  "version": "5.0.0rc3",
-  "archive": "ast2python-5.0.0rc3.zip",
+  "version": "5.0.0rc4",
+  "archive": "ast2python-5.0.0rc4.zip",
   "contracts": {
     "ast": "pine.ast_contract.v1",
     "openpine_frontend": "openpine.frontend.v2",
@@ -8,9 +8,9 @@
     "runtime": "1.4"
   },
   "dependencies": {
-    "openpine-contracts": "5.0.0rc3",
-    "pine2ast": "5.0.0rc3",
-    "pinelib": "5.0.0rc3"
+    "openpine-contracts": "5.0.0rc4",
+    "pine2ast": "5.0.0rc4",
+    "pinelib": "5.0.0rc4"
   },
   "include": [
     "README.md",

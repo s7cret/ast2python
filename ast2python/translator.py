@@ -108,6 +108,7 @@ class Translator(
         self.methods: set[str] = set()
         self._temp_series_index: int = 0
         self._lazy_branch_depth: int = 0
+        self._call_source_records: list[tuple[int, str, Any, str | None]] = []
 
     def translate_file(
         self, path: str | Path, *, module_name: str | None = None
@@ -131,6 +132,7 @@ class Translator(
             program = ensure_program_node(program)
         # Reset per-translation state that lives on the Translator instance.
         self._var_init_emitted = set()
+        self._call_source_records = []
         problems = validate_ast(program)
         if problems:
             raise ValidationError("; ".join(problems))
@@ -153,6 +155,7 @@ class Translator(
         coverage = self.ctx.coverage.to_dict()
         coverage.update(self._source_map_line_coverage(program))
         emitted_module = self.emitter.render()
+        self._attach_call_source_maps(emitted_module)
         from ast2python.artifact import build_generated_artifact_v2, complete_source_map
 
         source_map = complete_source_map(emitted_module, self.ctx.source_map.to_list())
@@ -179,6 +182,21 @@ class Translator(
             diagnostics=self.ctx.diagnostics,
             module_name=result_module_name,
         )
+
+    def _record_call_source(self, node: Any, rendered: str) -> None:
+        if node.loc is None:
+            return
+        self._call_source_records.append(
+            (self.emitter.line_count + 1, rendered, node.loc, node.source)
+        )
+
+    def _attach_call_source_maps(self, emitted_module: str) -> None:
+        lines = emitted_module.splitlines()
+        for start_line, rendered, location, source in self._call_source_records:
+            for index in range(max(0, start_line - 1), len(lines)):
+                if rendered in lines[index]:
+                    self.ctx.source_map.add(index + 1, location, pine_source=source)
+                    break
 
 
 from ast2python.translate_api import translate_ast

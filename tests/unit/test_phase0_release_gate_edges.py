@@ -26,24 +26,24 @@ def test_mypy_follows_sibling_types_without_reporting_sibling_internals() -> Non
     assert sibling_override["follow_imports"] == "silent"
 
 
-def test_pine2ast_dependency_is_an_exact_rc3_wheel_requirement() -> None:
+def test_pine2ast_dependency_is_an_exact_rc4_wheel_requirement() -> None:
     root = Path(__file__).resolve().parents[2]
     config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
     dependency = next(
         item for item in config["project"]["dependencies"] if item.startswith("pine2ast")
     )
-    assert dependency == "pine2ast==5.0.0rc3"
+    assert dependency == "pine2ast==5.0.0rc4"
 
 
-def test_pinelib_dependency_is_an_exact_rc3_wheel_requirement() -> None:
+def test_pinelib_dependency_is_an_exact_rc4_wheel_requirement() -> None:
     root = Path(__file__).resolve().parents[2]
     config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
     dependency = next(
         item for item in config["project"]["dependencies"] if item.startswith("pinelib")
     )
-    assert dependency == "pinelib==5.0.0rc3"
+    assert dependency == "pinelib==5.0.0rc4"
 
 
 def test_release_dependencies_do_not_use_vcs_urls() -> None:
@@ -60,10 +60,10 @@ def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> Non
 
     refs = [line.split(":", 1)[1].strip() for line in workflow.splitlines() if "ref:" in line]
     assert set(refs) == {
-        "91c405e759206b542d22df242ef55ac49b1f0bb4",
-        "a5870fc40b790b764d70e4eac9db0abbb31a2a15",
-        "7e681f3ce2945d2ba702833b1f82aa4da133d909",
-        "b82216eb2ee899fbfec43bdd367b375a2603c5f3",
+        "bb1a56181e37c6f0ff7a60366d9a550103fcb8df",
+        "1715eef9c395b81db24224b6724f16589c1c960a",
+        "e5c69acaca70613734985f84a9ef9d28c1a12b79",
+        "e098947dfd30444273090e521e5c749673909c37",
         "2208e0da0d14f467813e781a3c755a019079c8f3",
     }
     assert all(len(ref) == 40 and set(ref) <= set("0123456789abcdef") for ref in refs)

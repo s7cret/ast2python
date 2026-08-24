@@ -28,7 +28,7 @@ class TranslatorCallMixin(TranslatorMixinBase):
                 return self._translate_na_helper_call("na", node, runtime_expr=runtime_expr)
             raise UnsupportedBuiltinError("Unsupported call target")
 
-        return dispatch_call(
+        rendered = dispatch_call(
             self,
             callee_chain,
             node,
@@ -37,6 +37,8 @@ class TranslatorCallMixin(TranslatorMixinBase):
             exact_handlers=CALL_EXACT,
             prefix_handlers=CALL_PREFIX,
         )
+        self._record_call_source(node, rendered)
+        return rendered
 
     def _translate_na_helper_call(self, name: str, node: ASTNode, *, runtime_expr: str) -> str:
         arguments = self._call_arguments(node)
@@ -305,7 +307,28 @@ class TranslatorCallMixin(TranslatorMixinBase):
                 pieces.append(rendered)
             else:
                 pieces.append(f"{arg_name}={rendered}")
-        pieces.append(f'source_map="{node.loc.source_map if node.loc else ""}"')
+        source_span = "None"
+        if node.loc is not None:
+            fields = {
+                "start_offset": node.loc.start_offset,
+                "end_offset": node.loc.end_offset,
+                "start_line": node.loc.line,
+                "start_col": node.loc.column,
+                "end_line": node.loc.end_line,
+                "end_col": node.loc.end_column,
+            }
+            if all(value is not None for value in fields.values()):
+                unknown = {"known": False, "source_hash": None, **dict.fromkeys(fields)}
+                known_fields = ", ".join(f"{key!r}: {value!r}" for key, value in fields.items())
+                source_span = (
+                    f"({unknown!r} if self._execution_context_source_hash is None else "
+                    f"{{'known': True, 'source_hash': self._execution_context_source_hash, {known_fields}}})"
+                )
+            else:
+                source_span = repr(
+                    {key: value for key, value in fields.items() if value is not None}
+                )
+        pieces.append(f"source_map={source_span}")
         self.ctx.coverage.builtin(name)
         return f"self.ctx.{method}({', '.join(pieces)})"
 

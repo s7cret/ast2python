@@ -62,12 +62,16 @@ def _span_to_loc(span: dict[str, Any]) -> SourceLocation:
             column=start.get("column"),
             end_line=end.get("line"),
             end_column=end.get("column"),
+            start_offset=start.get("offset", span.get("start_offset")),
+            end_offset=end.get("offset", span.get("end_offset")),
         )
     return SourceLocation(
         line=span.get("start_line") or span.get("line"),
         column=span.get("start_col") or span.get("column"),
         end_line=span.get("end_line"),
         end_column=span.get("end_col"),
+        start_offset=span.get("start_offset"),
+        end_offset=span.get("end_offset"),
     )
 
 

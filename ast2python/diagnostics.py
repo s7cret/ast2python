@@ -16,6 +16,8 @@ class SourceLocation:
     column: int | None = None
     end_line: int | None = None
     end_column: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
     @property
     def source_map(self) -> str | None:

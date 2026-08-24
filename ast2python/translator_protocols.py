@@ -52,6 +52,7 @@ class TranslatorMixinProtocol(Protocol):
     methods: set[str]
     _temp_series_index: int
     _lazy_branch_depth: int
+    _call_source_records: list[tuple[int, str, Any, str | None]]
 
     def translate_expression(self, node: ASTNode, *, runtime_expr: str = "self.rt") -> str: ...
 
@@ -76,6 +77,8 @@ class TranslatorMixinProtocol(Protocol):
     def _extract_declaration_title(self, declaration: ASTNode) -> str: ...
 
     def _translate_call(self, node: ASTNode, *, runtime_expr: str) -> str: ...
+
+    def _record_call_source(self, node: ASTNode, rendered: str) -> None: ...
 
     def _infer_dtype(self, node: ASTNode | None) -> str: ...
 
