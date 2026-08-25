@@ -1,0 +1,30 @@
+{
+  "version": "5.0.0rc5",
+  "archive": "ast2python-5.0.0rc5.zip",
+  "contracts": {
+    "ast": "pine.ast_contract.v1",
+    "openpine_frontend": "openpine.frontend.v2",
+    "generated_artifact": "openpine.generated_artifact.v2",
+    "runtime": "1.4"
+  },
+  "dependencies": {
+    "openpine-contracts": "5.0.0rc5",
+    "pine2ast": "5.0.0rc5",
+    "pinelib": "5.0.0rc5"
+  },
+  "include": [
+    "README.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "ast2python/",
+    "tests/",
+    "scripts/",
+    "docs/README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/COMPATIBILITY.md",
+    "docs/DEVELOPMENT.md",
+    "docs/OPENPINE_PIPELINE.md",
+    "docs/RELEASE_4_0.md",
+    "docs/SECURITY.md"
+  ]
+}

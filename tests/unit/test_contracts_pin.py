@@ -11,7 +11,7 @@ from ast2python.contracts import (
 
 def test_contracts_pin_and_catalog() -> None:
     text = Path("pyproject.toml").read_text(encoding="utf-8")
-    assert '"openpine-contracts==5.0.0rc4"' in text
+    assert '"openpine-contracts==5.0.0rc5"' in text
     assert "openpine-contracts @ git+" not in text
     ids = list_schema_ids()
     assert "openpine.generated_artifact.v2" in ids

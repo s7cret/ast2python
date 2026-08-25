@@ -362,7 +362,7 @@ def test_distribution_release_quality_and_matrix(
         "SECURITY.md",
     ]:
         (root / "docs" / doc).write_text("x", encoding="utf-8")
-    (root / "RELEASE_MANIFEST_v5.0.0rc4.json").write_text("{}", encoding="utf-8")
+    (root / "RELEASE_MANIFEST_v5.0.0rc5.json").write_text("{}", encoding="utf-8")
     catalog = root / "ast2python/lowering_matrix/cross_layer_catalog.json"
     catalog.parent.mkdir(parents=True)
     lowering_matrix = catalog.with_name("lowering_matrix.json")

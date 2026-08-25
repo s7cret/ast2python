@@ -1,8 +1,8 @@
-# AST2Python 5.0.0rc4
+# AST2Python 5.0.0rc5
 
 > Code-generation layer that lowers Pine2AST contracts into deterministic Python modules targeting the PineLib runtime.
 
-[![Version](https://img.shields.io/badge/version-5.0.0rc4-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
+[![Version](https://img.shields.io/badge/version-5.0.0rc5-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
 
 
 **GitHub description:** AST2Python converts Pine2AST JSON into PineLib-compatible Python modules with source maps, lowering diagnostics, visual-call policy, and OpenPine runtime metadata.
@@ -26,7 +26,7 @@ Pine source -> pine2ast -> AST JSON -> ast2python -> generated Python -> pinelib
 | Runtime target | PineLib runtime contract `1.4` |
 | Supported Python | `>=3.11` |
 | Generated artifact | `openpine.generated_artifact.v2` |
-| Release line | `5.0.0rc4`, aligned with Pine2AST/PineLib 5.0.0rc4 |
+| Release line | `5.0.0rc5`, aligned with Pine2AST/PineLib 5.0.0rc5 |
 
 ## What it does
 
@@ -54,7 +54,7 @@ python -m pip install -e '.[dev]'
 Install from GitHub tag:
 
 ```bash
-python -m pip install 'ast2python==5.0.0rc4'
+python -m pip install 'ast2python==5.0.0rc5'
 ```
 
 For source-stack development, install `pine2ast` and `pinelib` first:

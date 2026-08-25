@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.0.0rc5
+
+- Advances generated-artifact producer and package metadata to the coordinated RC.5 identity.
+- Pins exact RC.5 compiler/runtime dependencies without changing lowering semantics.
+
 ## 5.0.0rc4
 
 - Injects admitted execution context into generated strategies and emits paired runtime/strategy checkpoint hooks.

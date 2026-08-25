@@ -33,7 +33,7 @@ def test_pine2ast_dependency_is_an_exact_rc4_wheel_requirement() -> None:
     dependency = next(
         item for item in config["project"]["dependencies"] if item.startswith("pine2ast")
     )
-    assert dependency == "pine2ast==5.0.0rc4"
+    assert dependency == "pine2ast==5.0.0rc5"
 
 
 def test_pinelib_dependency_is_an_exact_rc4_wheel_requirement() -> None:
@@ -43,7 +43,7 @@ def test_pinelib_dependency_is_an_exact_rc4_wheel_requirement() -> None:
     dependency = next(
         item for item in config["project"]["dependencies"] if item.startswith("pinelib")
     )
-    assert dependency == "pinelib==5.0.0rc4"
+    assert dependency == "pinelib==5.0.0rc5"
 
 
 def test_release_dependencies_do_not_use_vcs_urls() -> None:
@@ -60,13 +60,16 @@ def test_ci_sibling_checkouts_are_immutable_and_wheel_smoke_is_isolated() -> Non
 
     refs = [line.split(":", 1)[1].strip() for line in workflow.splitlines() if "ref:" in line]
     assert set(refs) == {
-        "bb1a56181e37c6f0ff7a60366d9a550103fcb8df",
-        "1715eef9c395b81db24224b6724f16589c1c960a",
-        "e5c69acaca70613734985f84a9ef9d28c1a12b79",
-        "e098947dfd30444273090e521e5c749673909c37",
-        "0dc0b955a1b57a8ec0b9cc2f585853c6979e2a90",
+        "6b5e67445e2772057cd877e158c7aa0c58bdfe37",
+        "325ddd17f4ced3c42739fa58bc902a927c2d4ac6",
+        "1204d02ed5cea1a3be8b5e8252bc4d881c539a25",
+        "de1cb68be33a9b51ee6ddf2513932c90af721874",
+        "0a8a6a62e3556e9c3ef4cd0b5bcd048ce3cd62a0",
     }
     assert all(len(ref) == 40 and set(ref) <= set("0123456789abcdef") for ref in refs)
+    assert "push:\n    branches: [main]" in workflow
+    assert "pull_request:\n    branches: [main]" in workflow
+    assert "github.event.pull_request.number || github.ref" in workflow
     assert "bash scripts/wheel_smoke.sh" in workflow
     assert "pip wheel" not in wheel_smoke
     assert "--no-build-isolation" not in wheel_smoke

@@ -34,7 +34,7 @@ def _upstream_artifacts() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any
     common = {
         "schema_version": "2.0.0",
         "producer": "test",
-        "producer_version": "5.0.0-rc.4",
+        "producer_version": "5.0.0-rc.5",
         "producer_commit": COMMITS["pine2ast"],
         "stack_id": "openpine-5.0",
         "created_at_utc_ms": 17,
@@ -161,7 +161,7 @@ def test_canonical_translation_returns_catalog_valid_sealed_artifact(
     artifact = result.generated_artifact
 
     validate_payload(GENERATED_ARTIFACT_CONTRACT, artifact)
-    assert artifact["producer_version"] == "5.0.0-rc.4"
+    assert artifact["producer_version"] == "5.0.0-rc.5"
     assert artifact["producer_commit"] == COMMITS["ast2python"]
     assert artifact["producer_commits"] == COMMITS
     assert all(re.fullmatch(r"[0-9a-f]{40}", value) for value in COMMITS.values())
