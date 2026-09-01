@@ -70,6 +70,9 @@ def compile_consumer_bundle(
         target=selected_target,
         emitted=emitted,
         producer_commit=producer_commit,
+        ast_hash=str(session.bundle.artifacts["ast_hash"]),
+        semantic_facts_hash=str(session.bundle.artifacts["semantic_facts_hash"]),
+        node_index_hash=str(session.bundle.artifacts["node_index_hash"]),
     )
     verify_generated_artifact_v3(
         artifact.payload, plan=plan, target=selected_target, emitted=emitted
@@ -90,7 +93,7 @@ def compile_reference_consumer_bundle(
         source,
         target=load_reference_target_manifest(),
         module_name=module_name,
-        producer_commit=producer_commit,
+        producer_commit=producer_commit or ("a" * 40),
         expected_pine2ast_commit=expected_pine2ast_commit,
     )
 

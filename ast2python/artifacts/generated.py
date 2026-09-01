@@ -20,6 +20,10 @@ class GeneratedArtifactV3:
         return dict(self.payload)
 
 
+def _sha256_identity(payload: Mapping[str, Any]) -> str:
+    return "sha256:" + hashlib.sha256(canonical_json_bytes(dict(payload))).hexdigest()
+
+
 def build_generated_artifact_v3(
     *,
     bundle_hash: str,
@@ -29,20 +33,44 @@ def build_generated_artifact_v3(
     target: TargetManifest,
     emitted: EmittedPythonModule,
     producer_commit: str | None = None,
+    ast_hash: str,
+    semantic_facts_hash: str,
+    node_index_hash: str,
+    stack_manifest_hash: str | None = None,
+    producer_wheel_hash: str | None = None,
 ) -> GeneratedArtifactV3:
-    if producer_commit is not None and (
-        len(producer_commit) != 40
+    if (
+        producer_commit is None
+        or len(producer_commit) != 40
         or any(char not in "0123456789abcdef" for char in producer_commit)
     ):
         raise BundleInvariantError(
             "A2P_ARTIFACT_COMMIT",
-            "producer_commit must be 40 lowercase hexadecimal characters or null",
+            "producer_commit must be an exact 40-character lowercase Git SHA",
         )
     disposition_counts = {
         status.value: sum(disposition.status is status for disposition in plan.dispositions)
         for status in LoweringDispositionStatus
     }
     mapped_ir_ids = {entry.ir_id for entry in emitted.source_map.entries if entry.ir_id is not None}
+    import_manifest = list(emitted.import_manifest)
+    build_manifest_hash = _sha256_identity(
+        {
+            "producer_commit": producer_commit,
+            "bundle_hash": bundle_hash,
+            "target_manifest_hash": target.content_hash,
+            "lowering_plan_hash": plan.content_hash,
+            "emitted_module_hash": emitted.code_hash,
+        }
+    )
+    resolved_wheel_hash = producer_wheel_hash or _sha256_identity(
+        {
+            "name": "ast2python",
+            "version": __version__,
+            "commit": producer_commit,
+        }
+    )
+    resolved_stack_hash = stack_manifest_hash or build_manifest_hash
     body: dict[str, Any] = {
         "schema_id": "openpine.generated_artifact.v3",
         "schema_version": "3.0.0",
@@ -50,20 +78,36 @@ def build_generated_artifact_v3(
             "name": "ast2python",
             "version": __version__,
             "commit": producer_commit,
-            "source_state": "COMMIT_PINNED" if producer_commit else "UNCOMMITTED_LOCAL_BUILD",
+            "source_state": "COMMIT_PINNED",
+        },
+        "build_identity": {
+            "build_manifest_hash": build_manifest_hash,
+            "producer_wheel_hash": resolved_wheel_hash,
+            "stack_manifest_hash": resolved_stack_hash,
         },
         "bundle_hash": bundle_hash,
         "source_hash": source_hash,
         "version_context": dict(version_context),
         "catalog_hash": plan.catalog_hash,
+        "ast_hash": ast_hash,
+        "semantic_facts_hash": semantic_facts_hash,
+        "node_index_hash": node_index_hash,
+        "lowering_pack_id": "ast2python.lowering.rc6.v1",
+        "lowering_pack_hash": plan.content_hash,
         "lowering_plan_hash": plan.content_hash,
         "target_manifest_hash": target.content_hash,
+        "target_abi_id": "pinelib.generated_abi.v1",
+        "target_abi_hash": target.content_hash,
         "emitted_module_hash": emitted.code_hash,
         "source_map_hash": emitted.source_map.content_hash,
+        "import_manifest": import_manifest,
+        "import_manifest_hash": _sha256_identity({"import_manifest": import_manifest}),
         "entrypoint": {"module": emitted.module_name, "class": emitted.entrypoint_class},
         "required_operations": sorted(plan.required_operations),
         "required_capabilities": sorted(plan.required_capabilities),
-        "import_manifest": list(emitted.import_manifest),
+        "visual_projection_policy": "VISUAL_TAPE_REQUIRED",
+        "external_library_dependency_hashes": {},
+        "build_determinism_identity": build_manifest_hash,
         "projection_proof": {
             "disposition_counts": disposition_counts,
             "source_node_count": len(plan.dispositions),
@@ -78,7 +122,7 @@ def build_generated_artifact_v3(
             "tradingview_oracle": "NOT_CLAIMED",
         },
     }
-    body["content_hash"] = "sha256:" + hashlib.sha256(canonical_json_bytes(body)).hexdigest()
+    body["content_hash"] = _sha256_identity(body)
     return GeneratedArtifactV3(payload=body)
 
 
@@ -97,18 +141,30 @@ def verify_generated_artifact_v3(
         "schema_id",
         "schema_version",
         "producer",
+        "build_identity",
         "bundle_hash",
         "source_hash",
         "version_context",
         "catalog_hash",
+        "ast_hash",
+        "semantic_facts_hash",
+        "node_index_hash",
+        "lowering_pack_id",
+        "lowering_pack_hash",
         "lowering_plan_hash",
         "target_manifest_hash",
+        "target_abi_id",
+        "target_abi_hash",
         "emitted_module_hash",
         "source_map_hash",
         "entrypoint",
         "required_operations",
         "required_capabilities",
         "import_manifest",
+        "import_manifest_hash",
+        "visual_projection_policy",
+        "external_library_dependency_hashes",
+        "build_determinism_identity",
         "projection_proof",
         "release_acceptance",
         "content_hash",
@@ -129,10 +185,17 @@ def verify_generated_artifact_v3(
         "bundle_hash",
         "source_hash",
         "catalog_hash",
+        "ast_hash",
+        "semantic_facts_hash",
+        "node_index_hash",
+        "lowering_pack_hash",
         "lowering_plan_hash",
         "target_manifest_hash",
+        "target_abi_hash",
         "emitted_module_hash",
         "source_map_hash",
+        "import_manifest_hash",
+        "build_determinism_identity",
         "content_hash",
     ):
         if (
@@ -153,14 +216,68 @@ def verify_generated_artifact_v3(
     if producer.get("name") != "ast2python" or producer.get("version") != __version__:
         raise BundleInvariantError("A2P_ARTIFACT_PRODUCER", "producer identity mismatch")
     commit = producer.get("commit")
-    if commit is not None and (
-        not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None
-    ):
+    if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
         raise BundleInvariantError("A2P_ARTIFACT_COMMIT", "producer commit is malformed")
-    expected_state = "COMMIT_PINNED" if commit else "UNCOMMITTED_LOCAL_BUILD"
-    if producer.get("source_state") != expected_state:
+    if producer.get("source_state") != "COMMIT_PINNED":
         raise BundleInvariantError(
-            "A2P_ARTIFACT_SOURCE_STATE", "producer source_state contradicts commit"
+            "A2P_ARTIFACT_SOURCE_STATE", "canonical generated artifacts must be COMMIT_PINNED"
+        )
+    build_identity = artifact.get("build_identity")
+    if not isinstance(build_identity, Mapping) or set(build_identity) != {
+        "build_manifest_hash",
+        "producer_wheel_hash",
+        "stack_manifest_hash",
+    }:
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_BUILD_IDENTITY", "build_identity fields are not exact"
+        )
+    for field in (
+        "build_manifest_hash",
+        "producer_wheel_hash",
+        "stack_manifest_hash",
+    ):
+        if (
+            not isinstance(build_identity.get(field), str)
+            or hash_re.fullmatch(str(build_identity.get(field))) is None
+        ):
+            raise BundleInvariantError(
+                "A2P_ARTIFACT_HASH_FORMAT", f"build_identity.{field} must be a sha256 identity"
+            )
+    if artifact.get("lowering_pack_id") != "ast2python.lowering.rc6.v1":
+        raise BundleInvariantError("A2P_ARTIFACT_LOWERING_PACK", "lowering_pack_id is invalid")
+    if artifact.get("target_abi_id") != "pinelib.generated_abi.v1":
+        raise BundleInvariantError("A2P_ARTIFACT_TARGET_ABI", "target_abi_id is invalid")
+    if artifact.get("visual_projection_policy") != "VISUAL_TAPE_REQUIRED":
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_VISUAL_POLICY", "visual_projection_policy must be VISUAL_TAPE_REQUIRED"
+        )
+    if artifact.get("external_library_dependency_hashes") != {}:
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_EXTERNAL_LIBS",
+            "external_library_dependency_hashes must be empty for the exact target",
+        )
+    if artifact.get("build_determinism_identity") != build_identity.get("build_manifest_hash"):
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_BUILD_IDENTITY",
+            "build_determinism_identity must match build_manifest_hash",
+        )
+    expected_build_manifest_hash = _sha256_identity(
+        {
+            "producer_commit": commit,
+            "bundle_hash": artifact["bundle_hash"],
+            "target_manifest_hash": artifact["target_manifest_hash"],
+            "lowering_plan_hash": artifact["lowering_plan_hash"],
+            "emitted_module_hash": artifact["emitted_module_hash"],
+        }
+    )
+    if build_identity.get("build_manifest_hash") != expected_build_manifest_hash:
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_BUILD_IDENTITY", "build_manifest_hash does not match sealed inputs"
+        )
+    if build_identity.get("stack_manifest_hash") != expected_build_manifest_hash:
+        raise BundleInvariantError(
+            "A2P_ARTIFACT_BUILD_IDENTITY",
+            "stack_manifest_hash must match the sealed build manifest",
         )
     version_context = artifact.get("version_context")
     if not isinstance(version_context, Mapping):

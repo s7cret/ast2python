@@ -259,7 +259,17 @@ def artifact_mutants(artifact: Mapping[str, Any]) -> list[tuple[str, dict[str, A
     add("producer-name", lambda d: d["producer"].__setitem__("name", "other"))
     add("producer-version", lambda d: d["producer"].__setitem__("version", "0"))
     add("producer-commit", lambda d: d["producer"].__setitem__("commit", "bad"))
-    add("producer-state", lambda d: d["producer"].__setitem__("source_state", "COMMIT_PINNED"))
+    add(
+        "producer-state",
+        lambda d: d["producer"].__setitem__("source_state", "UNCOMMITTED_LOCAL_BUILD"),
+    )
+    add(
+        "build-identity-stack",
+        lambda d: d["build_identity"].__setitem__("stack_manifest_hash", _bad_hash(27)),
+    )
+    add("lowering-pack-id", lambda d: d.__setitem__("lowering_pack_id", "wrong"))
+    add("target-abi-id", lambda d: d.__setitem__("target_abi_id", "wrong"))
+    add("visual-policy", lambda d: d.__setitem__("visual_projection_policy", "OPTIONAL"))
     add("bundle-hash", lambda d: d.__setitem__("bundle_hash", "bad"))
     add("source-hash", lambda d: d.__setitem__("source_hash", "bad"))
     add("catalog-hash", lambda d: d.__setitem__("catalog_hash", "bad"))

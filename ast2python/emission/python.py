@@ -428,8 +428,6 @@ class _DirectEmitter:
         local = self._lookup_local(scope, name)
         if local is not None:
             return local
-        if name == "na":
-            return "None"
         if name in self.functions_by_name:
             return f"self.{self.functions_by_name[name]}"
         symbol_id = attrs.get("symbol_id")
@@ -437,6 +435,12 @@ class _DirectEmitter:
             binding = self.target.value_bindings.get(symbol_id)
             if binding is not None:
                 return self._value(ir_id, binding)
+        if name == "na" or symbol_id == "pine:variable:na":
+            raise BundleInvariantError(
+                "A2P_NA_UNSUPPORTED_FAIL_CLOSED",
+                "pine:variable:na is unsupported fail-closed for exact-target lowering",
+                details={"ir_id": ir_id, "symbol_id": symbol_id},
+            )
         raise BundleInvariantError(
             "A2P_EMIT_VALUE_BINDING",
             f"no exact target value binding for identifier {name!r}",
@@ -518,6 +522,19 @@ class _DirectEmitter:
                 f"end_line={int(span['end_line'])}, "
                 f"end_column={int(span['end_col'])})"
             )
+            result_type = self._node(ir_id).result_type
+            if result_type is not None and result_type.base not in {"void", "na"}:
+                raise BundleInvariantError(
+                    "A2P_DELEGATED_RESULT_REQUIRES_COMMIT",
+                    "value-producing delegated calls cannot use a dispatch receipt as a Pine value",
+                    details={
+                        "symbol_id": binding.symbol_id,
+                        "result_type": result_type.base,
+                    },
+                )
+            receiver = self._role(ir_id, "receiver")
+            if receiver:
+                delegated_positional.insert(0, self._expr(receiver[0]))
             return (
                 "self.runtime.dispatch_delegated("
                 f"owner={binding.delegation_owner!r}, "

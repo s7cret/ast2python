@@ -293,6 +293,10 @@ def test_projection_proof_permits_different_source_and_ir_counts() -> None:
         plan=plan,
         target=target,
         emitted=emitted,
+        producer_commit="a" * 40,
+        ast_hash=base.artifact.payload["ast_hash"],
+        semantic_facts_hash=base.artifact.payload["semantic_facts_hash"],
+        node_index_hash=base.artifact.payload["node_index_hash"],
     )
 
     verify_source_map_v2(emitted.source_map.to_dict(), expected_ir_ids=set(plan.nodes))

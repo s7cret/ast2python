@@ -256,16 +256,33 @@ class SemanticFactsIndex:
             raise BundleInvariantError(
                 "A2P_FACTS_TYPE", "semantic_facts must be an object", path="$.semantic_facts"
             )
-        if set(payload) != _FACTS_ENVELOPE_FIELDS:
+        present = set(payload)
+        extra = present - _FACTS_ENVELOPE_FIELDS
+        missing = _FACTS_ENVELOPE_FIELDS - present
+        if missing or extra - {"producer"}:
             raise BundleInvariantError(
                 "A2P_FACTS_FIELDS",
                 "semantic facts envelope fields are not exact",
                 path="$.semantic_facts",
                 details={
-                    "missing": sorted(_FACTS_ENVELOPE_FIELDS - set(payload)),
-                    "extra": sorted(set(payload) - _FACTS_ENVELOPE_FIELDS),
+                    "missing": sorted(missing),
+                    "extra": sorted(extra - {"producer"} if not missing else extra),
                 },
             )
+        facts_producer = payload.get("producer")
+        if facts_producer is not None:
+            if not isinstance(facts_producer, Mapping):
+                raise BundleInvariantError(
+                    "A2P_FACTS_PRODUCER",
+                    "semantic facts producer must be an object",
+                    path="$.semantic_facts.producer",
+                )
+            if facts_producer.get("name") != "pine2ast":
+                raise BundleInvariantError(
+                    "A2P_FACTS_PRODUCER",
+                    "semantic facts producer name mismatch",
+                    path="$.semantic_facts.producer.name",
+                )
         if (
             payload.get("schema_id") != "pine.semantic_facts.v1"
             or payload.get("schema_version") != "1.0.0"

@@ -80,6 +80,10 @@ def run_performance_gate(bundle_path: str | Path, *, samples: int = 20) -> Perfo
             plan=plan,
             target=target,
             emitted=emitted,
+            producer_commit="a" * 40,
+            ast_hash=str(admitted.artifacts["ast_hash"]),
+            semantic_facts_hash=str(admitted.artifacts["semantic_facts_hash"]),
+            node_index_hash=str(admitted.artifacts["node_index_hash"]),
         )
         timings["artifact"].append((time.perf_counter_ns() - start) / 1_000_000)
         _, current_peak = tracemalloc.get_traced_memory()

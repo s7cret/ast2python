@@ -137,6 +137,9 @@ def test_artifact_commit_and_optional_verification_branches() -> None:
             target=target,
             emitted=result.emitted,
             producer_commit="bad",
+            ast_hash=result.artifact.payload["ast_hash"],
+            semantic_facts_hash=result.artifact.payload["semantic_facts_hash"],
+            node_index_hash=result.artifact.payload["node_index_hash"],
         )
     # The artifact is independently valid even when comparison objects are absent.
     verify_generated_artifact_v3(result.artifact.payload)
@@ -258,7 +261,7 @@ def test_artifact_deep_contract_branches() -> None:
             {},
         ),
         (
-            "A2P_ARTIFACT_LINEAGE",
+            "A2P_ARTIFACT_BUILD_IDENTITY",
             _artifact_mutation(base, lambda d: d.__setitem__("bundle_hash", "sha256:" + "1" * 64)),
             {"plan": result.plan},
         ),

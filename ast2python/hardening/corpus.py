@@ -53,7 +53,9 @@ def verify_normative_corpus(manifest_path: str | Path) -> dict[str, Any]:
         module_name = row.get("module_name")
         if not isinstance(module_name, str) or not module_name:
             raise BundleInvariantError("A2P_CORPUS_MODULE", "corpus module_name is required")
-        result = compile_consumer_bundle(bundle_path, module_name=module_name)
+        result = compile_consumer_bundle(
+            bundle_path, module_name=module_name, producer_commit="a" * 40
+        )
         actual = {
             "consumer_bundle_hash": result.plan.bundle_hash,
             "catalog_hash": result.plan.catalog_hash,

@@ -10,9 +10,7 @@ from ast2python import BundleInvariantError, compile_consumer_bundle
 from ast2python.lowering import load_pinelib_target_manifest
 
 ROOT = Path(__file__).parents[2]
-PINELIB_ROOT = Path(
-    "/home/moltbot1/.hermes/audits/cross-stack-rc6-local-fix-20260831/pinelib/source"
-)
+PINELIB_ROOT = Path(__file__).resolve().parents[3] / "pinelib"
 
 
 def _runtime_session(version: int = 6):
