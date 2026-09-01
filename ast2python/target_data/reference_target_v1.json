@@ -1,0 +1,658 @@
+{
+  "allowed_imports": [
+    "__future__",
+    "typing"
+  ],
+  "call_bindings": [
+    {
+      "call_form": "NAMESPACE_FUNCTION",
+      "overload_id": "pine:function:array.new_float#canonical",
+      "parameters": [
+        "size"
+      ],
+      "python_name": "call_8395b281ba321382",
+      "return_type": "array<float>",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:array.new_float"
+    },
+    {
+      "call_form": "NAMESPACE_FUNCTION",
+      "overload_id": "pine:function:array.push#canonical",
+      "parameters": [
+        "id",
+        "value"
+      ],
+      "python_name": "call_344a69b7b4875cf7",
+      "return_type": "void",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:array.push"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:indicator#canonical",
+      "parameters": [
+        "title"
+      ],
+      "python_name": "call_4eeae2fa8725bde0",
+      "return_type": "void",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "symbol_id": "pine:function:indicator"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:input#canonical",
+      "parameters": [
+        "defval",
+        "title",
+        "type"
+      ],
+      "python_name": "call_0c6d96b027ea97af",
+      "return_type": "int",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:input"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:legacy.iff#canonical",
+      "parameters": [
+        "condition",
+        "then",
+        "else"
+      ],
+      "python_name": "call_0dc5cd256286cc42",
+      "return_type": "any",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:legacy.iff"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:legacy.offset#canonical",
+      "parameters": [
+        "series",
+        "offset"
+      ],
+      "python_name": "call_f4ccb23743b4fe5c",
+      "return_type": "series<any>",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:legacy.offset"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:nz#canonical",
+      "parameters": [
+        "source"
+      ],
+      "python_name": "call_ffa3607b14d31246",
+      "return_type": "float",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        1
+      ],
+      "symbol_id": "pine:function:nz"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:request.security#canonical",
+      "parameters": [
+        "symbol",
+        "resolution",
+        "expression"
+      ],
+      "python_name": "call_75794aabd7f5d08d",
+      "return_type": "float",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "symbol_id": "pine:function:request.security"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:strategy#canonical",
+      "parameters": [
+        "title"
+      ],
+      "python_name": "call_5e53ef0901e7776c",
+      "return_type": "void",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        5,
+        6
+      ],
+      "symbol_id": "pine:function:strategy"
+    },
+    {
+      "call_form": "NAMESPACE_FUNCTION",
+      "overload_id": "pine:function:strategy.entry#canonical",
+      "parameters": [
+        "id",
+        "direction",
+        "when"
+      ],
+      "python_name": "call_ca5d02ee7e9e0a26",
+      "return_type": "void",
+      "state_model": "STATEFUL",
+      "supported_pine_versions": [
+        5,
+        6
+      ],
+      "symbol_id": "pine:function:strategy.entry"
+    },
+    {
+      "call_form": "NAMESPACE_FUNCTION",
+      "overload_id": "pine:function:strategy.exit#canonical",
+      "parameters": [
+        "id",
+        "from_entry",
+        "stop"
+      ],
+      "python_name": "call_727322def3146ff7",
+      "return_type": "void",
+      "state_model": "STATEFUL",
+      "supported_pine_versions": [
+        6
+      ],
+      "symbol_id": "pine:function:strategy.exit"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:ta.rsi#overload:0",
+      "parameters": [
+        "source",
+        "length"
+      ],
+      "python_name": "call_9eb71e15138dfd37",
+      "return_type": "float",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:ta.rsi"
+    },
+    {
+      "call_form": "FUNCTION",
+      "overload_id": "pine:function:ta.sma#canonical",
+      "parameters": [
+        "source",
+        "length"
+      ],
+      "python_name": "call_9c85ea90ca7d6d06",
+      "return_type": "float",
+      "state_model": "PURE",
+      "supported_pine_versions": [
+        4
+      ],
+      "symbol_id": "pine:function:ta.sma"
+    },
+    {
+      "call_form": "NAMESPACE_FUNCTION",
+      "overload_id": "pine:function:ta.sma#canonical",
+      "parameters": [
+        "source",
+        "length"
+      ],
+      "python_name": "call_a322095480384e96",
+      "return_type": "float",
+      "state_model": "STATEFUL",
+      "supported_pine_versions": [
+        5,
+        6
+      ],
+      "symbol_id": "pine:function:ta.sma"
+    }
+  ],
+  "capabilities": [
+    "exact_operation_manifest",
+    "execute_eager_operation",
+    "execute_lazy_operation",
+    "pine_ast_v2",
+    "pine_semantic_facts_v1",
+    "pine_version_context_v1",
+    "resolved_overload_identity",
+    "resolved_symbol_identity",
+    "source_span_identity",
+    "version_context_v1"
+  ],
+  "content_hash": "sha256:0fbcfb068ad164f38fc4c595a9329aa1fa861728adec62793b40551c8610e0e1",
+  "operations": [
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "builtin.invoke.pure",
+      "python_name": "op_builtin_invoke_pure"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "builtin.invoke.stateful",
+      "python_name": "op_builtin_invoke_stateful"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "call.argument",
+      "python_name": "op_call_argument"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "collection.array_literal",
+      "python_name": "op_collection_array_literal"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "collection.invoke",
+      "python_name": "op_collection_invoke"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "collection.map_literal",
+      "python_name": "op_collection_map_literal"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "collection.matrix_literal",
+      "python_name": "op_collection_matrix_literal"
+    },
+    {
+      "effect": "control",
+      "evaluation": "structural",
+      "name": "control.block",
+      "python_name": "op_control_block"
+    },
+    {
+      "effect": "control",
+      "evaluation": "eager",
+      "name": "control.break",
+      "python_name": "op_control_break"
+    },
+    {
+      "effect": "control",
+      "evaluation": "eager",
+      "name": "control.conditional.eager",
+      "python_name": "op_control_conditional_eager"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.conditional.lazy",
+      "python_name": "op_control_conditional_lazy"
+    },
+    {
+      "effect": "control",
+      "evaluation": "eager",
+      "name": "control.continue",
+      "python_name": "op_control_continue"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.else_if",
+      "python_name": "op_control_else_if"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.for_in",
+      "python_name": "op_control_for_in"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.for_range.dynamic_end",
+      "python_name": "op_control_for_range_dynamic_end"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.for_range.fixed_end",
+      "python_name": "op_control_for_range_fixed_end"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.if",
+      "python_name": "op_control_if"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.switch",
+      "python_name": "op_control_switch"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.switch_case",
+      "python_name": "op_control_switch_case"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.while",
+      "python_name": "op_control_while"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "declaration.script",
+      "python_name": "op_declaration_script"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "enum.define",
+      "python_name": "op_enum_define"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "enum.member",
+      "python_name": "op_enum_member"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "function.define",
+      "python_name": "op_function_define"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "function.invoke.pure",
+      "python_name": "op_function_invoke_pure"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "function.invoke.stateful",
+      "python_name": "op_function_invoke_stateful"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "function.parameter",
+      "python_name": "op_function_parameter"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "library.import",
+      "python_name": "op_library_import"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "literal.value",
+      "python_name": "op_literal_value"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "method.define",
+      "python_name": "op_method_define"
+    },
+    {
+      "effect": "control",
+      "evaluation": "structural",
+      "name": "module.program",
+      "python_name": "op_module_program"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "operator.binary",
+      "python_name": "op_operator_binary"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "operator.div.fractional",
+      "python_name": "op_operator_div_fractional"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "operator.div.legacy",
+      "python_name": "op_operator_div_legacy"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "operator.logical.eager",
+      "python_name": "op_operator_logical_eager"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "lazy",
+      "name": "operator.logical.lazy",
+      "python_name": "op_operator_logical_lazy"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "operator.unary",
+      "python_name": "op_operator_unary"
+    },
+    {
+      "effect": "request",
+      "evaluation": "lazy",
+      "name": "request.invoke",
+      "python_name": "op_request_invoke"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "series.history",
+      "python_name": "op_series_history"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "state.declare",
+      "python_name": "op_state_declare"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "state.write",
+      "python_name": "op_state_write"
+    },
+    {
+      "effect": "control",
+      "evaluation": "eager",
+      "name": "statement.expression",
+      "python_name": "op_statement_expression"
+    },
+    {
+      "effect": "strategy",
+      "evaluation": "eager",
+      "name": "strategy.intent",
+      "python_name": "op_strategy_intent"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "symbol.member",
+      "python_name": "op_symbol_member"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "symbol.read",
+      "python_name": "op_symbol_read"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "tuple.construct",
+      "python_name": "op_tuple_construct"
+    },
+    {
+      "effect": "state",
+      "evaluation": "eager",
+      "name": "tuple.declare",
+      "python_name": "op_tuple_declare"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "tuple.target",
+      "python_name": "op_tuple_target"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "type.define",
+      "python_name": "op_type_define"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "type.field",
+      "python_name": "op_type_field"
+    },
+    {
+      "effect": "pure",
+      "evaluation": "eager",
+      "name": "type.instantiate",
+      "python_name": "op_type_instantiate"
+    },
+    {
+      "effect": "declaration",
+      "evaluation": "structural",
+      "name": "type.reference",
+      "python_name": "op_type_reference"
+    },
+    {
+      "effect": "visual",
+      "evaluation": "eager",
+      "name": "visual.invoke",
+      "python_name": "op_visual_invoke"
+    }
+  ],
+  "release_acceptance": "REFERENCE_ONLY_PENDING_PINELIB_RC6",
+  "schema_id": "ast2python.target_manifest.v1",
+  "schema_version": "1.0.0",
+  "target_name": "ast2python-reference-runtime-abi",
+  "target_version": "1.0.0",
+  "value_bindings": [
+    {
+      "python_name": "value_3ee612d7fd9fecc0",
+      "symbol_id": "pine:function:array.new_float"
+    },
+    {
+      "python_name": "value_350a1adc7e7d09f9",
+      "symbol_id": "pine:function:array.push"
+    },
+    {
+      "python_name": "value_0d0e41f50a0fd871",
+      "symbol_id": "pine:function:indicator"
+    },
+    {
+      "python_name": "value_9fe208c7c19a2d5c",
+      "symbol_id": "pine:function:legacy.iff"
+    },
+    {
+      "python_name": "value_32e3fbf43986aff6",
+      "symbol_id": "pine:function:legacy.offset"
+    },
+    {
+      "python_name": "value_49a641a2702fd4d7",
+      "symbol_id": "pine:function:nz"
+    },
+    {
+      "python_name": "value_b03bb4cd2b4b2b0d",
+      "symbol_id": "pine:function:request.security"
+    },
+    {
+      "python_name": "value_098afe5a2dd79d97",
+      "symbol_id": "pine:function:str.length"
+    },
+    {
+      "python_name": "value_f31291ee81ccaf83",
+      "symbol_id": "pine:function:strategy.entry"
+    },
+    {
+      "python_name": "value_ec3bdead1ff88945",
+      "symbol_id": "pine:function:strategy.exit"
+    },
+    {
+      "python_name": "value_245ca700dc510112",
+      "symbol_id": "pine:function:ta.rsi"
+    },
+    {
+      "python_name": "value_2733e16a5ea38450",
+      "symbol_id": "pine:function:ta.sma"
+    },
+    {
+      "python_name": "value_8fe7d7100bc8a0fe",
+      "symbol_id": "pine:function:ticker.new"
+    },
+    {
+      "python_name": "value_2628210148c534fd",
+      "symbol_id": "pine:namespace:input"
+    },
+    {
+      "python_name": "value_51a76470223de26d",
+      "symbol_id": "pine:namespace:strategy"
+    },
+    {
+      "python_name": "value_b0e06ca513699b17",
+      "symbol_id": "pine:variable:close"
+    },
+    {
+      "python_name": "value_1ea1521f330f7137",
+      "symbol_id": "pine:variable:legacy.input.integer"
+    },
+    {
+      "python_name": "value_1240848f6ff22579",
+      "symbol_id": "pine:variable:low"
+    },
+    {
+      "python_name": "value_2941ca784bb80241",
+      "symbol_id": "pine:variable:open"
+    },
+    {
+      "python_name": "value_25fd4057a4519626",
+      "symbol_id": "pine:variable:strategy.long"
+    },
+    {
+      "python_name": "value_7f91a2ede26966ed",
+      "symbol_id": "pine:variable:strategy.position_size"
+    },
+    {
+      "python_name": "value_454f218bacadad94",
+      "symbol_id": "pine:variable:syminfo.tickerid"
+    }
+  ]
+}

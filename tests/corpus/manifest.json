@@ -1,0 +1,875 @@
+{
+  "cases": [
+    {
+      "case_id": "v1-default-minimal",
+      "catalog_hash": "sha256:7073b8e513ee2a95c3ff96efbdcc6620d5ab02d93de2ccd3790590dc2dc3994d",
+      "category": "basic",
+      "consumer_bundle": "tests/corpus/v1/v1-default-minimal.bundle.json",
+      "consumer_bundle_hash": "sha256:2a10c81621c6441373fc0d8a5f6b1f2796c267da9ba33cf5bcb16a72668e40df",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:0f8f1f7b5ec6e22281dfa0089e48a7eadb7f640c235b482b994a93ab051f7a40",
+      "expected_emitted_module_hash": "sha256:78a50b621d38c038c8213c34cf00486896d74cad06ca6dd93da7c87b65887d82",
+      "expected_ir_hash": "sha256:cd4c67dee5655692cce71f19f17fbe708f097f39db5c024e65810ebf93579b63",
+      "expected_source_map_hash": "sha256:0343d4cddb57f7fe59add21278d19ef16b9967d56c6e01cc14ef66499eb2181a",
+      "module_name": "generated_v1_default_minimal",
+      "pine_version": 1,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v1-default-minimal.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:e04e2701fabe64181eeeeac1ea4ca24f8982c3d264ba2fc0870e664eec09b93c",
+      "source_name": "v1-default-minimal.pine"
+    },
+    {
+      "case_id": "v1-self-bool-security",
+      "catalog_hash": "sha256:7073b8e513ee2a95c3ff96efbdcc6620d5ab02d93de2ccd3790590dc2dc3994d",
+      "category": "requests",
+      "consumer_bundle": "tests/corpus/v1/v1-self-bool-security.bundle.json",
+      "consumer_bundle_hash": "sha256:0f82c783e09fdb23e342277cb1936ada6dba8837ccebfb9a18ceb09ea7d1cfd6",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:6038e100776faa4e850ff83f9bbcdf7793a2bbd6369de49a93c2622969a94469",
+      "expected_emitted_module_hash": "sha256:e8f5adbb6bcce66273e511b6dca365f3db48a69eff48a6ca14b42356565be304",
+      "expected_ir_hash": "sha256:f872e7f5ceb7fcbeb267e649d1823f8cf0fc781f7c2f8f5baeec1dfb42576dc9",
+      "expected_source_map_hash": "sha256:ecd89c1f114338b4cd91e548ee4ee693e24259d142e8909fc63769fda4d93769",
+      "module_name": "generated_v1_self_bool_security",
+      "pine_version": 1,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v1-self-bool-security.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "request.invoke",
+        "series.history",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:9c727c23f4b4cad05e5aed271c9a098ed8336999f6a510e664209619f0e539a5",
+      "source_name": "v1-self-bool-security.pine"
+    },
+    {
+      "case_id": "v2-control-flow",
+      "catalog_hash": "sha256:67fa71b9a3148927ec5918c4c359e06eb7e3c2ea6f4559bf7769be10af104378",
+      "category": "control",
+      "consumer_bundle": "tests/corpus/v2/v2-control-flow.bundle.json",
+      "consumer_bundle_hash": "sha256:0476c3b09bd71068229495c08e056a5955091d817e7de4b00c6f9076c44d7e0a",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:0eb0114b536bd9cf2705ba52a5069d9d08958f6fee23c7219b3712479c17d3ce",
+      "expected_emitted_module_hash": "sha256:28b1f6a9124556b9be02088f1e71ecb4e1df636fe20343038afca48938075852",
+      "expected_ir_hash": "sha256:abfbffd40602153fe5486b843e869ac497b3e17f32a81edb3a9f3e597420fadd",
+      "expected_source_map_hash": "sha256:2b82fe70ba2d707811eae4261718e67f6fda04b49d1a8dd8242a7db65962686e",
+      "module_name": "generated_v2_control_flow",
+      "pine_version": 2,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v2-control-flow.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.block",
+        "control.break",
+        "control.continue",
+        "control.for_range.fixed_end",
+        "control.if",
+        "declaration.script",
+        "function.define",
+        "function.invoke.pure",
+        "function.parameter",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "state.declare",
+        "state.write",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:327db677fc8f294657874f3ba191372a44dd28fab71b95a40d380d39f409a322",
+      "source_name": "v2-control-flow.pine"
+    },
+    {
+      "case_id": "v2-forward-bool",
+      "catalog_hash": "sha256:67fa71b9a3148927ec5918c4c359e06eb7e3c2ea6f4559bf7769be10af104378",
+      "category": "expressions",
+      "consumer_bundle": "tests/corpus/v2/v2-forward-bool.bundle.json",
+      "consumer_bundle_hash": "sha256:efed16f78c692700be42038518baf32cee99415f463d1be1241b167619df4f1e",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:98c44fad62a93e5025b4460189dc40be71ac7c084ba287733679e09292c29c75",
+      "expected_emitted_module_hash": "sha256:74aba52f5487375d63db9592b171750db958cacd409504faed82adc3b7ce0dcb",
+      "expected_ir_hash": "sha256:670636adab924d4cbd9dc38dbb99f58db74ed6f417d4cb231b0dcf034a627cc1",
+      "expected_source_map_hash": "sha256:ef756d34f41849070d66b6b380b1aaf57dedafca9a4dbc3e8d6253fbb3cba58f",
+      "module_name": "generated_v2_forward_bool",
+      "pine_version": 2,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v2-forward-bool.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:286164d209d8cb56c9272bba072d2415e311cbe4fabefcb71fb3a2d1b6488911",
+      "source_name": "v2-forward-bool.pine"
+    },
+    {
+      "case_id": "v2-security-default",
+      "catalog_hash": "sha256:67fa71b9a3148927ec5918c4c359e06eb7e3c2ea6f4559bf7769be10af104378",
+      "category": "requests",
+      "consumer_bundle": "tests/corpus/v2/v2-security-default.bundle.json",
+      "consumer_bundle_hash": "sha256:492e3b21bd53296d8469d2798457a0d1c52fde61817236ffb59dfabf970be871",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:6363c7d17fb3152a45d3afef5513f0938a7a9b37337a14a00f52e97795581f36",
+      "expected_emitted_module_hash": "sha256:840f32e2f21532377ed0cfa658652e7a6428e1c4eeff22794a6b72ae017e6cf0",
+      "expected_ir_hash": "sha256:c136017340e43cf749a46e27f5c1b1d0066588510d0ba6a2ada21bceeff0c6ea",
+      "expected_source_map_hash": "sha256:35ffe807e32118e6ac1af0e7d218d102b2212b08ed44dcbb31971d7b7ceb0aa6",
+      "module_name": "generated_v2_security_default",
+      "pine_version": 2,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v2-security-default.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "request.invoke",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:9ed089432b59b9fbf7bd0e14f688af76df7a25b15d82d0d7a6cd9d7a78ae233f",
+      "source_name": "v2-security-default.pine"
+    },
+    {
+      "case_id": "v3-numeric-condition",
+      "catalog_hash": "sha256:a58926db9966632831e78831590ce165b32923e7071eb69cfffede33961b1e67",
+      "category": "control",
+      "consumer_bundle": "tests/corpus/v3/v3-numeric-condition.bundle.json",
+      "consumer_bundle_hash": "sha256:8413f3229770547f2c0cb398a20178b12be8f79dc9c2a942333f5665a6fa4745",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:f036a13a34ae6c69831e5e726b6bf092163191d102ba55087b071686549d6ce2",
+      "expected_emitted_module_hash": "sha256:2b9c313df699fe27f72ee2598624b21bbe6329c5c92848674215823610fd2b9d",
+      "expected_ir_hash": "sha256:d3193382d34f2909a8b1e29001994cad1da85948d60151daf61b09b92cf6f243",
+      "expected_source_map_hash": "sha256:07a7f4be733fdda64f48dad407d1a44214c248152130213b6df0d4316d1c17f7",
+      "module_name": "generated_v3_numeric_condition",
+      "pine_version": 3,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v3-numeric-condition.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.block",
+        "control.if",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:74f27179bf7c1f096eb33f01e8df0143a63510adfbe51a932845d5c225915598",
+      "source_name": "v3-numeric-condition.pine"
+    },
+    {
+      "case_id": "v3-security-default",
+      "catalog_hash": "sha256:a58926db9966632831e78831590ce165b32923e7071eb69cfffede33961b1e67",
+      "category": "requests",
+      "consumer_bundle": "tests/corpus/v3/v3-security-default.bundle.json",
+      "consumer_bundle_hash": "sha256:2e0b4b7a50f8e2fcb811c8611f6690a6be0f1f5499c77bcf000435393b78d639",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:23d76222131de5f751fc6467d21b8b62b30316a56d8dbb6129c8024a396dfc2b",
+      "expected_emitted_module_hash": "sha256:b1cec434f73c3ee3ef883a3ef04fb3149081da9124a1597ed0534d62f2477df0",
+      "expected_ir_hash": "sha256:72b28b8a9eeeb70dda59d56d0283f454b7724cd65a507cc82346e124e85b0aa0",
+      "expected_source_map_hash": "sha256:ca525f9bd27fba8901ab18742b3a260daff86ae4133127ccf6728a1f62ef43f7",
+      "module_name": "generated_v3_security_default",
+      "pine_version": 3,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v3-security-default.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "request.invoke",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:4b7e3ebf733c9b26a9b53d7d0802556c3f25679518096f9d1529ddcd50722f28",
+      "source_name": "v3-security-default.pine"
+    },
+    {
+      "case_id": "v3-tuple",
+      "catalog_hash": "sha256:a58926db9966632831e78831590ce165b32923e7071eb69cfffede33961b1e67",
+      "category": "collections",
+      "consumer_bundle": "tests/corpus/v3/v3-tuple.bundle.json",
+      "consumer_bundle_hash": "sha256:a09f5c16e958f60d4b34ed3855f74a4f987197889c2ee0577aca02b0e10d22f3",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:d23b311eb75e360999ea63c41030be7ff57bf907f185557b820a9783fd13b689",
+      "expected_emitted_module_hash": "sha256:95d485cf24c4f243999f190dc952e55b621663c58c1507b049d9e5a0fd1740e4",
+      "expected_ir_hash": "sha256:131d34d4fa53e767c6afea29c0071ab5075821eb823a666e32fb272865e34f98",
+      "expected_source_map_hash": "sha256:7db9b4beb08fec39b6f8ebe737773bcd256bdb45639ecb18937b045a03eb69f9",
+      "module_name": "generated_v3_tuple",
+      "pine_version": 3,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v3-tuple.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "symbol.read",
+        "tuple.construct",
+        "tuple.declare",
+        "tuple.target"
+      ],
+      "source_hash": "sha256:535cb28e6d952290dc26550a9a07b535da78438f0493a58f961f127065f5ee32",
+      "source_name": "v3-tuple.pine"
+    },
+    {
+      "case_id": "v3-ternary-eager",
+      "catalog_hash": "sha256:a58926db9966632831e78831590ce165b32923e7071eb69cfffede33961b1e67",
+      "category": "differential",
+      "consumer_bundle": "tests/corpus/v3/v3-ternary-eager.bundle.json",
+      "consumer_bundle_hash": "sha256:5e104f24be632aa690bf1aef4377962c32150d6c9135c5ae85843c373111ff8f",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:79c4f7a24423cc1df925f4df4cb262ee678ce94b97eb21553f7b2e2cd9ef383a",
+      "expected_emitted_module_hash": "sha256:0fa3eb7020ac4f5a60e5c1767d569c7d480fc8541e55bf02fc9a7a7640697e3a",
+      "expected_ir_hash": "sha256:8c8d96b053c17fe4148002c53be6ec1e51b7f4cbd17a05b444050c0cd7df835f",
+      "expected_source_map_hash": "sha256:86cbcf8fe8c9fd8ff0b342e3159326857e7a083f4981bf786ced1eba5a4bf15f",
+      "module_name": "generated_v3_ternary_eager",
+      "pine_version": 3,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v3-ternary-eager.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.conditional.eager",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:e9e88d19e250aacd7e6d42518d726272c6b6df9dc045d3deaf4e6379df91d2fd",
+      "source_name": "v3-ternary-eager.pine"
+    },
+    {
+      "case_id": "v4-pre-namespace",
+      "catalog_hash": "sha256:452cc84c8406604c8631de91249ea373ffcf48645ed2612db304ee6405ad6a77",
+      "category": "basic",
+      "consumer_bundle": "tests/corpus/v4/v4-pre-namespace.bundle.json",
+      "consumer_bundle_hash": "sha256:c07dd23cb609d8cebab47f6a46a84ca31aba721af761fbfde5f675a37db8f71e",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:2f3eaa6b90f66fdd74206e2de4e2742b9a5ca79a58ca00490f08fbea03044938",
+      "expected_emitted_module_hash": "sha256:574ca527704bd00da47b9e2ff1469989591c4db62d48110ca7304f90f3ec8e80",
+      "expected_ir_hash": "sha256:a6842c2fb2b4990ba487c584a489acb3a7a6e5c0ecc373703f72a4e21346ac09",
+      "expected_source_map_hash": "sha256:260cc661a1f7144807145894b2cb8c35dec9a879ddc68f4520230faec7f509c6",
+      "module_name": "generated_v4_pre_namespace",
+      "pine_version": 4,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v4-pre-namespace.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "request.invoke",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:5e5119e31f4cb1930d71f4786502e7866a37b76bc5f07a018edd30d3abfe3d91",
+      "source_name": "v4-pre-namespace.pine"
+    },
+    {
+      "case_id": "v4-typed-na",
+      "catalog_hash": "sha256:452cc84c8406604c8631de91249ea373ffcf48645ed2612db304ee6405ad6a77",
+      "category": "expressions",
+      "consumer_bundle": "tests/corpus/v4/v4-typed-na.bundle.json",
+      "consumer_bundle_hash": "sha256:9d3b0c7107d040f0f8ce8f73213c552d4020c8f78e48576ec5c11a6a03854a5a",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:40b35cd8b9210a26a4bce139888e94bd7e1efc964ec151ac2a09dd258870dbb5",
+      "expected_emitted_module_hash": "sha256:c0c4e6837b5f47f1cee458b274c122b18f7961c9d897b24410eb6d6345ea6aa9",
+      "expected_ir_hash": "sha256:91c6a3346e340ff8cf32764091da4ca4d3dc692b2611a0bff55e9adb16d8b872",
+      "expected_source_map_hash": "sha256:3b000ad6358466b86ce6ecefc510202605decd5204abeaf10b9e1f7589d840c1",
+      "module_name": "generated_v4_typed_na",
+      "pine_version": 4,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v4-typed-na.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read",
+        "type.reference"
+      ],
+      "source_hash": "sha256:f2702976808346fd75553ec7a80b4dddddfd7e9e6dcd541d9426517baba28da9",
+      "source_name": "v4-typed-na.pine"
+    },
+    {
+      "case_id": "v4-arrays-var-compound",
+      "catalog_hash": "sha256:452cc84c8406604c8631de91249ea373ffcf48645ed2612db304ee6405ad6a77",
+      "category": "collections",
+      "consumer_bundle": "tests/corpus/v4/v4-arrays-var-compound.bundle.json",
+      "consumer_bundle_hash": "sha256:f5361659f27ce2611061d80513a55e5df0524e821de84b24fd1e9207341d6564",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:e7653c66fe697034e047ad8eefb9963fc70fe9edb11413119d5b517f2ab7a91c",
+      "expected_emitted_module_hash": "sha256:d6cd497a65d60770c9d6f32f600684c760a8e909c458f75e2de9005e538cb818",
+      "expected_ir_hash": "sha256:2b78d948c9fbeb85e203581664bcd7be118973cf85d194bab069a56909d4f828",
+      "expected_source_map_hash": "sha256:a837e659359bfa5fc458c2d4da9f6a51dab054f9503cecc1188e2239c8c168ba",
+      "module_name": "generated_v4_arrays_var_compound",
+      "pine_version": 4,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v4-arrays-var-compound.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "collection.invoke",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "state.write",
+        "statement.expression",
+        "symbol.member",
+        "symbol.read",
+        "type.reference"
+      ],
+      "source_hash": "sha256:95b5eba97cbc81d0c312e28f318a589d18261037d44010ff572b47c7f1091427",
+      "source_name": "v4-arrays-var-compound.pine"
+    },
+    {
+      "case_id": "v4-unified-input",
+      "catalog_hash": "sha256:452cc84c8406604c8631de91249ea373ffcf48645ed2612db304ee6405ad6a77",
+      "category": "inputs",
+      "consumer_bundle": "tests/corpus/v4/v4-unified-input.bundle.json",
+      "consumer_bundle_hash": "sha256:b34bf6a2dc73c5843f82f304b88a776f9c9305230208e916d785a5d9a13bca1c",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:1c4bc109c298f5ca1ed08c49ccf18ca4d492bce6fd88125785380e06b38bd544",
+      "expected_emitted_module_hash": "sha256:2c4bb29f8ad0dcb5f24115da7d0e1f2e993be92dcdc999d0d88922c0bf1e4a3b",
+      "expected_ir_hash": "sha256:d5edcdd90be72f94ed9257618f2a262d63491ea6eec77b6f2990ddd327af2842",
+      "expected_source_map_hash": "sha256:9f62d71c2910d5838f040f603634a04c77a3375e99ae585a733de6439f57249d",
+      "module_name": "generated_v4_unified_input",
+      "pine_version": 4,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v4-unified-input.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "state.declare",
+        "symbol.member",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:2fbf25d6dd69bc7c9d999c900d1119cc7e93cc3798d7c961ca7e9aca77c1a0ef",
+      "source_name": "v4-unified-input.pine"
+    },
+    {
+      "case_id": "v4-ternary-lazy",
+      "catalog_hash": "sha256:452cc84c8406604c8631de91249ea373ffcf48645ed2612db304ee6405ad6a77",
+      "category": "differential",
+      "consumer_bundle": "tests/corpus/v4/v4-ternary-lazy.bundle.json",
+      "consumer_bundle_hash": "sha256:a656d9f8247cefabb8f674d04b9a020e2bbb324a34fcb375292c96561fac2972",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:022897983ecf23d3c016af374b5e1461cc7ef850005d318e26c5dcd3988e8f9a",
+      "expected_emitted_module_hash": "sha256:b077c6b21123ff5bef9ce2fccde132828dfe7a6c5efa0a9d85b50e0f03d89cf2",
+      "expected_ir_hash": "sha256:deac57ac868842122b84ad0c89b96f055574c541d061aa29b625d4ac10f7cae6",
+      "expected_source_map_hash": "sha256:a7807ffef8186437ed475d7653b8ee426a08e1087ee7432a2c22aefda35bba22",
+      "module_name": "generated_v4_ternary_lazy",
+      "pine_version": 4,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/historical_corpus/v4-ternary-lazy.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.conditional.lazy",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:83b0d2ec7ff9bd84ce3368008931600ce6eb2d2e315521045aaf94ceeed0f6b2",
+      "source_name": "v4-ternary-lazy.pine"
+    },
+    {
+      "case_id": "v5-minimal",
+      "catalog_hash": "sha256:51e8a1cd1733bd905f902ac074e51f4d143f56ae916d63e65ce808c4d86990cf",
+      "category": "basic",
+      "consumer_bundle": "tests/corpus/v5/v5-minimal.bundle.json",
+      "consumer_bundle_hash": "sha256:d269add9ac02e585a80bacb2e4a581551783db2d0d0d74c9151d7ea85a60b4a2",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:dbbeb0ccd5d64f9c7fac41bcc2ca8cde876541f9ef39a0805130f94e7c566f12",
+      "expected_emitted_module_hash": "sha256:5b653298b1be61f6963bf9f0e41572f48a600177acc1515c41941a5edd6bdd9d",
+      "expected_ir_hash": "sha256:53d8bc061271307f149626c3a234683a9ef9fe45b9148127374a69d1ed2238e6",
+      "expected_source_map_hash": "sha256:e6d5c69e0d99017b784dbd7835580fe369b3a7f6bfeac76d74aa8f14df144867",
+      "module_name": "generated_v5_minimal",
+      "pine_version": 5,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v5_minimal.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:9776982e369c52d82a965c4b178980486883c44b5755ac68f85fdc8b04a1fcb9",
+      "source_name": "v5_minimal.pine"
+    },
+    {
+      "case_id": "v5-numeric-condition",
+      "catalog_hash": "sha256:51e8a1cd1733bd905f902ac074e51f4d143f56ae916d63e65ce808c4d86990cf",
+      "category": "differential",
+      "consumer_bundle": "tests/corpus/v5/v5-numeric-condition.bundle.json",
+      "consumer_bundle_hash": "sha256:8c75f5202d85b0537ac5f8963426aecd118b376f59ff28134b0b3d2d734c951c",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:75a0bb9bd73af8e7d0a5fe514da9c2ea49612f193a3a1c88e31f5c2893354aa7",
+      "expected_emitted_module_hash": "sha256:7dc8ae23b1014e2484fd0c879ac36040f75d04e8dadbbf22ddd5c8699c431f69",
+      "expected_ir_hash": "sha256:c64655dc5193edab397c82b561d7cdcedbb3252277b9b55e5cd25c835b5b709e",
+      "expected_source_map_hash": "sha256:3ef1bf1b570a80504c2cb2af1d84867100b67a6f748649d8c36c6e9b4a301ea3",
+      "module_name": "generated_v5_numeric_condition",
+      "pine_version": 5,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v5_numeric_condition.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.block",
+        "control.if",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "state.write",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:2555a18c7b7fdd304a6a19ac4314b961b56977eeeaeb571617841417d3cc3dc5",
+      "source_name": "v5_numeric_condition.pine"
+    },
+    {
+      "case_id": "v5-bool-na",
+      "catalog_hash": "sha256:51e8a1cd1733bd905f902ac074e51f4d143f56ae916d63e65ce808c4d86990cf",
+      "category": "expressions",
+      "consumer_bundle": "tests/corpus/v5/v5-bool-na.bundle.json",
+      "consumer_bundle_hash": "sha256:ad8281ac4ebe67f6cc4df07a1b2974a994652f580baf3f3a68bd14533d6a498b",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:fa449c979627d5528a2c71921348667474d74565e4ea8cf2bc4b057a6d4c12ef",
+      "expected_emitted_module_hash": "sha256:f411a272342e1cb8663ef38087061ed1466b21bdacc48b3f829365d9030cf17b",
+      "expected_ir_hash": "sha256:86e83d135ba052c4d00a46af8f61cc122c13c047e556d99ac8fd064b7c17804b",
+      "expected_source_map_hash": "sha256:0b6759c5b2b3bd42d4400fde88746dfba734f89f787c9d59d4a9b93b5687224d",
+      "module_name": "generated_v5_bool_na",
+      "pine_version": 5,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v5_bool_na.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read",
+        "type.reference"
+      ],
+      "source_hash": "sha256:315594133864f79c505320c3e04f55807085ab5c720734d8f363b8d29d2946ec",
+      "source_name": "v5_bool_na.pine"
+    },
+    {
+      "case_id": "v5-strategy-when",
+      "catalog_hash": "sha256:51e8a1cd1733bd905f902ac074e51f4d143f56ae916d63e65ce808c4d86990cf",
+      "category": "strategies",
+      "consumer_bundle": "tests/corpus/v5/v5-strategy-when.bundle.json",
+      "consumer_bundle_hash": "sha256:d2505af9d458fe31c136bbce5439e0d2bceba86adb94e032209cbe3e989fc7c6",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:c98e3aa77a399658dafcb451ce2cd4907e9d8679932cdfceaa26f8106cbf7e53",
+      "expected_emitted_module_hash": "sha256:19b84c9642f77e9b69f7a57518be566aa05548f76bc048563c86a9f33c3cfbd5",
+      "expected_ir_hash": "sha256:3423d06ca7ca9becaa5c806195d95ba340f3890b547821f1591ed48c1d354c46",
+      "expected_source_map_hash": "sha256:4d06f10ae24e3668e1987e6780edacf16d01106656751dfa855e5a813ad86c5c",
+      "module_name": "generated_v5_strategy_when",
+      "pine_version": 5,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v5_strategy_when.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "statement.expression",
+        "strategy.intent",
+        "symbol.member",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:a8b3084d3fb5f8f706ef79589a9caefb93d2044f9272f3e850d779db3f43d001",
+      "source_name": "v5_strategy_when.pine"
+    },
+    {
+      "case_id": "v6-minimal",
+      "catalog_hash": "sha256:2a9a4aed1a0d0d7a1c808d09e6c452c0ef12eea7590d379629500451c131369c",
+      "category": "basic",
+      "consumer_bundle": "tests/corpus/v6/v6-minimal.bundle.json",
+      "consumer_bundle_hash": "sha256:7c12f2be89c74d6f1843c989ba903b9e2cccddf39793d232796261fe635a2da0",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:4ddd965b04820fb8a2e5207af788c71a9d788710b6a77a1e7883b70e078ba2da",
+      "expected_emitted_module_hash": "sha256:eee207dc0501c68b24b01ca3731501b12a837f249b9cad84504a317093f94efa",
+      "expected_ir_hash": "sha256:cc93a1de8d7e3a517b9edac2140005e89e51f6ab1e9cd8302499a01f58355e59",
+      "expected_source_map_hash": "sha256:8feb01b540bf46f4e6da9cc4effb968cae9531646a4a0c3649102750805ccd83",
+      "module_name": "generated_v6_minimal",
+      "pine_version": 6,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v6_minimal.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:b4f52688fdcfc22096b394bc0f57de64a7ff8b2531e8a9f11c5ffceb4d4058fe",
+      "source_name": "v6_minimal.pine"
+    },
+    {
+      "case_id": "v6-multiline-string",
+      "catalog_hash": "sha256:2a9a4aed1a0d0d7a1c808d09e6c452c0ef12eea7590d379629500451c131369c",
+      "category": "expressions",
+      "consumer_bundle": "tests/corpus/v6/v6-multiline-string.bundle.json",
+      "consumer_bundle_hash": "sha256:9ef2209fcbb0d50b1a8cfa577f639f24b825508315295fedac8c39e63b481f98",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:bad4112f9be8b31bc4ea33422bb235f2de2a71f09f46f854d9a08c3cbde06049",
+      "expected_emitted_module_hash": "sha256:54b584ae8672544e853ac649da20f58da0cfba7cdd837a3fb2116ae25239b1fa",
+      "expected_ir_hash": "sha256:77785b0b64bb71a0c08341577e8199553783bd6923fafaa99587abfd998b81e6",
+      "expected_source_map_hash": "sha256:59cc38fe8416ec6b63b4a659a9bcec3a3eeb20b6d271159850fc3fd7a7c2ba00",
+      "module_name": "generated_v6_multiline_string",
+      "pine_version": 6,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v6_multiline_string.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.read",
+        "type.reference"
+      ],
+      "source_hash": "sha256:915ef1e2c30628d538795ec63e5e509ddb993d12edd336e089d3adb08d9e454b",
+      "source_name": "v6_multiline_string.pine"
+    },
+    {
+      "case_id": "v6-user-function",
+      "catalog_hash": "sha256:2a9a4aed1a0d0d7a1c808d09e6c452c0ef12eea7590d379629500451c131369c",
+      "category": "functions",
+      "consumer_bundle": "tests/corpus/v6/v6-user-function.bundle.json",
+      "consumer_bundle_hash": "sha256:cb53fc152e6fddceae0c4b92f0154399fd2d2c110461020c0cef06a4b05cca6e",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:e711c0d6cbb83935d69c21c6c16768fc45a1275ef07b14bd301a7724ed40cae7",
+      "expected_emitted_module_hash": "sha256:a33f4c3e1c4249508f9e05e4e02cb1f3b8a8a2ea87893276dfcde5fec0626f98",
+      "expected_ir_hash": "sha256:d645bc93dda1d0caf162090e4b580356f2cad29e8f82f5dba6fff0da20d1f282",
+      "expected_source_map_hash": "sha256:1aaa5773f2665b6775f1b1a5b4cbe915f4d4055a0b3a8220d26f8db0dd8b2aca",
+      "module_name": "generated_v6_user_function",
+      "pine_version": 6,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v6_user_function.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "builtin.invoke.stateful",
+        "call.argument",
+        "declaration.script",
+        "function.define",
+        "function.invoke.stateful",
+        "function.parameter",
+        "literal.value",
+        "module.program",
+        "state.declare",
+        "symbol.member",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:d137b4900b6028c8f2c47f348ffcd077530629491de8a290c246b0f4c213ab55",
+      "source_name": "v6_user_function.pine"
+    },
+    {
+      "case_id": "v6-strategy-orders",
+      "catalog_hash": "sha256:2a9a4aed1a0d0d7a1c808d09e6c452c0ef12eea7590d379629500451c131369c",
+      "category": "strategies",
+      "consumer_bundle": "tests/corpus/v6/v6-strategy-orders.bundle.json",
+      "consumer_bundle_hash": "sha256:19ee2e4fe4b1526db1391603262ddd2eb37b92b218d4abd0412f55e91987b676",
+      "diagnostics": [],
+      "expected_artifact_hash": "sha256:26c6314b653974ef86d95c631f09ea6060a146817c520fba626657cdfdac5a63",
+      "expected_emitted_module_hash": "sha256:4a92b5d08b65954828f60ec2c643f6732fa749eff43dcebad5869a114ff8f5fd",
+      "expected_ir_hash": "sha256:7e994b864f19d525d388f9953d8c2906083b3224d7d25cda2876b4b8a3c78a79",
+      "expected_source_map_hash": "sha256:373c14dc16a15f803e1817352b0aa5ca5aacb6bc48ffba835c173477931e9e6c",
+      "module_name": "generated_v6_strategy_orders",
+      "pine_version": 6,
+      "provenance": {
+        "pine2ast_version": "5.0.0rc6",
+        "source_path": "pine2ast-stage6-corrected://pine2ast/hardening/data/corpus/v6_strategy_orders.pine"
+      },
+      "required_capabilities": [
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "pine_version_context_v1",
+        "resolved_overload_identity",
+        "resolved_symbol_identity",
+        "source_span_identity"
+      ],
+      "required_operations": [
+        "builtin.invoke.pure",
+        "call.argument",
+        "control.block",
+        "control.if",
+        "declaration.script",
+        "literal.value",
+        "module.program",
+        "operator.binary",
+        "statement.expression",
+        "strategy.intent",
+        "symbol.member",
+        "symbol.read"
+      ],
+      "source_hash": "sha256:2ce94370166107213e5321563e42e7865230e13da643e4ff6ccb5d43ff4cd7ee",
+      "source_name": "v6_strategy_orders.pine"
+    }
+  ],
+  "claims": {
+    "lowering_corpus_complete_for_listed_cases": true,
+    "tradingview_runtime_parity": false
+  },
+  "content_hash": "sha256:52b8205e947e99ebf4fce5804ff3399e9425851f4e5d44a8a979b07afd65fffa",
+  "schema_id": "ast2python.stage4.normative_corpus.v1",
+  "schema_version": "1.0.0",
+  "scope": "admitted_consumer_bundles_and_exact_lowering_outputs"
+}

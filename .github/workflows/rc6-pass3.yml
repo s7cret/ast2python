@@ -1,0 +1,153 @@
+name: Ast2Python RC6 pass 3
+
+on:
+  workflow_dispatch:
+    inputs:
+      pine2ast_wheel_url:
+        description: Exact Pine2AST 5.0.0rc6 wheel URL
+        required: true
+        type: string
+      pine2ast_wheel_sha256:
+        description: SHA-256 of the exact Pine2AST wheel
+        required: true
+        type: string
+      rc5_wheel_url:
+        description: Exact Ast2Python 5.0.0rc5 wheel URL
+        required: true
+        type: string
+      rc5_wheel_sha256:
+        description: SHA-256 of the exact Ast2Python RC5 wheel
+        required: true
+        type: string
+      classified_results_url:
+        description: URL of independently produced nonempty RC5/RC6 classified results
+        required: true
+        type: string
+      classified_results_sha256:
+        description: SHA-256 of the classified-results JSON artifact
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PYTHONHASHSEED: "0"
+  SOURCE_DATE_EPOCH: "1704067200"
+
+jobs:
+  quality:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Fetch and verify exact Pine2AST wheel
+        env:
+          WHEEL_URL: ${{ inputs.pine2ast_wheel_url }}
+          WHEEL_SHA256: ${{ inputs.pine2ast_wheel_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$(printf '%s' "$WHEEL_SHA256" | grep -E '^[0-9a-f]{64}$')" = "$WHEEL_SHA256"
+          mkdir -p .ci-wheelhouse
+          curl --fail --location --proto '=https' --tlsv1.2 "$WHEEL_URL" -o .ci-wheelhouse/pine2ast.whl
+          printf '%s  %s\n' "$WHEEL_SHA256" .ci-wheelhouse/pine2ast.whl | sha256sum --check --strict
+      - name: Install exact candidate and quality tools
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install .ci-wheelhouse/pine2ast.whl
+          python -m pip install '.[dev]'
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Black
+        run: python -m black --check .
+      - name: MyPy
+        run: python -m mypy ast2python
+      - name: Tests and branch coverage
+        run: >-
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q -p pytest_cov
+          --cov=ast2python --cov-branch --cov-report=term
+          --cov-report=json:evidence/coverage-${{ matrix.python-version }}.json
+      - name: Non-vacuous fuzz and performance gates
+        if: matrix.python-version == '3.13'
+        run: >-
+          python tools/run_hardening_gates.py
+          --fuzz-cases 10000
+          --performance-samples 20
+          --output evidence/hardening-gates.json
+      - name: Build wheel and sdist
+        run: |
+          set -euo pipefail
+          python -m pip wheel --no-deps --no-build-isolation -w dist .
+          python - <<'PY'
+          import setuptools.build_meta as backend
+          backend.build_sdist('dist')
+          PY
+      - name: Upload immutable evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ast2python-rc6-pass3-${{ matrix.python-version }}
+          path: |
+            evidence/
+            dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  rc5-differential:
+    name: Exact RC5 to RC6 differential
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.13"
+      - name: Fetch and verify exact RC5 wheel
+        env:
+          WHEEL_URL: ${{ inputs.rc5_wheel_url }}
+          WHEEL_SHA256: ${{ inputs.rc5_wheel_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$WHEEL_SHA256" = "31ce44ac739acc70841ecd5914c59e7893188e94102a3fca3bea2e95fb66bc34"
+          mkdir -p .ci-wheelhouse
+          curl --fail --location --proto '=https' --tlsv1.2 "$WHEEL_URL" -o .ci-wheelhouse/ast2python-rc5.whl
+          printf '%s  %s\n' "$WHEEL_SHA256" .ci-wheelhouse/ast2python-rc5.whl | sha256sum --check --strict
+      - name: Fetch and verify independently classified results
+        env:
+          RESULTS_URL: ${{ inputs.classified_results_url }}
+          RESULTS_SHA256: ${{ inputs.classified_results_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$(printf '%s' "$RESULTS_SHA256" | grep -E '^[0-9a-f]{64}$')" = "$RESULTS_SHA256"
+          mkdir -p .ci-evidence
+          curl --fail --location --proto '=https' --tlsv1.2 "$RESULTS_URL" -o .ci-evidence/rc5-rc6-classified-results.json
+          printf '%s  %s\n' "$RESULTS_SHA256" .ci-evidence/rc5-rc6-classified-results.json | sha256sum --check --strict
+      - name: Run classified differential
+        run: >-
+          python tools/run_rc5_rc6_differential.py
+          --rc5-wheel .ci-wheelhouse/ast2python-rc5.whl
+          --classified-results .ci-evidence/rc5-rc6-classified-results.json
+          --output evidence/rc5-rc6-differential.json
+      - name: Upload differential evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ast2python-rc5-rc6-differential
+          path: evidence/rc5-rc6-differential.json
+          if-no-files-found: error

@@ -1,38 +1,42 @@
-class AST2PythonError(Exception):
-    """Base AST2Python error."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
 
 
-class RuntimeContractError(AST2PythonError):
-    """Generated/runtime contract mismatch."""
+@dataclass(frozen=True, slots=True)
+class AdmissionFinding:
+    code: str
+    message: str
+    path: str = "$"
+    details: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"code": self.code, "message": self.message, "path": self.path}
+        if self.details:
+            result["details"] = dict(self.details)
+        return result
 
 
-class ValidationError(AST2PythonError):
-    """AST validation failure."""
+class BundleAdmissionError(ValueError):
+    def __init__(
+        self, code: str, message: str, *, path: str = "$", details: dict[str, Any] | None = None
+    ) -> None:
+        super().__init__(f"{code}: {message}")
+        self.finding = AdmissionFinding(code=code, message=message, path=path, details=details)
 
 
-class UnsupportedNodeError(AST2PythonError):
-    """Unsupported AST node."""
+class BundleSourceError(BundleAdmissionError):
+    pass
 
 
-class UnsupportedBuiltinError(AST2PythonError):
-    """Unsupported builtin call or member."""
+class BundleLimitError(BundleAdmissionError):
+    pass
 
 
-class TypeResolutionError(AST2PythonError):
-    """Type/overload resolution failure."""
+class BundleInvariantError(BundleAdmissionError):
+    pass
 
 
-class ScopeResolutionError(AST2PythonError):
-    """Variable scope resolution failure."""
-
-
-class NameCollisionError(AST2PythonError):
-    """Unable to allocate a unique Python name."""
-
-
-class CodegenError(AST2PythonError):
-    """General code generation failure."""
-
-
-class SourceMapError(AST2PythonError):
-    """Invalid source map operation."""
+class AnalysisOnlyError(RuntimeError):
+    """Runnable output was requested from an analysis-only compilation session."""

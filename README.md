@@ -1,161 +1,90 @@
-# AST2Python 5.0.0rc5
+# Ast2Python 5.0.0rc6 — Stage 4
 
-> Code-generation layer that lowers Pine2AST contracts into deterministic Python modules targeting the PineLib runtime.
+Ast2Python is the strict lowering and deterministic Python-emission backend of OpenPine.
+It does **not** parse Pine source or repeat Pine2AST binding/type semantics.
 
-[![Version](https://img.shields.io/badge/version-5.0.0rc5-blue)](https://github.com/s7cret/ast2python) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://github.com/s7cret/ast2python) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/s7cret/ast2python)
-
-
-**GitHub description:** AST2Python converts Pine2AST JSON into PineLib-compatible Python modules with source maps, lowering diagnostics, visual-call policy, and OpenPine runtime metadata.
-
-**Suggested topics:** `pine-script`, `code-generation`, `compiler-backend`, `tradingview`, `python`, `static-analysis`, `algorithmic-trading`, `openpine`.
-
-## What AST2Python is
-
-AST2Python is the compiler backend between `pine2ast` and `pinelib`. It receives a versioned Pine AST contract, validates the input envelope, lowers supported Pine constructs, and writes deterministic Python modules that can be executed by the PineLib/OpenPine runtime stack.
+## Compiler pipeline
 
 ```text
-Pine source -> pine2ast -> AST JSON -> ast2python -> generated Python -> pinelib/backtest-engine
+pine2ast.consumer_bundle.v1
+→ strict admission
+→ immutable CompilationSession
+→ typed LoweringPlan v1
+→ exact Target Manifest admission
+→ deterministic Python module
+→ Source Map v2
+→ openpine.generated_artifact.v3
 ```
 
-## Contract alignment
+The only production input is `pine2ast.consumer_bundle.v1 / 1.0.0` produced by
+`pine2ast==5.0.0rc6`. Raw AST dictionaries, wrapper aliases, local binders, inferred
+semantic profiles, compatibility flags, stubs and silent no-op lowering are not accepted.
 
-| Component | Contract / version |
-|---|---|
-| Input AST | `pine.ast_contract.v1` |
-| Optional frontend metadata | `openpine.frontend.v2` |
-| Runtime target | PineLib runtime contract `1.4` |
-| Supported Python | `>=3.11` |
-| Generated artifact | `openpine.generated_artifact.v2` |
-| Release line | `5.0.0rc5`, aligned with Pine2AST/PineLib 5.0.0rc5 |
+## Public API
 
-## What it does
+```python
+from pathlib import Path
+from ast2python import compile_consumer_bundle, write_compilation_result
 
-- Validates Pine2AST parse JSON before lowering.
-- Emits deterministic Python files for generated strategy/indicator modules.
-- Preserves source-map and coverage metadata for debugging and CI.
-- Maps supported Pine builtins into PineLib runtime calls.
-- Applies an explicit policy for visual calls such as `plot`, `hline`, `fill`, `bgcolor`, and `barcolor`.
-- Fails closed for unsupported parity-sensitive behavior unless an explicit compatibility flag is provided.
-- Keeps OpenPine, PineLib, and backtest metadata available for downstream execution.
+result = compile_consumer_bundle(Path("strategy.consumer-bundle.json"))
+write_compilation_result(result, "generated/")
+```
 
-## What it does not do
-
-AST2Python does not parse Pine source, fetch candles, simulate orders, calculate PnL, run optimizations, or provide a complete TradingView runtime. It is a code generator. Runtime behavior belongs to PineLib, Backtest Engine, MarketData Provider, and OpenPine.
-
-## Install
+## CLI
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+ast2python validate-bundle strategy.consumer-bundle.json
+ast2python inspect-bundle strategy.consumer-bundle.json
+ast2python compile-bundle strategy.consumer-bundle.json \
+  --output generated/ --module-name generated_strategy
 ```
 
-Install from GitHub tag:
+## Version support
 
-```bash
-python -m pip install 'ast2python==5.0.0rc5'
-```
+The compiler consumes version-exact Pine v1–v6 facts from Pine2AST. Ast2Python never
+selects or rewrites the Pine version. Lowering differences such as eager/lazy logic,
+legacy/fractional division, conditional evaluation and loop-bound policy are selected by
+version-exact recipes.
 
-For source-stack development, install `pine2ast` and `pinelib` first:
+## Runtime boundary
 
-```bash
-python -m pip install -e ../pine2ast
-python -m pip install -e ../pinelib
-python -m pip install -e .
-```
+The generated module is self-contained relative to compiler packages: it imports neither
+`pine2ast` nor `ast2python`. Execution requires a runtime implementing the exact admitted
+Target Manifest. The bundled target is a **reference ABI only** and is explicitly marked
+`REFERENCE_ONLY_PENDING_PINELIB_RC6`; it is not evidence of PineLib RC6 acceptance.
 
-## CLI quick start
+## Current acceptance status
 
-Generate AST JSON with Pine2AST, then lower it:
+- Exact corrected Pine2AST RC6 bundles v1–v6: accepted.
+- Compiler-owned admission, IR, emission, source-map and artifact gates: implemented.
+- Exact PineLib RC6 Target Manifest: not available; release acceptance remains blocked.
+- Python 3.13 local gates: available.
+- Python 3.11/3.12 and hosted Ruff/Black/MyPy gates: required externally.
+- Merge, tag, publication and deployment: not authorized.
 
-```bash
-pine2ast parse strategy.pine --runtime-contract-v1-4 --json strategy.ast.json
-ast2python validate strategy.ast.json
-ast2python translate strategy.ast.json -o generated/ --module-name generated_strategy
-```
+See `docs/` for architecture, contracts, security, limitations and the RC5→RC6 migration.
 
-Additional commands:
+## RC6 near-final pass 3
 
-```bash
-ast2python translate-many strategy_a.ast.json strategy_b.ast.json -o generated/
-ast2python coverage strategy.ast.json
-ast2python smoke generated/generated_strategy.py --bars fixtures/bars.json
-ast2python lowering-matrix validate
-ast2python lowering-matrix export-md docs/LOWERING_MATRIX.md
-ast2python source-map-contract validate
-ast2python source-map-contract export-md docs/SOURCE_MAP_CONTRACT.md
-python -m ast2python translate strategy.ast.json -o generated/
-```
-
-## Visual-call policy
-
-Visual calls are useful for tests and diagnostics but are not required for live execution. AST2Python makes the policy explicit:
-
-```bash
-# Default: live-safe no-op visual calls.
-ast2python translate strategy.ast.json -o generated/ --visual-policy drop
-
-# Debug/test mode: record visual output.
-ast2python translate strategy.ast.json -o generated/ --visual-policy record
-
-# Strict mode: reject visual calls during generation.
-ast2python translate strategy.ast.json -o generated/ --visual-policy error
-```
-
-The default is `drop`, which keeps `plot()` and related calls from blocking runtime paths that do not need chart output.
-
-## Compile profiles and safety flags
-
-AST2Python is intentionally strict by default. Compatibility flags such as `--allow-invalid-ast`, `--allow-contract-mismatch`, `--allow-external-library-stubs`, and `--allow-unsupported-request-stubs` should be used only in controlled migration/test scenarios where the resulting behavior is explicitly reviewed.
-
-## Repository layout
+The third near-final pass hardens release evidence without changing component ownership.
+It records two separate conclusions:
 
 ```text
-ast2python/
-  cli/                    command parser and command handlers
-  emitters/               code-emission helpers
-  lowering_matrix/        supported lowering matrix and validation tools
-  runtime_contract/       target runtime interfaces and generated base
-  templates/              generated-module templates
-  translator.py           high-level lowering orchestration
-  source_map.py           source-map metadata
-  diagnostics.py          generator diagnostics
-  profiles.py             compile profiles and policy knobs
+local_candidate_ready   — exact local source, tests, build, install and provenance
+overall_release_ready   — local pass plus hosted Python/tooling, exact RC5 differential,
+                          and exact PineLib RC6 target acceptance
 ```
 
-## Release checks
+A syntax check performed by Python 3.13 with `feature_version=(3, 11)` is reported as
+syntax evidence only. It is never reported as a Python 3.11 runtime test. Likewise,
+missing Ruff, Black, MyPy, hosted CI, RC5 wheel bytes or PineLib target evidence remain
+explicit blockers rather than synthetic passes.
+
+Run the local pass:
 
 ```bash
-python -m compileall -q ast2python tests
-python -m ruff check .
-python -m black --check . --workers 1
-python -m mypy ast2python
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q
-python -m ast2python.quality duplicates ast2python
-python -m ast2python.quality architecture ast2python --max-lines 700
-python -m ast2python.distribution manifest --root .
-python -m ast2python.release --root .
-bash scripts/wheel_smoke.sh
+python -m ast2python.hardening.pass3 --root . --evidence ./evidence/pass3
 ```
 
-## Documentation
-
-- `docs/ARCHITECTURE.md` — generator layers and ownership boundary.
-- `docs/COMPATIBILITY.md` — public contracts, supported lowering areas, visual policy, non-goals.
-- `docs/OPENPINE_PIPELINE.md` — how AST2Python fits into the OpenPine pipeline.
-- `docs/DEVELOPMENT.md` — local checks and release workflow.
-- `docs/RELEASE_4_0.md` — 4.0.0 release notes.
-- `docs/SECURITY.md` — safe generation and integration guidance.
-
-## License
-
-MIT. See `LICENSE`.
-
-## Support
-
-OpenPine development is independent and MIT-licensed. Support is optional and does not change license terms, feature access, or project guarantees.
-
-- Telegram: https://t.me/OpenPine
-- TON: `UQAyIr2sQ4-_Q5L-4VINcU18khDas5GPbAlYEkQN6S_qzui2`
-- SOL: `EbxMUK2W4RGeQZCTRFrdgpEJvnqtyczPZvBrQa1cYJnQ`
+The workflow `.github/workflows/rc6-pass3.yml` requires exact wheel URLs and SHA-256
+values and pins all third-party actions to full commit SHAs.

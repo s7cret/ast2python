@@ -1,23 +1,39 @@
 # Architecture
 
-AST2Python is a lowering and code-generation package. Its input is a Pine AST JSON envelope; its output is Python code plus metadata, diagnostics, source maps and coverage information.
+## Ownership
 
-## Main layers
+Pine2AST owns parsing, version resolution, binding, types, qualifiers, overloads and
+semantic-rule identities. Ast2Python consumes those facts and lowers them; it never
+recomputes them. PineLib owns runtime operations and strategy intents. BacktestEngine
+owns simulated fills and ledger state.
+
+## Pipeline
 
 ```text
-ast/schema.py            AST envelope loading and validation
-translator.py            thin public Translator facade
-translator_parts/        module, statement, declaration, expression, call and metadata lowering
-binder.py                builtin binding algorithm
-binder_signatures/       namespace-specific builtin signature tables
-emitters/                focused Python emitter helpers
-runtime_contract/        abstract runtime contract surface
-cli/                     parser and command dispatch
-lowering_matrix/         documented lowering support matrix
+Consumer Bundle Admission
+        ↓
+AdmittedConsumerBundle (immutable)
+        ↓
+CompilationSession
+        ↓
+LoweringPlan v1 (typed, hash-bound, one IR node per source node)
+        ↓
+TargetManifest v1 admission
+        ↓
+Python Emitter + Source Map v2
+        ↓
+Generated Artifact v3
 ```
 
-The 4.0 refactor keeps the public `Translator` and `translate_ast()` API stable while removing the previous single-file translator bottleneck.
+## Invariants
 
-## Boundary
-
-AST2Python does not try to interpret Pine bars or simulate TradingView. It generates PineLib-targeted Python modules and fail-closes where static lowering cannot preserve parity safely.
+- one PineVersionContext from the producer;
+- exact node→fact→IR traceability;
+- exact symbol/overload identity for every resolved call;
+- no nearest-version fallback;
+- no raw AST production path;
+- no local semantic binder;
+- no stub/no-op/`na` replacement for unsupported behavior;
+- target operation/capability subset checked before emission;
+- deterministic output for identical bundle, target and module name;
+- generated Python imports no compiler package.

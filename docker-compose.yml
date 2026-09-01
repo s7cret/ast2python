@@ -1,5 +1,0 @@
-services:
-  ast2python:
-    build:
-      context: .
-    command: python -m pytest

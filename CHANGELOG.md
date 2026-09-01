@@ -1,48 +1,29 @@
 # Changelog
 
-## 5.0.0rc5
+## 5.0.0rc6 — Stage 4
 
-- Advances generated-artifact producer and package metadata to the coordinated RC.5 identity.
-- Pins exact RC.5 compiler/runtime dependencies without changing lowering semantics.
+- Made `pine2ast.consumer_bundle.v1` the only production input.
+- Removed raw-AST translation, tolerant wrappers, the local binder/signature registry,
+  local type inference, compatibility flags, request/visual/library stubs and runtime
+  contract aliases.
+- Added immutable compilation sessions and typed `ast2python.lowering_plan.v1` IR.
+- Added version-exact recipes for Pine v1–v6 and exact Target Manifest admission.
+- Added deterministic self-contained Python emission, Source Map v2 and
+  `openpine.generated_artifact.v3`.
+- Added a 22-case normative corpus, 25 adjacent-version differential cases,
+  44 bundle mutants, 40 IR mutants, 30 artifact mutants and a deterministic 10,000-case
+  fuzz gate.
+- Added property, performance, security, coverage, package-integrity, reproducibility,
+  SBOM and provenance gates.
+- Preserved the release stop boundary: exact PineLib RC6 acceptance and external
+  Python/tooling matrix remain mandatory before merge or release.
 
-## 5.0.0rc4
+## 5.0.0rc6 — near-final pass 3
 
-- Injects admitted execution context into generated strategies and emits paired runtime/strategy checkpoint hooks.
-- Records nested Pine calls and strategy declaration context at call-level source-map precision.
-- Pins Contracts, Pine2AST, PineLib, and Marketdata to their immutable RC.4 candidate SHAs.
-
-## 5.0.0rc3
-
-- Canonical translation now returns and persists a catalog-valid, sealed
-  `openpine.generated_artifact.v2` envelope alongside emitted Python and a
-  complete runtime-call source map.
-- Bound deterministic source/frontend/AST/module/source-map/support hashes,
-  immutable producer commits, computed import and capability boundaries, and a
-  unique generated entrypoint.
-- Replaced VCS requirements with exact coordinated `5.0.0rc3` package pins.
-
-## 4.0.2
-
-- Pinned the coordinated Pine2AST, PineLib, Backtest Engine, and MarketData Provider 4.0.2 release commits.
-- Refreshed release manifest and wheel evidence without changing AST, frontend, or runtime contract IDs.
-
-## 4.0.1
-
-- Published the hardened OpenPine 4.0.1 stack with unchanged AST/runtime contract IDs.
-- Aligned package, documentation, release-manifest, and immutable downstream dependency metadata.
-
-## 4.0.0
-
-- Aligned generator input with `pine.ast_contract.v1` and the OpenPine 4.0 release line.
-- Refactored translator implementation into focused `translator_parts`, `translator_mixins`, emitters, binder signatures and quality/release tooling.
-- Added explicit visual policy: `drop` default for live-safe no-op visuals, `record` for debug/test plot recorder output, and `error` for strict visual rejection.
-- Added `ast2python.__main__`, so `python -m ast2python ...` works beside the console script.
-- Added Protocol-backed typing for translator mixins and brought `mypy ast2python` to a clean pass.
-- Synchronized release gate with CI-style checks: `ruff`, `black`, `mypy`, hermetic pytest+coverage, quality, distribution, release, smoke and wheel smoke.
-- Changed wheel smoke to install the built wheel with `--no-deps` by default; full-stack dependency validation is available through `FULL_STACK_WHEEL_SMOKE=1`.
-- Raised coverage from the earlier ~71% baseline to the 100% release threshold, with focused coverage on calls, expressions, statements, metadata inputs/requests and type inference.
-- Clarified docs: `pine2ast parse --json` is the lowering input; `pine2ast inspect --json` is a metadata/debug/optimizer sidecar unless it carries a `Program` AST.
-
-## 0.x history
-
-Earlier internal milestones established basic Pine2AST envelope validation, Python module emission, source-map metadata, PineLib runtime contract targeting, and initial OpenPine pipeline smoke tests.
+- Added a fail-closed release-candidate hardening model with separate local and external gates.
+- Added source-manifest verification and exact local Git commit/tree evidence.
+- Added Python 3.11/3.12/3.13 syntax-compatibility checks without misrepresenting them as runtime CI.
+- Added a GitHub Actions workflow with every third-party action pinned to a full commit SHA.
+- Added an exact-RC5 differential runner that refuses to infer a pass when the reviewed RC5 wheel or classified corpus results are absent.
+- Added deterministic review-packet and independent-audit tooling.
+- Preserved the stop boundary: local candidate readiness never authorizes merge, release, or deployment.

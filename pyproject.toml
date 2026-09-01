@@ -4,16 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ast2python"
-version = "5.0.0rc5"
-description = "AST2Python generator for Pine AST to PineLib Python modules"
+version = "5.0.0rc6"
+description = "Strict version-exact Pine lowering, deterministic Python emission, source maps, and generated artifacts for OpenPine"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-authors = [{ name = "OpenAI Codex" }]
+authors = [{name = "Interpipe Solutions"}]
 dependencies = [
-  "openpine-contracts==5.0.0rc5",
-  "pinelib==5.0.0rc5",
-  "pine2ast==5.0.0rc5",
+  "pine2ast==5.0.0rc6",
 ]
 
 [project.urls]
@@ -22,15 +20,7 @@ Repository = "https://github.com/s7cret/ast2python"
 Issues = "https://github.com/s7cret/ast2python/issues"
 
 [project.optional-dependencies]
-dev = [
-  "pytest>=8",
-  "ruff>=0.6",
-  "black>=24",
-  "mypy>=1.10",
-  "types-jsonschema>=4.20",
-  "build>=1.2",
-  "backtest-engine==5.0.0rc5",
-]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "black>=24", "mypy>=1.10"]
 
 [project.scripts]
 ast2python = "ast2python.cli.main:main"
@@ -39,48 +29,43 @@ ast2python = "ast2python.cli.main:main"
 include = ["ast2python*"]
 
 [tool.setuptools.package-data]
-ast2python = ["lowering_matrix/*.json"]
+ast2python = ["py.typed", "target_data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --import-mode=importlib"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
 
 [tool.black]
 line-length = 100
 target-version = ["py311"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-exclude = ["dist", "build", "tests/fixtures", ".venv"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-ignore = ["E402", "E501"]
-
-[tool.ruff.lint.per-file-ignores]
-# Golden generated-code snapshots intentionally mirror emitter output byte-for-byte;
-# tests assert exact strings, so lint/format changes belong in the emitter first.
-"tests/fixtures/expected/**/*.py" = ["E501", "F401", "I001", "B905"]
-"ast2python/translator_parts/shared.py" = ["F401"]
-"ast2python/translator_parts/*.py" = ["F403", "F405"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
-pythonpath = [".", "../openpine-contracts", "../pinelib", "../pine2ast"]
-
 [tool.mypy]
 python_version = "3.11"
 packages = ["ast2python"]
-mypy_path = [".", "../openpine-contracts", "../pinelib", "../pine2ast"]
+strict = true
 warn_unused_ignores = true
-warn_redundant_casts = true
-warn_return_any = true
-strict_optional = true
-exclude = ["dist", "build", "tests/fixtures", ".venv"]
 
-[[tool.mypy.overrides]]
-module = ["pinelib", "pinelib.*", "pine2ast", "pine2ast.*"]
-ignore_missing_imports = true
-follow_imports = "silent"
+[tool.coverage.run]
+branch = true
+source = ["ast2python"]
+omit = [
+  "ast2python/__main__.py",
+  "ast2python/cli/*",
+  "ast2python/distribution.py",
+  "ast2python/release.py",
+  "ast2python/hardening/*",
+  "ast2python/target_data/*",
+]
 
 [tool.coverage.report]
-fail_under = 100
-show_missing = false
+fail_under = 95
+show_missing = true

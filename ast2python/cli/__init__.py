@@ -1,1 +1,3 @@
-"""CLI package for ast2python."""
+from ast2python.cli.main import main
+
+__all__ = ["main"]
