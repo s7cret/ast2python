@@ -41,6 +41,8 @@ jobs:
           build==1.6.0 httpx==0.28.1 typing-extensions==4.16.0
       - name: Reconstruct exact reviewed commits
         run: python "$RUNNER_TEMP/reviewed-publisher.py" reconstruct "$RUNNER_TEMP/review-evidence" .github/maintenance/reviewed-series.json
+      - name: Expose admitted sibling-source fixture
+        run: ln -s "$RUNNER_TEMP/dependency-pinelib" ../pinelib
       - name: Install clean source copy and test
         run: |
           mkdir -p "$RUNNER_TEMP/build-source"
@@ -54,6 +56,7 @@ jobs:
           cp "$RUNNER_TEMP/reviewed-publisher.py" "$RUNNER_TEMP/review-evidence/reviewed-publisher.py"
           git status --porcelain > "$RUNNER_TEMP/review-evidence/post-test-worktree.txt"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: reviewed-${{ matrix.python }}-${{ github.run_id }}
           path: ${{ runner.temp }}/review-evidence/
