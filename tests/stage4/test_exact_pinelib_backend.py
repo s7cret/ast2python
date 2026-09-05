@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pinelib
 import pytest
 from pine2ast.hardening.consumer_bundle import build_consumer_bundle
 
@@ -10,7 +11,7 @@ from ast2python import BundleInvariantError, compile_consumer_bundle
 from ast2python.lowering import load_pinelib_target_manifest
 
 ROOT = Path(__file__).parents[2]
-PINELIB_ROOT = Path(__file__).resolve().parents[3] / "pinelib"
+PINELIB_MANIFEST = Path(pinelib.__file__).resolve().parent / "abi" / "target_manifest.json"
 
 
 def _runtime_session(version: int = 6):
@@ -60,7 +61,7 @@ def test_production_compile_requires_explicit_target() -> None:
 
 
 def test_exact_pinelib_target_emits_importable_executable_module() -> None:
-    manifest_path = PINELIB_ROOT / "pinelib/abi/target_manifest.json"
+    manifest_path = PINELIB_MANIFEST
     raw_manifest = json.loads(manifest_path.read_text())
     target = load_pinelib_target_manifest(manifest_path)
     assert target.release_acceptance == "EXACT_PINELIB_TARGET_MANIFEST_V2"
@@ -90,7 +91,7 @@ def test_exact_pinelib_target_emits_importable_executable_module() -> None:
 def test_exact_pinelib_backend_executes_all_pine_versions(version: int) -> None:
     declaration = "indicator" if version >= 5 else "study"
     source = f'//@version={version}\n{declaration}("v{version}")\nplot(1)\n'
-    target = load_pinelib_target_manifest(PINELIB_ROOT / "pinelib/abi/target_manifest.json")
+    target = load_pinelib_target_manifest(PINELIB_MANIFEST)
     result = compile_consumer_bundle(
         build_consumer_bundle(source, source_name=f"v{version}.pine"),
         target=target,
