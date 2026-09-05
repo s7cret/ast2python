@@ -4,7 +4,8 @@ import ast
 import hashlib
 import keyword
 import re
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from ast2python.admission.canonical import thaw_json
@@ -38,6 +39,7 @@ class EmittedPythonModule:
     code_hash: str
     source_map: SourceMapV2
     import_manifest: tuple[str, ...]
+    script_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_summary(self) -> dict[str, Any]:
         return {
@@ -134,6 +136,9 @@ class _DirectEmitter:
         self.direct_value_aliases: dict[str, str] = {}
         self.direct_operation_aliases: dict[str, str] = {}
         self._prepare_direct_imports()
+        from ast2python.emission.metadata import ScriptMetadata
+
+        self.metadata = ScriptMetadata(plan) if self.exact_pinelib else None
 
     def _node(self, ir_id: str) -> IRNode:
         return self.plan.nodes[ir_id]
@@ -452,6 +457,29 @@ class _DirectEmitter:
         call = attrs.get("call")
         if not isinstance(call, dict):
             raise BundleInvariantError("A2P_EMIT_CALL", "IR call lacks producer call facts")
+        if self.metadata is not None and ir_id in self.metadata.input_ids:
+            key = (str(call["symbol_id"]), str(call["overload_id"]), str(call["call_form"]))
+            binding = self.target.call_bindings.get(key)
+            if binding is None or binding.state_model != "ADMITTED_INPUT":
+                raise BundleInvariantError(
+                    "A2P_INPUT_BINDING", "input lacks exact admitted-input ABI"
+                )
+            alias = self.direct_call_aliases.get(key)
+            if alias is None:
+                raise BundleInvariantError("A2P_INPUT_BINDING", "input callable is not imported")
+            arguments = []
+            sources = {
+                "RUNTIME_TRANSACTION": "self.runtime",
+                "RUNTIME_INPUT_REGISTRY": "self.runtime.session.inputs",
+                "ADMITTED_INPUT_SPEC_ID": repr(self.metadata.input_ids[ir_id]),
+            }
+            for row in binding.parameter_bindings:
+                if row["binding"] != "INJECTED" or row.get("source") not in sources:
+                    raise BundleInvariantError(
+                        "A2P_INPUT_BINDING", "input ABI has an unsupported parameter binding"
+                    )
+                arguments.append(f"{row['abi_parameter']}={sources[row['source']]}")
+            return f"{alias}({', '.join(arguments)})"
         arguments_by_source = {
             self._node(argument_ir).source.node_id: argument_ir
             for argument_ir in self._role(ir_id, "arguments")
@@ -510,9 +538,7 @@ class _DirectEmitter:
                 )
             span = thaw_json(self._node(ir_id).source.span)
             positional = "[" + ", ".join(delegated_positional) + "]"
-            named = "{" + ", ".join(
-                f"{name!r}: {value}" for name, value in delegated_named
-            ) + "}"
+            named = "{" + ", ".join(f"{name!r}: {value}" for name, value in delegated_named) + "}"
             source_span = (
                 "_PineLibSourceSpan("
                 f"source_hash={self.plan.source_hash!r}, "
@@ -994,6 +1020,8 @@ class _DirectEmitter:
                 writer.line(f"from {module} import {python_name} as {alias}")
         writer.line()
         writer.line(f"PINE_VERSION = {self.plan.pine_version}")
+        if self.metadata is not None:
+            writer.line(f"SCRIPT_METADATA = {self.metadata.to_dict()!r}")
         writer.line(f"TARGET_MANIFEST_HASH = {self.target.content_hash!r}")
         if self.exact_pinelib:
             writer.line(f"PINELIB_TARGET_MANIFEST_HASH = {self.target.target_version!r}")
@@ -1123,4 +1151,5 @@ def emit_python_module(
         code_hash=code_hash,
         source_map=source_map,
         import_manifest=imports,
+        script_metadata={} if emitter.metadata is None else emitter.metadata.to_dict(),
     )

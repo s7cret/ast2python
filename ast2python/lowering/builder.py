@@ -135,6 +135,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
             "receiver_type": fact.receiver_type,
             "coercions": thaw_json(fact.coercions),
             "stateful": fact.stateful_call,
+            "const_value": thaw_json(fact.raw.get("const_value")),
             "child_roles": {
                 role: [ir_id_by_source[child_id] for child_id in child_ids]
                 for role, child_ids in node.child_roles.items()
