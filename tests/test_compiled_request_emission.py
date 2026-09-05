@@ -27,7 +27,6 @@ def test_request_child_method_all_versions(version):
 @pytest.mark.parametrize(
     "body",
     [
-        'x=request.security("EX:S","5",request.security("EX:S","1",close))',
         'f(x)=>x+1\ny=request.security("EX:S","5",f(close))',
         'x=request.security("EX:S","5",strategy.equity)',
     ],
@@ -57,3 +56,25 @@ def test_na_broker_field_and_lower_array_have_bindings():
     )
     assert "na_v1" in result.emitted.code
     assert "get_v1" in result.emitted.code
+
+
+@pytest.mark.parametrize("version,enabled", [(5, True), (6, None)])
+def test_nested_child_methods_preserve_independent_context_calls(version, enabled):
+    option = "" if enabled is None else ",dynamic_requests=true"
+    result = compile_source(
+        f'//@version={version}\nindicator("nested"{option})\nx=request.security("EX:S","5",request.security("","",close))\n'
+    )
+    methods = [
+        node
+        for node in ast.walk(ast.parse(result.emitted.code))
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("request_")
+    ]
+    assert len(methods) == 2
+    assert all("self.runtime" in ast.unparse(method) for method in methods)
+
+
+def test_nested_requests_disabled_still_fail_explicitly():
+    with pytest.raises(BundleInvariantError, match="dynamic_requests"):
+        compile_source(
+            '//@version=6\nindicator("disabled",dynamic_requests=false)\nx=request.security("EX:S","5",request.security("EX:S","1",close))\n'
+        )

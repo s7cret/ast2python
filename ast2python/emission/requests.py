@@ -35,9 +35,16 @@ class RequestEmissionMixin:
             expression = args.get("expression")
             if expression is None:
                 self._request_error(key, "request requires an expression")
+            enabled = self.metadata.declaration.get("arguments", {}).get(
+                "dynamic_requests", self.plan.pine_version >= 6
+            )
+            if type(enabled) is not bool:
+                self._request_error(key, "dynamic_requests must be a compile-time bool")
             dependencies, visiting, visited = [], set(), set()
 
-            def visit(node, dependencies=dependencies, visiting=visiting, visited=visited):
+            def visit(
+                node, dependencies=dependencies, visiting=visiting, visited=visited, enabled=enabled
+            ):
                 attrs, fields = self._attrs(node), self._fields(node)
                 symbol = str(attrs.get("symbol_id") or "")
                 if symbol.startswith(("pine:variable:strategy.", "pine:variable:barstate.")):
@@ -55,13 +62,11 @@ class RequestEmissionMixin:
                     target = self.target.call_bindings.get(
                         (sid, str(info.get("overload_id")), str(info.get("call_form")))
                     )
-                    if (
-                        target is None
-                        or target.disposition != "TARGET_DIRECT"
-                        or target.state_model == "COMPILED_REQUEST_EXPRESSION"
-                    ):
+                    if target is None or target.disposition != "TARGET_DIRECT":
+                        self._request_error(node, "delegated request expression is not supported")
+                    if target.state_model == "COMPILED_REQUEST_EXPRESSION" and not enabled:
                         self._request_error(
-                            node, "nested or delegated request expression is not supported"
+                            node, "nested request expressions require dynamic_requests"
                         )
                 if attrs.get("ast_kind") == "Identifier":
                     name = fields.get("name")
@@ -103,11 +108,6 @@ class RequestEmissionMixin:
                 for name in ("symbol", "timeframe", "resolution")
                 if name in args
             )
-            enabled = self.metadata.declaration.get("arguments", {}).get(
-                "dynamic_requests", self.plan.pine_version >= 6
-            )
-            if type(enabled) is not bool:
-                self._request_error(key, "dynamic_requests must be a compile-time bool")
             if not enabled and (dynamic or self._attrs(key).get("scope_id") != "scope:global"):
                 self._request_error(
                     key,
