@@ -123,6 +123,7 @@ class _DirectEmitter:
         self.exact_pinelib = target.release_acceptance == "EXACT_PINELIB_TARGET_MANIFEST_V2"
         self.local_names: dict[tuple[str, str], str] = {}
         self.series_ids: dict[tuple[str, str], str] = {}
+        self.scalar_declarations: dict[str, tuple[str, str, str]] = {}
         self.names_by_source: dict[str, str] = {}
         self.functions_by_name: dict[str, str] = {}
         self.function_ir_ids: set[str] = set()
@@ -171,6 +172,16 @@ class _DirectEmitter:
         return f"{prefix}_{slug}_{suffix}"
 
     def _prepare_names(self) -> None:
+        declarations: dict[str, set[str]] = {}
+        for ir_id in self.plan.ordered_ir_ids:
+            if self._attrs(ir_id).get("ast_kind") == "VarDeclaration":
+                declarations.setdefault(str(self._fields(ir_id).get("name")), set()).add(
+                    str(self._attrs(ir_id).get("scope_id") or "scope:global"))
+        if self.exact_pinelib and any("scope:global" in scopes and len(scopes) > 1 for scopes in declarations.values()):
+            raise BundleInvariantError(
+                "A2P_SHADOWED_STATE_UNSUPPORTED",
+                "shadowed global variables require explicit lexical state bindings",
+            )
         for ir_id in self.plan.ordered_ir_ids:
             attrs = self._attrs(ir_id)
             fields = self._fields(ir_id)
@@ -205,6 +216,9 @@ class _DirectEmitter:
                         self.series_ids[(scope, name)] = (
                             f"series:{self._node(ir_id).source.node_id}"
                         )
+                        self.scalar_declarations[py_name] = (
+                            self.series_ids[(scope, name)], str(fields.get("mode") or "default"), result_type.base
+                        )
             elif kind == "ForRangeStructure":
                 variable = fields.get("variable")
                 if isinstance(variable, str):
@@ -236,6 +250,10 @@ class _DirectEmitter:
         if local is not None:
             return local
         symbol_id = attrs.get("symbol_id")
+        if isinstance(symbol_id, str) and symbol_id.startswith("user:variable:"):
+            py_name = self._lookup_local(scope, name)
+            if py_name in self.scalar_declarations:
+                return self.scalar_declarations[py_name][0]
         if (
             isinstance(symbol_id, str)
             and symbol_id == f"pine:variable:{name}"
@@ -840,13 +858,18 @@ class _DirectEmitter:
                 if self.exact_pinelib and dtype in {"bool", "color", "float", "int", "string"}
                 else None
             )
+            mode = str(fields.get("mode") or "default")
+            if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
+                raise BundleInvariantError(
+                    "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
+                    "persistent declarations currently require a global scalar; local/function/reference state needs a call-site contract",
+                )
             if series_id is not None:
                 self.writer.line(
-                    f"self.runtime.set_series({series_id!r}, {initializer_expression}, {dtype!r})",
+                    f"{py_name} = self.runtime.declare_scalar_v1({series_id!r}, {mode!r}, lambda: {initializer_expression}, {dtype!r})",
                     ir_ids=self._subtree(ir_id),
                     origin="PINE",
                 )
-                self.writer.line(f"{py_name} = self.runtime.read_series({series_id!r})")
             else:
                 self.writer.line(
                     f"{py_name} = {initializer_expression}",
@@ -866,6 +889,10 @@ class _DirectEmitter:
             else:
                 text = f"{target_name} {operator} {self._expr(value[0])}"
             self.writer.line(text, ir_ids=self._subtree(ir_id), origin="PINE")
+            scalar = self.scalar_declarations.get(target_name) if self.exact_pinelib else None
+            if scalar is not None:
+                series_id, mode, dtype = scalar
+                self.writer.line(f"self.runtime.write_scalar_v1({series_id!r}, {mode!r}, {target_name}, {dtype!r})")
             return
         if kind == "TupleDeclaration":
             targets = self._role(ir_id, "targets")
