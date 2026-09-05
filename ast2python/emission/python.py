@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from ast2python.admission.canonical import thaw_json
+from ast2python.emission.requests import RequestEmissionMixin
 from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
 from ast2python.errors import BundleInvariantError
 from ast2python.lowering.model import IRNode, LoweringPlan
@@ -115,7 +116,7 @@ class _Writer:
         return "\n".join(self.lines) + "\n"
 
 
-class _DirectEmitter:
+class _DirectEmitter(RequestEmissionMixin):
     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
         self.plan = plan
         self.target = target
@@ -140,6 +141,7 @@ class _DirectEmitter:
         from ast2python.emission.metadata import ScriptMetadata
 
         self.metadata = ScriptMetadata(plan) if self.exact_pinelib else None
+        self._prepare_requests() if self.exact_pinelib else setattr(self, "request_methods", {})
 
     def _node(self, ir_id: str) -> IRNode:
         return self.plan.nodes[ir_id]
@@ -518,7 +520,9 @@ class _DirectEmitter:
                 raise BundleInvariantError(
                     "A2P_EMIT_CALL_ARGUMENT", "Argument must contain one value"
                 )
-            value = self._expr(value_ir[0])
+            value = (self._request_expression_argument(ir_id)
+                     if ir_id in self.request_methods and argument["parameter_name"] == "expression"
+                     else self._expr(value_ir[0]))
             rendered_by_parameter[str(argument["parameter_name"])] = value
             if argument["binding"] == "named":
                 rendered.append(f"{argument['parameter_name']}={value}")
@@ -635,7 +639,17 @@ class _DirectEmitter:
                         "A2P_PINELIB_PARAMETER_BINDING",
                         "unknown PineLib ABI parameter binding",
                     )
-                if source == "RUNTIME_TRANSACTION":
+                if source == "COMPILED_REQUEST_EXPRESSION":
+                    injected = self._request_expression_argument(ir_id)
+                    consumed.add("expression")
+                elif source == "REQUEST_TIMEFRAME_ARGUMENT":
+                    candidates = set(rendered_by_parameter) & {"timeframe", "resolution"}
+                    if len(candidates) != 1 or (self.plan.pine_version >= 5 and "resolution" in candidates):
+                        raise BundleInvariantError("A2P_REQUEST_TIMEFRAME", "request timeframe lacks an exact version binding")
+                    source_name = candidates.pop()
+                    injected = rendered_by_parameter[source_name]
+                    consumed.add(source_name)
+                elif source == "RUNTIME_TRANSACTION":
                     injected = "self.runtime"
                 elif source in {
                     "SOURCE_LOCATION_STATE_ID",
@@ -1043,6 +1057,9 @@ class _DirectEmitter:
                 "from pinelib.abi import load_target_manifest as _load_pinelib_target_manifest"
             )
             writer.line("from pinelib.events.common import SourceSpan as _PineLibSourceSpan")
+            if self.request_methods:
+                writer.line("from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression")
+                writer.line("from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape")
             for (module, python_name), alias in sorted(self.direct_imports.items()):
                 writer.line(f"from {module} import {python_name} as {alias}")
         writer.line()
@@ -1095,6 +1112,7 @@ class _DirectEmitter:
             if ir_id in self.function_ir_ids:
                 self._emit_function(ir_id)
 
+        self._emit_request_methods()
         root = self.plan.root_ir_id
         writer.line("def run(self) -> Any:", ir_ids=(root,), origin="PINE")
         writer.indent()
