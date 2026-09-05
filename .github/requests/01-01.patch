@@ -1,0 +1,246 @@
+diff --git a/ast2python/emission/python.py b/ast2python/emission/python.py
+index ae0124122451d7f1fd2ca651b46cd047b2801dde..d47969b5549a510848abbd933a7e41bb84600169 100644
+--- a/ast2python/emission/python.py
++++ b/ast2python/emission/python.py
+@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
+ from typing import Any, cast
+ 
+ from ast2python.admission.canonical import thaw_json
++from ast2python.emission.requests import RequestEmissionMixin
+ from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
+ from ast2python.errors import BundleInvariantError
+ from ast2python.lowering.model import IRNode, LoweringPlan
+@@ -115,7 +116,7 @@ class _Writer:
+         return "\n".join(self.lines) + "\n"
+ 
+ 
+-class _DirectEmitter:
++class _DirectEmitter(RequestEmissionMixin):
+     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
+         self.plan = plan
+         self.target = target
+@@ -140,6 +141,7 @@ class _DirectEmitter:
+         from ast2python.emission.metadata import ScriptMetadata
+ 
+         self.metadata = ScriptMetadata(plan) if self.exact_pinelib else None
++        self._prepare_requests() if self.exact_pinelib else setattr(self, "request_methods", {})
+ 
+     def _node(self, ir_id: str) -> IRNode:
+         return self.plan.nodes[ir_id]
+@@ -518,7 +520,9 @@ class _DirectEmitter:
+                 raise BundleInvariantError(
+                     "A2P_EMIT_CALL_ARGUMENT", "Argument must contain one value"
+                 )
+-            value = self._expr(value_ir[0])
++            value = (self._request_expression_argument(ir_id)
++                     if ir_id in self.request_methods and argument["parameter_name"] == "expression"
++                     else self._expr(value_ir[0]))
+             rendered_by_parameter[str(argument["parameter_name"])] = value
+             if argument["binding"] == "named":
+                 rendered.append(f"{argument['parameter_name']}={value}")
+@@ -635,7 +639,17 @@ class _DirectEmitter:
+                         "A2P_PINELIB_PARAMETER_BINDING",
+                         "unknown PineLib ABI parameter binding",
+                     )
+-                if source == "RUNTIME_TRANSACTION":
++                if source == "COMPILED_REQUEST_EXPRESSION":
++                    injected = self._request_expression_argument(ir_id)
++                    consumed.add("expression")
++                elif source == "REQUEST_TIMEFRAME_ARGUMENT":
++                    candidates = set(rendered_by_parameter) & {"timeframe", "resolution"}
++                    if len(candidates) != 1 or (self.plan.pine_version >= 5 and "resolution" in candidates):
++                        raise BundleInvariantError("A2P_REQUEST_TIMEFRAME", "request timeframe lacks an exact version binding")
++                    source_name = candidates.pop()
++                    injected = rendered_by_parameter[source_name]
++                    consumed.add(source_name)
++                elif source == "RUNTIME_TRANSACTION":
+                     injected = "self.runtime"
+                 elif source in {
+                     "SOURCE_LOCATION_STATE_ID",
+@@ -1043,6 +1057,9 @@ class _DirectEmitter:
+                 "from pinelib.abi import load_target_manifest as _load_pinelib_target_manifest"
+             )
+             writer.line("from pinelib.events.common import SourceSpan as _PineLibSourceSpan")
++            if self.request_methods:
++                writer.line("from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression")
++                writer.line("from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape")
+             for (module, python_name), alias in sorted(self.direct_imports.items()):
+                 writer.line(f"from {module} import {python_name} as {alias}")
+         writer.line()
+@@ -1095,6 +1112,7 @@ class _DirectEmitter:
+             if ir_id in self.function_ir_ids:
+                 self._emit_function(ir_id)
+ 
++        self._emit_request_methods()
+         root = self.plan.root_ir_id
+         writer.line("def run(self) -> Any:", ir_ids=(root,), origin="PINE")
+         writer.indent()
+diff --git a/ast2python/emission/requests.py b/ast2python/emission/requests.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..353446c6f6620c526cc49622791b9f6cf77ea52c
+--- /dev/null
++++ b/ast2python/emission/requests.py
+@@ -0,0 +1,163 @@
++"""Dependency-sliced request methods emitted from checked IR, never Pine strings."""
++
++from __future__ import annotations
++
++import hashlib
++
++from ast2python.errors import BundleInvariantError
++
++
++class RequestEmissionMixin:
++    def _prepare_requests(self):
++        self.request_methods = {}
++        declarations = {}
++        mutated = set()
++        for key in self.plan.ordered_ir_ids:
++            attrs, fields = self._attrs(key), self._fields(key)
++            if (
++                attrs.get("ast_kind") == "VarDeclaration"
++                and attrs.get("scope_id") == "scope:global"
++            ):
++                declarations[fields["name"]] = key
++            if attrs.get("ast_kind") == "Reassignment":
++                for target in self._role(key, "target"):
++                    mutated.add(self._fields(target).get("name"))
++        for key in self.plan.ordered_ir_ids:
++            call = self._attrs(key).get("call")
++            if not isinstance(call, dict):
++                continue
++            binding = self.target.call_bindings.get(
++                (str(call["symbol_id"]), str(call["overload_id"]), str(call["call_form"]))
++            )
++            if binding is None or binding.state_model != "COMPILED_REQUEST_EXPRESSION":
++                continue
++            args = self.metadata.argument_nodes(key)
++            expression = args.get("expression")
++            if expression is None:
++                self._request_error(key, "request requires an expression")
++            dependencies, visiting, visited = [], set(), set()
++
++            def visit(node, dependencies=dependencies, visiting=visiting, visited=visited):
++                attrs, fields = self._attrs(node), self._fields(node)
++                symbol = str(attrs.get("symbol_id") or "")
++                if symbol.startswith(("pine:variable:strategy.", "pine:variable:barstate.")):
++                    self._request_error(
++                        node,
++                        "broker/barstate dependencies in request expressions are not supported",
++                    )
++                if attrs.get("ast_kind") == "CallExpr":
++                    info = attrs.get("call", {})
++                    sid = str(info.get("symbol_id", ""))
++                    if sid.startswith("user:function:"):
++                        self._request_error(
++                            node, "request UDF dependency slicing is not yet supported"
++                        )
++                    target = self.target.call_bindings.get(
++                        (sid, str(info.get("overload_id")), str(info.get("call_form")))
++                    )
++                    if (
++                        target is None
++                        or target.disposition != "TARGET_DIRECT"
++                        or target.state_model == "COMPILED_REQUEST_EXPRESSION"
++                    ):
++                        self._request_error(
++                            node, "nested or delegated request expression is not supported"
++                        )
++                if attrs.get("ast_kind") == "Identifier":
++                    name = fields.get("name")
++                    local = self._lookup_local(
++                        str(attrs.get("scope_id") or "scope:global"), str(name)
++                    )
++                    if local is not None:
++                        declaration = declarations.get(name)
++                        if (
++                            declaration is None
++                            or name in mutated
++                            or local != self.local_names.get(("scope:global", name))
++                        ):
++                            self._request_error(
++                                node, "request expression needs an immutable global dependency"
++                            )
++                        if declaration in visiting:
++                            self._request_error(node, "cyclic request expression dependency")
++                        if declaration not in visited:
++                            visiting.add(declaration)
++                            for initializer in self._role(declaration, "initializer"):
++                                visit(initializer)
++                            visiting.remove(declaration)
++                            visited.add(declaration)
++                            dependencies.append(declaration)
++                children = (
++                    self._role(node, "arguments")
++                    if attrs.get("ast_kind") == "CallExpr"
++                    else self._node(node).child_ir_ids
++                )
++                for child in children:
++                    visit(child)
++
++            visit(expression)
++            shape = self._request_shape(expression)
++            dynamic = any(
++                self._node(args[name]).result_type is not None
++                and self._node(args[name]).result_type.qualifier == "series"
++                for name in ("symbol", "timeframe", "resolution")
++                if name in args
++            )
++            enabled = self.metadata.declaration.get("arguments", {}).get(
++                "dynamic_requests", self.plan.pine_version >= 6
++            )
++            if type(enabled) is not bool:
++                self._request_error(key, "dynamic_requests must be a compile-time bool")
++            if not enabled and (dynamic or self._attrs(key).get("scope_id") != "scope:global"):
++                self._request_error(
++                    key,
++                    "dynamic requests are disabled; local/context-varying calls are not admitted",
++                )
++            identity = (
++                "sha256:"
++                + hashlib.sha256(
++                    (self.plan.source_hash + key + self.target.content_hash).encode()
++                ).hexdigest()
++            )
++            self.request_methods[key] = (
++                self._safe("expression", "request", key),
++                expression,
++                dependencies,
++                shape,
++                dynamic,
++                identity,
++            )
++
++    def _request_error(self, key, message):
++        raise BundleInvariantError(
++            "A2P_REQUEST_EXPRESSION",
++            message,
++            details={"ir_id": key, "source_node_id": self._node(key).source.node_id},
++        )
++
++    def _request_shape(self, key):
++        if self._attrs(key).get("ast_kind") == "TupleExpr":
++            parts = [self._request_shape(child) for child in self._role(key, "elements")]
++            if any("tuple_of" in item for item in parts):
++                self._request_error(key, "nested tuple request results are unsupported")
++            return "_PineLibResultShape.tuple_of(" + ", ".join(parts) + ")"
++        typ = self._node(key).result_type
++        if typ is None or typ.base not in {"float", "int", "bool", "string"}:
++            self._request_error(key, "request result needs an exact scalar or scalar-tuple type")
++        return f"_PineLibResultShape.scalar({typ.base!r})"
++
++    def _request_expression_argument(self, key):
++        method, _, _, shape, dynamic, identity = self.request_methods[key]
++        return f"_PineLibRequestExpression(self.runtime, type(self), {method!r}, {identity!r}, {shape}, {dynamic!r})"
++
++    def _emit_request_methods(self):
++        for method, expression, dependencies, _, _, _ in self.request_methods.values():
++            self.writer.line(f"def {method}(self):")
++            self.writer.indent()
++            for declaration in dependencies:
++                self._emit_statement(declaration)
++            self.writer.line(
++                f"return {self._expr(expression)}", ir_ids=self._subtree(expression), origin="PINE"
++            )
++            self.writer.dedent()
++            self.writer.line()
