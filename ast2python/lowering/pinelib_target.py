@@ -56,6 +56,21 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
             "A2P_PINELIB_COMPILER_OPERATIONS",
             "PineLib target manifest must declare compiler operations",
         )
+    # Only these three opcodes call runtime primitives. Other reference rows
+    # describe compiler-owned structural lowering, not fallback implementations.
+    required_primitives = {"operator.binary", "operator.unary", "series.history"}
+    names = [row.get("name") for row in compiler_operations if isinstance(row, dict)]
+    if len(names) != len(compiler_operations) or any(type(name) is not str for name in names):
+        raise BundleInvariantError("A2P_PINELIB_COMPILER_OPERATION", "malformed operation names")
+    if len(set(names)) != len(names):
+        raise BundleInvariantError("A2P_PINELIB_COMPILER_OPERATION", "duplicate compiler operation")
+    missing = required_primitives.difference(names)
+    if missing:
+        raise BundleInvariantError(
+            "A2P_PINELIB_REQUIRED_OPERATION",
+            "exact target lacks required runtime primitives; reference fallback is forbidden",
+            details={"missing": sorted(missing)},
+        )
     for raw_operation in compiler_operations:
         if not isinstance(raw_operation, dict):
             raise BundleInvariantError(
