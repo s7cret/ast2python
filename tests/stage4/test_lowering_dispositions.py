@@ -125,13 +125,13 @@ def _fact(kind: str) -> SemanticFactView:
 def test_supported_kinds_exactly_match_installed_pine2ast_inventory() -> None:
     producer_kinds = _producer_concrete_kinds()
 
-    assert len(producer_kinds) == 38
+    assert len(producer_kinds) == 39
     assert supported_ast_kinds() == producer_kinds
     assert {"ArrayLiteral", "MapLiteral", "MatrixLiteral"}.isdisjoint(supported_ast_kinds())
     assert "ForInTarget" in supported_ast_kinds()
 
     target = load_reference_target_manifest()
-    assert len(target.operations) == 53
+    assert len(target.operations) == 54
     for_in_target = producer_nodes.ForInTarget(span=SourceSpan.zero(), names=["index", "value"])
     raw = for_in_target.to_dict()
     node = admit_consumer_bundle(BUNDLE_V2).ast.node_by_id[

@@ -26,6 +26,7 @@ _STRUCTURAL_RECIPES: dict[str, LoweringRecipe] = {
     "Reassignment": LoweringRecipe("state.write", "eager", "state"),
     "ExpressionStatement": LoweringRecipe("statement.expression", "eager", "control"),
     "Block": LoweringRecipe("control.block", "structural", "control"),
+    "OnceStructure": LoweringRecipe("control.once", "lazy", "control"),
     "IfStructure": LoweringRecipe("control.if", "lazy", "control"),
     "ElseIfBranch": LoweringRecipe("control.else_if", "lazy", "control"),
     "SwitchStructure": LoweringRecipe("control.switch", "lazy", "control"),

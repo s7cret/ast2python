@@ -239,7 +239,7 @@
     "source_span_identity",
     "version_context_v1"
   ],
-  "content_hash": "sha256:0fbcfb068ad164f38fc4c595a9329aa1fa861728adec62793b40551c8610e0e1",
+  "content_hash": "sha256:83e752e3bef779c2131bf18e5ae3d1668d20d4c3581bf6e6e049e2afbab5aa08",
   "operations": [
     {
       "effect": "pure",
@@ -342,6 +342,12 @@
       "evaluation": "lazy",
       "name": "control.if",
       "python_name": "op_control_if"
+    },
+    {
+      "effect": "control",
+      "evaluation": "lazy",
+      "name": "control.once",
+      "python_name": "once_v1"
     },
     {
       "effect": "control",

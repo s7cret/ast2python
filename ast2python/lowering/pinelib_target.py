@@ -47,6 +47,7 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
     imports = set(reference.allowed_imports) | {
         "pinelib.abi",
         "pinelib.events.common",
+        "pinelib.core.values",
     }
     capabilities = set(reference.capabilities)
 

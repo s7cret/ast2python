@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.test_rc6_input_metadata import compile_source, run_source
+from tests.test_rc6_input_metadata import run_source
 
 
 @pytest.mark.parametrize("version", [4, 5, 6])
@@ -36,15 +36,17 @@ def test_var_initializer_is_not_evaluated_again():
     assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 1, 1]
 
 
-def test_local_var_fails_closed_until_callsite_identity_is_supported():
-    with pytest.raises(Exception, match="persistent declarations"):
-        compile_source(
-            '//@version=6\nindicator("scope")\nif close>0\n    var int x=0\n    x:=x+1\n'
-        )
+def test_local_var_has_separate_persistent_state():
+    runtime, _, _ = run_source(
+        '//@version=6\nindicator("scope")\nint y=0\nif close>0\n    var int x=0\n    x:=x+1\n    y:=x\nplot(y)\n',
+        closes=[1, 1, 1],
+    )
+    assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 2, 3]
 
 
 def test_shadowed_global_does_not_silently_alias_storage():
-    with pytest.raises(Exception, match="shadowed global"):
-        compile_source(
-            '//@version=6\nindicator("shadow")\nx=1\nif close>0\n    x=2\n    x:=3\nplot(x)\n'
-        )
+    runtime, _, _ = run_source(
+        '//@version=6\nindicator("shadow")\nx=1\nif close>0\n    x=2\n    x:=3\nplot(x)\n',
+        closes=[1, 2],
+    )
+    assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 1]

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from ast2python.admission.canonical import thaw_json
+from ast2python.emission.language import LanguageEmissionMixin
 from ast2python.emission.requests import RequestEmissionMixin
 from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
 from ast2python.errors import BundleInvariantError
@@ -116,7 +117,7 @@ class _Writer:
         return "\n".join(self.lines) + "\n"
 
 
-class _DirectEmitter(RequestEmissionMixin):
+class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
         self.plan = plan
         self.target = target
@@ -173,13 +174,16 @@ class _DirectEmitter(RequestEmissionMixin):
         suffix = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:8]
         return f"{prefix}_{slug}_{suffix}"
 
-    def _prepare_names(self) -> None:
+    def _prepare_legacy_names(self) -> None:
         declarations: dict[str, set[str]] = {}
         for ir_id in self.plan.ordered_ir_ids:
             if self._attrs(ir_id).get("ast_kind") == "VarDeclaration":
                 declarations.setdefault(str(self._fields(ir_id).get("name")), set()).add(
-                    str(self._attrs(ir_id).get("scope_id") or "scope:global"))
-        if self.exact_pinelib and any("scope:global" in scopes and len(scopes) > 1 for scopes in declarations.values()):
+                    str(self._attrs(ir_id).get("scope_id") or "scope:global")
+                )
+        if self.exact_pinelib and any(
+            "scope:global" in scopes and len(scopes) > 1 for scopes in declarations.values()
+        ):
             raise BundleInvariantError(
                 "A2P_SHADOWED_STATE_UNSUPPORTED",
                 "shadowed global variables require explicit lexical state bindings",
@@ -219,7 +223,9 @@ class _DirectEmitter(RequestEmissionMixin):
                             f"series:{self._node(ir_id).source.node_id}"
                         )
                         self.scalar_declarations[py_name] = (
-                            self.series_ids[(scope, name)], str(fields.get("mode") or "default"), result_type.base
+                            self.series_ids[(scope, name)],
+                            str(fields.get("mode") or "default"),
+                            result_type.base,
                         )
             elif kind == "ForRangeStructure":
                 variable = fields.get("variable")
@@ -230,7 +236,7 @@ class _DirectEmitter(RequestEmissionMixin):
                 self.functions_by_name[name] = py_name
                 self.function_ir_ids.add(ir_id)
 
-    def _lookup_local(self, scope: str, name: str) -> str | None:
+    def _legacy_lookup(self, scope: str, name: str) -> str | None:
         exact = self.local_names.get((scope, name))
         if exact is not None:
             return exact
@@ -241,7 +247,7 @@ class _DirectEmitter(RequestEmissionMixin):
         ]
         return matches[0] if len(set(matches)) == 1 else None
 
-    def _series_identity(self, ir_id: str) -> str | None:
+    def _legacy_series_identity(self, ir_id: str) -> str | None:
         attrs = self._attrs(ir_id)
         fields = self._fields(ir_id)
         if attrs.get("ast_kind") != "Identifier":
@@ -452,6 +458,18 @@ class _DirectEmitter(RequestEmissionMixin):
         scope = str(attrs.get("scope_id") or "scope:global")
         local = self._lookup_local(scope, name)
         if local is not None:
+            declaration = self.declarations_by_py.get(local) if self.exact_pinelib else None
+            if (
+                self.current_function is not None
+                and declaration
+                and declaration[0] == "scope:global"
+            ):
+                scalar = self.scalar_declarations.get(local)
+                if scalar is None:
+                    raise BundleInvariantError(
+                        "A2P_UDF_GLOBAL_CAPTURE", "global reference capture is not yet supported"
+                    )
+                return f"self.runtime.read_series({scalar[0]!r})"
             return local
         if name in self.functions_by_name:
             return f"self.{self.functions_by_name[name]}"
@@ -520,9 +538,11 @@ class _DirectEmitter(RequestEmissionMixin):
                 raise BundleInvariantError(
                     "A2P_EMIT_CALL_ARGUMENT", "Argument must contain one value"
                 )
-            value = (self._request_expression_argument(ir_id)
-                     if ir_id in self.request_methods and argument["parameter_name"] == "expression"
-                     else self._expr(value_ir[0]))
+            value = (
+                self._request_expression_argument(ir_id)
+                if ir_id in self.request_methods and argument["parameter_name"] == "expression"
+                else self._expr(value_ir[0])
+            )
             rendered_by_parameter[str(argument["parameter_name"])] = value
             if argument["binding"] == "named":
                 rendered.append(f"{argument['parameter_name']}={value}")
@@ -538,7 +558,28 @@ class _DirectEmitter(RequestEmissionMixin):
                 raise BundleInvariantError(
                     "A2P_EMIT_UDF_BINDING", "user function declaration is missing"
                 )
-            return f"self.{function_name}({', '.join(rendered)})"
+            if not self.exact_pinelib:
+                return f"self.{function_name}({', '.join(rendered)})"
+            declaration = self.function_declarations[callee]
+            arguments = []
+            for parameter in self._role(declaration, "parameters"):
+                pname = self._fields(parameter)["name"]
+                value = rendered_by_parameter.get(pname)
+                if value is None:
+                    default = self._role(parameter, "default_value")
+                    if not default:
+                        raise BundleInvariantError(
+                            "A2P_UDF_ARGUMENT", "missing required function argument"
+                        )
+                    value = self._expr(default[0])
+                pyname = self.names_by_source[self._node(parameter).source.node_id]
+                arguments.append(f"{pyname!r}: {value}")
+            return self._runtime_operation(
+                self._node(ir_id).opcode,
+                repr(self._node(ir_id).source.node_id),
+                f"self.{function_name}",
+                "{" + ", ".join(arguments) + "}",
+            )
         key = (symbol_id, str(call["overload_id"]), str(call["call_form"]))
         binding: TargetCallBinding | None = self.target.call_bindings.get(key)
         if binding is None or self.plan.pine_version not in binding.supported_pine_versions:
@@ -644,8 +685,13 @@ class _DirectEmitter(RequestEmissionMixin):
                     consumed.add("expression")
                 elif source == "REQUEST_TIMEFRAME_ARGUMENT":
                     candidates = set(rendered_by_parameter) & {"timeframe", "resolution"}
-                    if len(candidates) != 1 or (self.plan.pine_version >= 5 and "resolution" in candidates):
-                        raise BundleInvariantError("A2P_REQUEST_TIMEFRAME", "request timeframe lacks an exact version binding")
+                    if len(candidates) != 1 or (
+                        self.plan.pine_version >= 5 and "resolution" in candidates
+                    ):
+                        raise BundleInvariantError(
+                            "A2P_REQUEST_TIMEFRAME",
+                            "request timeframe lacks an exact version binding",
+                        )
                     source_name = candidates.pop()
                     injected = rendered_by_parameter[source_name]
                     consumed.add(source_name)
@@ -655,7 +701,7 @@ class _DirectEmitter(RequestEmissionMixin):
                     "SOURCE_LOCATION_STATE_ID",
                     "SOURCE_LOCATION_OBJECT_ID",
                 }:
-                    injected = repr(f"{self._node(ir_id).source.node_id}:{abi_parameter}")
+                    injected = f"self.runtime.scoped_id_v1({(self._node(ir_id).source.node_id + chr(58) + abi_parameter)!r})"
                 elif source == "SOURCE_SPAN":
                     span = thaw_json(self._node(ir_id).source.span)
                     injected = (
@@ -744,7 +790,11 @@ class _DirectEmitter(RequestEmissionMixin):
                 raise BundleInvariantError("A2P_EMIT_ARGUMENT", "Argument must contain one value")
             return self._expr(values[0])
         if kind == "Literal":
-            return "None" if fields.get("literal_type") == "na" else repr(fields.get("value"))
+            return (
+                ("_PineLibNA" if self.exact_pinelib else "None")
+                if fields.get("literal_type") == "na"
+                else repr(fields.get("value"))
+            )
         if kind == "Identifier":
             return self._identifier(ir_id)
         if kind == "MemberAccessExpr":
@@ -763,7 +813,14 @@ class _DirectEmitter(RequestEmissionMixin):
                 )
             operator = str(fields.get("op"))
             if operator in {"and", "or"}:
-                return f"({self._expr(left[0])} {operator} {self._expr(right[0])})"
+                if not self.exact_pinelib:
+                    return f"({self._expr(left[0])} {operator} {self._expr(right[0])})"
+                right_expr = self._expr(right[0])
+                if self._node(ir_id).evaluation == "lazy":
+                    right_expr = "lambda: " + right_expr
+                return self._runtime_operation(
+                    self._node(ir_id).opcode, repr(operator), self._expr(left[0]), right_expr
+                )
             return self._runtime_operation(
                 self._node(ir_id).opcode,
                 repr(operator),
@@ -787,7 +844,12 @@ class _DirectEmitter(RequestEmissionMixin):
                 raise BundleInvariantError(
                     "A2P_EMIT_CONDITIONAL", "conditional expression is incomplete"
                 )
-            return f"({self._expr(when_true[0])} if bool({self._expr(condition[0])}) else {self._expr(when_false[0])})"
+            if self.exact_pinelib and self._node(ir_id).evaluation == "eager":
+                return (
+                    "(lambda c, a, b: a if self.runtime.condition_v1(c) else b)("
+                    f"{self._expr(condition[0])}, {self._expr(when_true[0])}, {self._expr(when_false[0])})"
+                )
+            return f"({self._expr(when_true[0])} if {self._condition(condition[0])} else {self._expr(when_false[0])})"
         if kind == "HistoryRefExpr":
             base = self._role(ir_id, "base")
             offset = self._role(ir_id, "offset")
@@ -795,8 +857,20 @@ class _DirectEmitter(RequestEmissionMixin):
                 raise BundleInvariantError("A2P_EMIT_HISTORY", "history reference is incomplete")
             series_identity = self._series_identity(base[0])
             base_expression = (
-                repr(series_identity) if series_identity is not None else self._expr(base[0])
+                self._series_argument(series_identity)
+                if series_identity is not None
+                else self._expr(base[0])
             )
+            if self.exact_pinelib and series_identity is None:
+                typ = self._node(base[0]).result_type
+                if typ is None or typ.base not in {"bool", "int", "float", "string", "color"}:
+                    raise BundleInvariantError(
+                        "A2P_HISTORY_TYPE", "history requires an exact scalar type"
+                    )
+                return (
+                    f"self.runtime.history_value_v1({self._node(base[0]).source.node_id!r}, "
+                    f"{base_expression}, {self._expr(offset[0])}, {typ.base!r})"
+                )
             return self._runtime_operation(
                 self._node(ir_id).opcode,
                 base_expression,
@@ -808,8 +882,8 @@ class _DirectEmitter(RequestEmissionMixin):
             )
         if kind == "CallExpr":
             return self._call(ir_id)
-        if kind == "SwitchStructure":
-            return self._switch_expression(ir_id)
+        if kind in {"IfStructure", "SwitchStructure"}:
+            return self._block_expression(ir_id)
         raise BundleInvariantError(
             "A2P_EMIT_EXPRESSION",
             f"AST kind {kind!r} cannot be emitted as an expression",
@@ -833,12 +907,22 @@ class _DirectEmitter(RequestEmissionMixin):
                         origin="PINE",
                     )
                     continue
-                if kind == "SwitchStructure":
+                if kind in {"IfStructure", "SwitchStructure"}:
                     self.writer.line(
-                        f"return {self._switch_expression(statement)}",
+                        f"return {self._block_expression(statement)}",
                         ir_ids=self._subtree(statement),
                         origin="PINE",
                     )
+                    continue
+                if kind in {"VarDeclaration", "Reassignment"}:
+                    self._emit_statement(statement)
+                    if kind == "VarDeclaration":
+                        value = self._lookup_local(
+                            self._scope(statement), self._fields(statement)["name"]
+                        )
+                    else:
+                        value = self._identifier(self._role(statement, "target")[0])
+                    self.writer.line(f"return {value}", ir_ids=(statement,), origin="PINE")
                     continue
             self._emit_statement(statement)
 
@@ -865,8 +949,7 @@ class _DirectEmitter(RequestEmissionMixin):
             if py_name is None or len(initializer) != 1:
                 raise BundleInvariantError("A2P_EMIT_VAR", "variable declaration is incomplete")
             initializer_expression = self._expr(initializer[0])
-            result_type = self._node(initializer[0]).result_type
-            dtype = result_type.base if result_type is not None else "object"
+            dtype = self._declaration_type(ir_id)
             series_id = (
                 self.series_ids.get((scope, name))
                 if self.exact_pinelib and dtype in {"bool", "color", "float", "int", "string"}
@@ -876,11 +959,11 @@ class _DirectEmitter(RequestEmissionMixin):
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(
                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
-                    "persistent declarations currently require a global scalar; local/function/reference state needs a call-site contract",
+                    "persistent reference declarations require a supported typed storage contract",
                 )
             if series_id is not None:
                 self.writer.line(
-                    f"{py_name} = self.runtime.declare_scalar_v1({series_id!r}, {mode!r}, lambda: {initializer_expression}, {dtype!r})",
+                    f"{py_name} = self.runtime.declare_scalar_v1({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
                     ir_ids=self._subtree(ir_id),
                     origin="PINE",
                 )
@@ -901,12 +984,18 @@ class _DirectEmitter(RequestEmissionMixin):
             if operator in {":=", "="}:
                 text = f"{target_name} = {self._expr(value[0])}"
             else:
-                text = f"{target_name} {operator} {self._expr(value[0])}"
+                text = (
+                    f"{target_name} = self.runtime.op_operator_binary({operator[:-1]!r}, {target_name}, {self._expr(value[0])})"
+                    if self.exact_pinelib
+                    else f"{target_name} {operator} {self._expr(value[0])}"
+                )
             self.writer.line(text, ir_ids=self._subtree(ir_id), origin="PINE")
             scalar = self.scalar_declarations.get(target_name) if self.exact_pinelib else None
             if scalar is not None:
                 series_id, mode, dtype = scalar
-                self.writer.line(f"self.runtime.write_scalar_v1({series_id!r}, {mode!r}, {target_name}, {dtype!r})")
+                self.writer.line(
+                    f"self.runtime.write_scalar_v1({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
+                )
             return
         if kind == "TupleDeclaration":
             targets = self._role(ir_id, "targets")
@@ -918,34 +1007,31 @@ class _DirectEmitter(RequestEmissionMixin):
                 origin="PINE",
             )
             return
-        if kind == "IfStructure":
-            condition = self._role(ir_id, "condition")
-            then_block = self._role(ir_id, "then_block")
-            self.writer.line(
-                f"if bool({self._expr(condition[0])}):",
-                ir_ids=(ir_id, *self._subtree(condition[0])),
-                origin="PINE",
+        if kind == "OnceStructure":
+            if self.plan.pine_version != 6:
+                raise BundleInvariantError("A2P_ONCE_VERSION", "once requires Pine v6")
+            condition = self._role(ir_id, "condition")[0]
+            gate = self._runtime_operation(
+                "control.once",
+                repr(self._node(ir_id).source.node_id),
+                "lambda: " + self._expr(condition),
             )
+            self.writer.line(f"if {gate}:", ir_ids=(ir_id,), origin="PINE")
             self.writer.indent()
-            self._emit_block(then_block[0])
+            self._emit_block(self._role(ir_id, "body")[0])
             self.writer.dedent()
-            for branch in self._role(ir_id, "else_if_branches"):
-                branch_condition = self._role(branch, "condition")
-                branch_block = self._role(branch, "block")
-                self.writer.line(
-                    f"elif bool({self._expr(branch_condition[0])}):",
-                    ir_ids=(branch, *self._subtree(branch_condition[0])),
-                    origin="PINE",
-                )
-                self.writer.indent()
-                self._emit_block(branch_block[0])
-                self.writer.dedent()
-            else_block = self._role(ir_id, "else_block")
-            if else_block:
-                self.writer.line("else:")
-                self.writer.indent()
-                self._emit_block(else_block[0])
-                self.writer.dedent()
+            return
+        if kind == "SwitchStructure":
+            self.writer.line(self._block_expression(ir_id), ir_ids=(ir_id,), origin="PINE")
+            return
+        if kind == "IfStructure":
+            arms = [(self._role(ir_id, "condition")[0], self._role(ir_id, "then_block")[0])]
+            arms += [
+                (self._role(branch, "condition")[0], self._role(branch, "block")[0])
+                for branch in self._role(ir_id, "else_if_branches")
+            ]
+            other = self._role(ir_id, "else_block")
+            self._emit_if_chain(arms, other[0] if other else None, value=False)
             return
         if kind == "ForRangeStructure":
             start = self._role(ir_id, "start")
@@ -955,8 +1041,20 @@ class _DirectEmitter(RequestEmissionMixin):
             variable = str(fields.get("variable"))
             py_name = self._lookup_local(scope, variable) or self._safe(variable, "loop", ir_id)
             step_expr = self._expr(step[0]) if step else "1"
+            if self.exact_pinelib:
+                py_name = self.local_names[
+                    ("scope:loop:" + self._node(ir_id).source.node_id, variable)
+                ]
+                iterator = self._runtime_operation(
+                    self._node(ir_id).opcode,
+                    self._expr(start[0]),
+                    "lambda: " + self._expr(end[0]),
+                    step_expr,
+                )
+            else:
+                iterator = f"range(int({self._expr(start[0])}), int({self._expr(end[0])}) + 1, int({step_expr}))"
             self.writer.line(
-                f"for {py_name} in range(int({self._expr(start[0])}), int({self._expr(end[0])}) + 1, int({step_expr})):",
+                f"for {py_name} in {iterator}:",
                 ir_ids=(
                     ir_id,
                     *self._subtree(start[0]),
@@ -989,7 +1087,7 @@ class _DirectEmitter(RequestEmissionMixin):
             condition = self._role(ir_id, "condition")
             body = self._role(ir_id, "body")
             self.writer.line(
-                f"while bool({self._expr(condition[0])}):",
+                f"while {self._condition(condition[0])}:",
                 ir_ids=(ir_id, *self._subtree(condition[0])),
                 origin="PINE",
             )
@@ -1017,6 +1115,8 @@ class _DirectEmitter(RequestEmissionMixin):
         raise BundleInvariantError("A2P_EMIT_STATEMENT", f"unsupported statement kind {kind!r}")
 
     def _emit_function(self, ir_id: str) -> None:
+        previous_function = self.current_function
+        self.current_function = ir_id
         fields = self._fields(ir_id)
         name = str(fields.get("name"))
         py_name = self.functions_by_name[name]
@@ -1036,6 +1136,14 @@ class _DirectEmitter(RequestEmissionMixin):
             origin="PINE",
         )
         self.writer.indent()
+        if self.exact_pinelib:
+            for pyparam in py_parameters:
+                scalar = self.scalar_declarations.get(pyparam)
+                if scalar is not None:
+                    sid, mode, dtype = scalar
+                    self.writer.line(
+                        f"self.runtime.declare_scalar_v1({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
+                    )
         body = self._role(ir_id, "body")
         if not body:
             self.writer.line("return None")
@@ -1047,6 +1155,7 @@ class _DirectEmitter(RequestEmissionMixin):
             )
         self.writer.dedent()
         self.writer.line()
+        self.current_function = previous_function
 
     def emit(self) -> str:
         writer = self.writer
@@ -1057,9 +1166,14 @@ class _DirectEmitter(RequestEmissionMixin):
                 "from pinelib.abi import load_target_manifest as _load_pinelib_target_manifest"
             )
             writer.line("from pinelib.events.common import SourceSpan as _PineLibSourceSpan")
+            writer.line("from pinelib.core.values import na as _PineLibNA")
             if self.request_methods:
-                writer.line("from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression")
-                writer.line("from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape")
+                writer.line(
+                    "from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression"
+                )
+                writer.line(
+                    "from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape"
+                )
             for (module, python_name), alias in sorted(self.direct_imports.items()):
                 writer.line(f"from {module} import {python_name} as {alias}")
         writer.line()
