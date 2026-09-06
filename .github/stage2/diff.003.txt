@@ -1,0 +1,116 @@
+         declarations: dict[str, set[str]] = {}
+         for ir_id in self.plan.ordered_ir_ids:
+             if self._attrs(ir_id).get("ast_kind") == "VarDeclaration":
+                 declarations.setdefault(str(self._fields(ir_id).get("name")), set()).add(
+-                    str(self._attrs(ir_id).get("scope_id") or "scope:global"))
+-        if self.exact_pinelib and any("scope:global" in scopes and len(scopes) > 1 for scopes in declarations.values()):
++                    str(self._attrs(ir_id).get("scope_id") or "scope:global")
++                )
++        if self.exact_pinelib and any(
++            "scope:global" in scopes and len(scopes) > 1 for scopes in declarations.values()
++        ):
+             raise BundleInvariantError(
+                 "A2P_SHADOWED_STATE_UNSUPPORTED",
+                 "shadowed global variables require explicit lexical state bindings",
+@@ -219,7 +223,9 @@ class _DirectEmitter(RequestEmissionMixin):
+                             f"series:{self._node(ir_id).source.node_id}"
+                         )
+                         self.scalar_declarations[py_name] = (
+-                            self.series_ids[(scope, name)], str(fields.get("mode") or "default"), result_type.base
++                            self.series_ids[(scope, name)],
++                            str(fields.get("mode") or "default"),
++                            result_type.base,
+                         )
+             elif kind == "ForRangeStructure":
+                 variable = fields.get("variable")
+@@ -230,7 +236,7 @@ class _DirectEmitter(RequestEmissionMixin):
+                 self.functions_by_name[name] = py_name
+                 self.function_ir_ids.add(ir_id)
+ 
+-    def _lookup_local(self, scope: str, name: str) -> str | None:
++    def _legacy_lookup(self, scope: str, name: str) -> str | None:
+         exact = self.local_names.get((scope, name))
+         if exact is not None:
+             return exact
+@@ -241,7 +247,7 @@ class _DirectEmitter(RequestEmissionMixin):
+         ]
+         return matches[0] if len(set(matches)) == 1 else None
+ 
+-    def _series_identity(self, ir_id: str) -> str | None:
++    def _legacy_series_identity(self, ir_id: str) -> str | None:
+         attrs = self._attrs(ir_id)
+         fields = self._fields(ir_id)
+         if attrs.get("ast_kind") != "Identifier":
+@@ -452,6 +458,18 @@ class _DirectEmitter(RequestEmissionMixin):
+         scope = str(attrs.get("scope_id") or "scope:global")
+         local = self._lookup_local(scope, name)
+         if local is not None:
++            declaration = self.declarations_by_py.get(local) if self.exact_pinelib else None
++            if (
++                self.current_function is not None
++                and declaration
++                and declaration[0] == "scope:global"
++            ):
++                scalar = self.scalar_declarations.get(local)
++                if scalar is None:
++                    raise BundleInvariantError(
++                        "A2P_UDF_GLOBAL_CAPTURE", "global reference capture is not yet supported"
++                    )
++                return f"self.runtime.read_series({scalar[0]!r})"
+             return local
+         if name in self.functions_by_name:
+             return f"self.{self.functions_by_name[name]}"
+@@ -520,9 +538,11 @@ class _DirectEmitter(RequestEmissionMixin):
+                 raise BundleInvariantError(
+                     "A2P_EMIT_CALL_ARGUMENT", "Argument must contain one value"
+                 )
+-            value = (self._request_expression_argument(ir_id)
+-                     if ir_id in self.request_methods and argument["parameter_name"] == "expression"
+-                     else self._expr(value_ir[0]))
++            value = (
++                self._request_expression_argument(ir_id)
++                if ir_id in self.request_methods and argument["parameter_name"] == "expression"
++                else self._expr(value_ir[0])
++            )
+             rendered_by_parameter[str(argument["parameter_name"])] = value
+             if argument["binding"] == "named":
+                 rendered.append(f"{argument['parameter_name']}={value}")
+@@ -538,7 +558,28 @@ class _DirectEmitter(RequestEmissionMixin):
+                 raise BundleInvariantError(
+                     "A2P_EMIT_UDF_BINDING", "user function declaration is missing"
+                 )
+-            return f"self.{function_name}({', '.join(rendered)})"
++            if not self.exact_pinelib:
++                return f"self.{function_name}({', '.join(rendered)})"
++            declaration = self.function_declarations[callee]
++            arguments = []
++            for parameter in self._role(declaration, "parameters"):
++                pname = self._fields(parameter)["name"]
++                value = rendered_by_parameter.get(pname)
++                if value is None:
++                    default = self._role(parameter, "default_value")
++                    if not default:
++                        raise BundleInvariantError(
++                            "A2P_UDF_ARGUMENT", "missing required function argument"
++                        )
++                    value = self._expr(default[0])
++                pyname = self.names_by_source[self._node(parameter).source.node_id]
++                arguments.append(f"{pyname!r}: {value}")
++            return self._runtime_operation(
++                self._node(ir_id).opcode,
++                repr(self._node(ir_id).source.node_id),
++                f"self.{function_name}",
++                "{" + ", ".join(arguments) + "}",
++            )
+         key = (symbol_id, str(call["overload_id"]), str(call["call_form"]))
+         binding: TargetCallBinding | None = self.target.call_bindings.get(key)
+         if binding is None or self.plan.pine_version not in binding.supported_pine_versions:
+@@ -644,8 +685,13 @@ class _DirectEmitter(RequestEmissionMixin):
+                     consumed.add("expression")
+                 elif source == "REQUEST_TIMEFRAME_ARGUMENT":
+                     candidates = set(rendered_by_parameter) & {"timeframe", "resolution"}
+-                    if len(candidates) != 1 or (self.plan.pine_version >= 5 and "resolution" in candidates):
+-                        raise BundleInvariantError("A2P_REQUEST_TIMEFRAME", "request timeframe lacks an exact version binding")
++                    if len(candidates) != 1 or (
++                        self.plan.pine_version >= 5 and "resolution" in candidates
++                    ):

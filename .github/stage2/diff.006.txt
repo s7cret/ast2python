@@ -1,0 +1,130 @@
+-                f"for {py_name} in range(int({self._expr(start[0])}), int({self._expr(end[0])}) + 1, int({step_expr})):",
++                f"for {py_name} in {iterator}:",
+                 ir_ids=(
+                     ir_id,
+                     *self._subtree(start[0]),
+@@ -989,7 +1087,7 @@ class _DirectEmitter(RequestEmissionMixin):
+             condition = self._role(ir_id, "condition")
+             body = self._role(ir_id, "body")
+             self.writer.line(
+-                f"while bool({self._expr(condition[0])}):",
++                f"while {self._condition(condition[0])}:",
+                 ir_ids=(ir_id, *self._subtree(condition[0])),
+                 origin="PINE",
+             )
+@@ -1017,6 +1115,8 @@ class _DirectEmitter(RequestEmissionMixin):
+         raise BundleInvariantError("A2P_EMIT_STATEMENT", f"unsupported statement kind {kind!r}")
+ 
+     def _emit_function(self, ir_id: str) -> None:
++        previous_function = self.current_function
++        self.current_function = ir_id
+         fields = self._fields(ir_id)
+         name = str(fields.get("name"))
+         py_name = self.functions_by_name[name]
+@@ -1036,6 +1136,14 @@ class _DirectEmitter(RequestEmissionMixin):
+             origin="PINE",
+         )
+         self.writer.indent()
++        if self.exact_pinelib:
++            for pyparam in py_parameters:
++                scalar = self.scalar_declarations.get(pyparam)
++                if scalar is not None:
++                    sid, mode, dtype = scalar
++                    self.writer.line(
++                        f"self.runtime.declare_scalar_v1({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
++                    )
+         body = self._role(ir_id, "body")
+         if not body:
+             self.writer.line("return None")
+@@ -1047,6 +1155,7 @@ class _DirectEmitter(RequestEmissionMixin):
+             )
+         self.writer.dedent()
+         self.writer.line()
++        self.current_function = previous_function
+ 
+     def emit(self) -> str:
+         writer = self.writer
+@@ -1057,9 +1166,14 @@ class _DirectEmitter(RequestEmissionMixin):
+                 "from pinelib.abi import load_target_manifest as _load_pinelib_target_manifest"
+             )
+             writer.line("from pinelib.events.common import SourceSpan as _PineLibSourceSpan")
++            writer.line("from pinelib.core.values import na as _PineLibNA")
+             if self.request_methods:
+-                writer.line("from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression")
+-                writer.line("from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape")
++                writer.line(
++                    "from pinelib.abi.compiled_request import CompiledRequestExpression as _PineLibRequestExpression"
++                )
++                writer.line(
++                    "from pinelib.abi.compiled_request import ResultShape as _PineLibResultShape"
++                )
+             for (module, python_name), alias in sorted(self.direct_imports.items()):
+                 writer.line(f"from {module} import {python_name} as {alias}")
+         writer.line()
+diff --git a/ast2python/lowering/pinelib_target.py b/ast2python/lowering/pinelib_target.py
+index 5d668172b71af1a6733e54d06e635622a5af7f0d..ea84db19de8b3d5934d7f40343194fb51cbcb4c1 100644
+--- a/ast2python/lowering/pinelib_target.py
++++ b/ast2python/lowering/pinelib_target.py
+@@ -47,6 +47,7 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
+     imports = set(reference.allowed_imports) | {
+         "pinelib.abi",
+         "pinelib.events.common",
++        "pinelib.core.values",
+     }
+     capabilities = set(reference.capabilities)
+ 
+diff --git a/ast2python/lowering/recipes.py b/ast2python/lowering/recipes.py
+index 2e5673b908891bd5ed4deedf78b09a632d95150d..5601936b3504ec2ac2675c3fd8d21dae9c7f063e 100644
+--- a/ast2python/lowering/recipes.py
++++ b/ast2python/lowering/recipes.py
+@@ -26,6 +26,7 @@ _STRUCTURAL_RECIPES: dict[str, LoweringRecipe] = {
+     "Reassignment": LoweringRecipe("state.write", "eager", "state"),
+     "ExpressionStatement": LoweringRecipe("statement.expression", "eager", "control"),
+     "Block": LoweringRecipe("control.block", "structural", "control"),
++    "OnceStructure": LoweringRecipe("control.once", "lazy", "control"),
+     "IfStructure": LoweringRecipe("control.if", "lazy", "control"),
+     "ElseIfBranch": LoweringRecipe("control.else_if", "lazy", "control"),
+     "SwitchStructure": LoweringRecipe("control.switch", "lazy", "control"),
+diff --git a/ast2python/target_data/reference_target_v1.json b/ast2python/target_data/reference_target_v1.json
+index 252245c0c6cdbc1644cb83adc8ebab6afab394ce..4d66dd76d4742a8aed8c435dd90319253edf1ff5 100644
+--- a/ast2python/target_data/reference_target_v1.json
++++ b/ast2python/target_data/reference_target_v1.json
+@@ -239,7 +239,7 @@
+     "source_span_identity",
+     "version_context_v1"
+   ],
+-  "content_hash": "sha256:0fbcfb068ad164f38fc4c595a9329aa1fa861728adec62793b40551c8610e0e1",
++  "content_hash": "sha256:83e752e3bef779c2131bf18e5ae3d1668d20d4c3581bf6e6e049e2afbab5aa08",
+   "operations": [
+     {
+       "effect": "pure",
+@@ -343,6 +343,12 @@
+       "name": "control.if",
+       "python_name": "op_control_if"
+     },
++    {
++      "effect": "control",
++      "evaluation": "lazy",
++      "name": "control.once",
++      "python_name": "once_v1"
++    },
+     {
+       "effect": "control",
+       "evaluation": "lazy",
+diff --git a/tests/stage4/test_lowering_dispositions.py b/tests/stage4/test_lowering_dispositions.py
+index dceeb26dbed0e181d9297fc11a5fd52d5bc7ec0f..f95eda68847bd1ee4111468beefba2f98168988d 100644
+--- a/tests/stage4/test_lowering_dispositions.py
++++ b/tests/stage4/test_lowering_dispositions.py
+@@ -125,13 +125,13 @@ def _fact(kind: str) -> SemanticFactView:
+ def test_supported_kinds_exactly_match_installed_pine2ast_inventory() -> None:
+     producer_kinds = _producer_concrete_kinds()
+ 
+-    assert len(producer_kinds) == 38
++    assert len(producer_kinds) == 39
+     assert supported_ast_kinds() == producer_kinds
+     assert {"ArrayLiteral", "MapLiteral", "MatrixLiteral"}.isdisjoint(supported_ast_kinds())
+     assert "ForInTarget" in supported_ast_kinds()
+ 
+     target = load_reference_target_manifest()
+-    assert len(target.operations) == 53
++    assert len(target.operations) == 54

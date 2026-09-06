@@ -1,0 +1,117 @@
+                 raise BundleInvariantError("A2P_EMIT_VAR", "variable declaration is incomplete")
+             initializer_expression = self._expr(initializer[0])
+-            result_type = self._node(initializer[0]).result_type
+-            dtype = result_type.base if result_type is not None else "object"
++            dtype = self._declaration_type(ir_id)
+             series_id = (
+                 self.series_ids.get((scope, name))
+                 if self.exact_pinelib and dtype in {"bool", "color", "float", "int", "string"}
+@@ -876,11 +959,11 @@ class _DirectEmitter(RequestEmissionMixin):
+             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
+                 raise BundleInvariantError(
+                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
+-                    "persistent declarations currently require a global scalar; local/function/reference state needs a call-site contract",
++                    "persistent reference declarations require a supported typed storage contract",
+                 )
+             if series_id is not None:
+                 self.writer.line(
+-                    f"{py_name} = self.runtime.declare_scalar_v1({series_id!r}, {mode!r}, lambda: {initializer_expression}, {dtype!r})",
++                    f"{py_name} = self.runtime.declare_scalar_v1({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
+                     ir_ids=self._subtree(ir_id),
+                     origin="PINE",
+                 )
+@@ -901,12 +984,18 @@ class _DirectEmitter(RequestEmissionMixin):
+             if operator in {":=", "="}:
+                 text = f"{target_name} = {self._expr(value[0])}"
+             else:
+-                text = f"{target_name} {operator} {self._expr(value[0])}"
++                text = (
++                    f"{target_name} = self.runtime.op_operator_binary({operator[:-1]!r}, {target_name}, {self._expr(value[0])})"
++                    if self.exact_pinelib
++                    else f"{target_name} {operator} {self._expr(value[0])}"
++                )
+             self.writer.line(text, ir_ids=self._subtree(ir_id), origin="PINE")
+             scalar = self.scalar_declarations.get(target_name) if self.exact_pinelib else None
+             if scalar is not None:
+                 series_id, mode, dtype = scalar
+-                self.writer.line(f"self.runtime.write_scalar_v1({series_id!r}, {mode!r}, {target_name}, {dtype!r})")
++                self.writer.line(
++                    f"self.runtime.write_scalar_v1({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
++                )
+             return
+         if kind == "TupleDeclaration":
+             targets = self._role(ir_id, "targets")
+@@ -918,34 +1007,31 @@ class _DirectEmitter(RequestEmissionMixin):
+                 origin="PINE",
+             )
+             return
+-        if kind == "IfStructure":
+-            condition = self._role(ir_id, "condition")
+-            then_block = self._role(ir_id, "then_block")
+-            self.writer.line(
+-                f"if bool({self._expr(condition[0])}):",
+-                ir_ids=(ir_id, *self._subtree(condition[0])),
+-                origin="PINE",
++        if kind == "OnceStructure":
++            if self.plan.pine_version != 6:
++                raise BundleInvariantError("A2P_ONCE_VERSION", "once requires Pine v6")
++            condition = self._role(ir_id, "condition")[0]
++            gate = self._runtime_operation(
++                "control.once",
++                repr(self._node(ir_id).source.node_id),
++                "lambda: " + self._expr(condition),
+             )
++            self.writer.line(f"if {gate}:", ir_ids=(ir_id,), origin="PINE")
+             self.writer.indent()
+-            self._emit_block(then_block[0])
++            self._emit_block(self._role(ir_id, "body")[0])
+             self.writer.dedent()
+-            for branch in self._role(ir_id, "else_if_branches"):
+-                branch_condition = self._role(branch, "condition")
+-                branch_block = self._role(branch, "block")
+-                self.writer.line(
+-                    f"elif bool({self._expr(branch_condition[0])}):",
+-                    ir_ids=(branch, *self._subtree(branch_condition[0])),
+-                    origin="PINE",
+-                )
+-                self.writer.indent()
+-                self._emit_block(branch_block[0])
+-                self.writer.dedent()
+-            else_block = self._role(ir_id, "else_block")
+-            if else_block:
+-                self.writer.line("else:")
+-                self.writer.indent()
+-                self._emit_block(else_block[0])
+-                self.writer.dedent()
++            return
++        if kind == "SwitchStructure":
++            self.writer.line(self._block_expression(ir_id), ir_ids=(ir_id,), origin="PINE")
++            return
++        if kind == "IfStructure":
++            arms = [(self._role(ir_id, "condition")[0], self._role(ir_id, "then_block")[0])]
++            arms += [
++                (self._role(branch, "condition")[0], self._role(branch, "block")[0])
++                for branch in self._role(ir_id, "else_if_branches")
++            ]
++            other = self._role(ir_id, "else_block")
++            self._emit_if_chain(arms, other[0] if other else None, value=False)
+             return
+         if kind == "ForRangeStructure":
+             start = self._role(ir_id, "start")
+@@ -955,8 +1041,20 @@ class _DirectEmitter(RequestEmissionMixin):
+             variable = str(fields.get("variable"))
+             py_name = self._lookup_local(scope, variable) or self._safe(variable, "loop", ir_id)
+             step_expr = self._expr(step[0]) if step else "1"
++            if self.exact_pinelib:
++                py_name = self.local_names[
++                    ("scope:loop:" + self._node(ir_id).source.node_id, variable)
++                ]
++                iterator = self._runtime_operation(
++                    self._node(ir_id).opcode,
++                    self._expr(start[0]),
++                    "lambda: " + self._expr(end[0]),
++                    step_expr,
++                )
++            else:
++                iterator = f"range(int({self._expr(start[0])}), int({self._expr(end[0])}) + 1, int({step_expr}))"
+             self.writer.line(

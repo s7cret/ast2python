@@ -1,0 +1,136 @@
++                            inspect(child)
++                    for branch in self._role(node, "else_if_branches"):
++                        for child in self._role(branch, "block"):
++                            inspect(child)
++                elif kind == "SwitchStructure":
++                    for case in self._role(node, "cases"):
++                        for child in self._role(case, "body"):
++                            inspect(child)
++                elif kind == "ExpressionStatement":
++                    for child in self._role(node, "expression"):
++                        inspect(child)
++                else:
++                    node_type = self._node(node).result_type
++                    ends.append(node_type.base if node_type else "unknown")
++
++            inspect(key)
++            is_bool = bool(ends) and all(t == "bool" for t in ends)
++        return (
++            "False"
++            if self.plan.pine_version >= 6 and is_bool
++            else "_PineLibNA"
++            if self.exact_pinelib
++            else "None"
++        )
++
++    def _value_block(self, key):
++        if self._attrs(key).get("ast_kind") == "Block":
++            self._emit_block(key, return_last=True)
++        else:
++            self.writer.line(f"return {self._expr(key)}", ir_ids=self._subtree(key), origin="PINE")
++
++    def _block_expression(self, key):
++        name = self._safe("value", "block_value", key)
++        self.writer.line(f"def {name}():")
++        self.writer.indent()
++        subtree = set(self._subtree(key))
++        nonlocals = set()
++        for child in subtree:
++            if self._attrs(child).get("ast_kind") != "Reassignment":
++                continue
++            targets = self._role(child, "target")
++            if targets and self._attrs(targets[0]).get("ast_kind") == "Identifier":
++                target = targets[0]
++                pyname = self._lookup_local(self._scope(target), self._fields(target).get("name"))
++                decl = self.declarations_by_py.get(pyname)
++                if decl and decl[1] not in subtree:
++                    nonlocals.add(pyname)
++        if nonlocals:
++            self.writer.line("nonlocal " + ", ".join(sorted(nonlocals)))
++        if self._attrs(key).get("ast_kind") == "IfStructure":
++            arms = [(self._role(key, "condition")[0], self._role(key, "then_block")[0])]
++            arms += [
++                (self._role(branch, "condition")[0], self._role(branch, "block")[0])
++                for branch in self._role(key, "else_if_branches")
++            ]
++            other = self._role(key, "else_block")
++            self._emit_if_chain(arms, other[0] if other else None, value=True)
++        else:
++            selectors = self._role(key, "expression")
++            selector = self._safe("selector", "local", key)
++            if selectors:
++                self.writer.line(f"{selector} = {self._expr(selectors[0])}")
++            cases = self._role(key, "cases")
++            arms, default = [], None
++            for case in cases:
++                conditions = self._role(case, "condition")
++                if not conditions:
++                    if default is not None:
++                        raise BundleInvariantError(
++                            "A2P_EMIT_SWITCH_CASE", "duplicate switch default"
++                        )
++                    default = self._role(case, "body")[0]
++                else:
++                    if default is not None:
++                        raise BundleInvariantError(
++                            "A2P_EMIT_SWITCH_CASE", "switch default must be last"
++                        )
++                    arms.append((conditions[0], self._role(case, "body")[0]))
++            self._emit_if_chain(arms, default, value=True, selector=selector if selectors else None)
++        self.writer.line("return " + self._default_block_value(key))
++        self.writer.dedent()
++        return f"{name}()"
++
++    def _emit_if_chain(self, arms, otherwise, *, value, selector=None):
++        # Nested else/if preserves lazy condition evaluation even when an
++        # expression requires a checked block-value helper declaration.
++        if not arms:
++            if otherwise is not None:
++                self._value_block(otherwise) if value else self._emit_block(otherwise)
++            return
++        condition, block = arms[0]
++        if selector is not None:
++            right = self._expr(condition)
++            expression = (
++                f"self.runtime.condition_v1(self.runtime.op_operator_binary('==', {selector}, {right}))"
++                if self.exact_pinelib
++                else f"{selector} == {right}"
++            )
++        else:
++            expression = self._condition(condition)
++        self.writer.line(f"if {expression}:", ir_ids=(condition,), origin="PINE")
++        self.writer.indent()
++        self._value_block(block) if value else self._emit_block(block)
++        self.writer.dedent()
++        if len(arms) > 1 or otherwise is not None:
++            self.writer.line("else:")
++            self.writer.indent()
++            self._emit_if_chain(arms[1:], otherwise, value=value, selector=selector)
++            self.writer.dedent()
+diff --git a/ast2python/emission/python.py b/ast2python/emission/python.py
+index d47969b5549a510848abbd933a7e41bb84600169..acbd0832b21c401f39f911284df2bab6e6fdd5f1 100644
+--- a/ast2python/emission/python.py
++++ b/ast2python/emission/python.py
+@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
+ from typing import Any, cast
+ 
+ from ast2python.admission.canonical import thaw_json
++from ast2python.emission.language import LanguageEmissionMixin
+ from ast2python.emission.requests import RequestEmissionMixin
+ from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
+ from ast2python.errors import BundleInvariantError
+@@ -116,7 +117,7 @@ class _Writer:
+         return "\n".join(self.lines) + "\n"
+ 
+ 
+-class _DirectEmitter(RequestEmissionMixin):
++class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
+     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
+         self.plan = plan
+         self.target = target
+@@ -173,13 +174,16 @@ class _DirectEmitter(RequestEmissionMixin):
+         suffix = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:8]
+         return f"{prefix}_{slug}_{suffix}"
+ 
+-    def _prepare_names(self) -> None:
++    def _prepare_legacy_names(self) -> None:

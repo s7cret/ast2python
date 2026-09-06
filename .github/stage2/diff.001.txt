@@ -1,0 +1,152 @@
+diff --git a/ast2python/emission/language.py b/ast2python/emission/language.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..de9b73fe98d4948c041a0da59b6048e2e9c9fd55
+--- /dev/null
++++ b/ast2python/emission/language.py
+@@ -0,0 +1,255 @@
++"""Lexical scalar execution and block values emitted from checked IR.
++
++Calls are keyed by written callsites, not loop iterations or Python object IDs.
++Language state remains in PineLib's transaction/series/slot machinery.
++"""
++
++from __future__ import annotations
++
++from ast2python.errors import BundleInvariantError
++
++SCALARS = {"bool", "color", "float", "int", "string"}
++
++
++class LanguageEmissionMixin:
++    def _prepare_names(self):
++        self.current_function = None
++        self.scope_parents = {"scope:global": None}
++        self.declarations_by_py = {}
++        self.function_declarations = {}
++        if not self.exact_pinelib:
++            self._prepare_legacy_names()
++            return
++        for key in self.plan.ordered_ir_ids:
++            scope = self._scope(key)
++            for child in self._node(key).child_ir_ids:
++                nested = self._scope(child)
++                if nested != scope:
++                    previous = self.scope_parents.setdefault(nested, scope)
++                    if previous != scope:
++                        raise BundleInvariantError(
++                            "A2P_LEXICAL_SCOPE", "inconsistent scope ancestry"
++                        )
++        for key in self.plan.ordered_ir_ids:
++            attrs, fields, scope = self._attrs(key), self._fields(key), self._scope(key)
++            kind, name = attrs.get("ast_kind"), fields.get("name")
++            if kind in {"VarDeclaration", "Parameter", "TupleTarget"} and isinstance(name, str):
++                pyname = self._safe(name, "var", self._node(key).source.node_id)
++                self.local_names[(scope, name)] = pyname
++                self.names_by_source[self._node(key).source.node_id] = pyname
++                self.declarations_by_py[pyname] = (scope, key)
++                if kind in {"VarDeclaration", "Parameter"}:
++                    dtype = self._declaration_type(key)
++                    if dtype in SCALARS:
++                        sid = (
++                            "series:" if scope == "scope:global" else "local-series:"
++                        ) + self._node(key).source.node_id
++                        self.series_ids[(scope, name)] = sid
++                        self.scalar_declarations[pyname] = (
++                            sid,
++                            str(fields.get("mode") or "default"),
++                            dtype,
++                        )
++            elif kind == "ForRangeStructure":
++                variable = fields.get("variable")
++                if isinstance(variable, str):
++                    self.local_names[("scope:loop:" + self._node(key).source.node_id, variable)] = (
++                        self._safe(variable, "loop", key)
++                    )
++            elif kind in {"FunctionDeclaration", "MethodDeclaration"} and isinstance(name, str):
++                self.functions_by_name[name] = self._safe(
++                    name, "udf", self._node(key).source.node_id
++                )
++                self.function_ir_ids.add(key)
++                self.function_declarations[name] = key
++
++    def _scope(self, key):
++        return str(self._attrs(key).get("scope_id") or "scope:global")
++
++    def _lookup_local(self, scope, name):
++        if not self.exact_pinelib:
++            return self._legacy_lookup(scope, name)
++        visited = set()
++        while scope is not None:
++            if scope in visited:
++                raise BundleInvariantError("A2P_LEXICAL_SCOPE", "cyclic scope ancestry")
++            visited.add(scope)
++            value = self.local_names.get((scope, name))
++            if value is not None:
++                return value
++            scope = self.scope_parents.get(scope)
++        return None
++
++    def _declaration_type(self, key):
++        declared = self._role(key, "type_ref")
++        if declared:
++            return str(self._fields(declared[0]).get("name"))
++        initializer = self._role(key, "initializer")
++        typ = self._node(initializer[0]).result_type if initializer else None
++        return typ.base if typ is not None else "object"
++
++    def _series_argument(self, sid):
++        return (
++            f"self.runtime.scoped_id_v1({sid!r}, local=True)"
++            if sid.startswith("local-series:")
++            else repr(sid)
++        )
++
++    def _history_policy(self, sid):
++        return "on_evaluation" if sid.startswith("local-series:") else "each_bar"
++
++    def _series_identity(self, key):
++        if not self.exact_pinelib:
++            return self._legacy_series_identity(key)
++        attrs, fields = self._attrs(key), self._fields(key)
++        if attrs.get("ast_kind") != "Identifier":
++            return None
++        name = str(fields.get("name") or "")
++        local = self._lookup_local(self._scope(key), name)
++        if local in self.scalar_declarations:
++            return self.scalar_declarations[local][0]
++        if attrs.get("symbol_id") == "pine:variable:" + name and name in {
++            "open",
++            "high",
++            "low",
++            "close",
++            "volume",
++            "time",
++            "time_close",
++            "bar_index",
++            "last_bar_index",
++        }:
++            return name
++        return None
++
++    def _condition(self, key):
++        value = self._expr(key)
++        return f"self.runtime.condition_v1({value})" if self.exact_pinelib else f"bool({value})"
++
++    def _default_block_value(self, key):
++        typ = self._node(key).result_type
++        if typ is not None:
++            is_bool = typ.base == "bool"
++        else:
++            # Statements used as the last expression of a UDF have structural
++            # facts. Consult the typed return expressions, not a Python guess.
++            ends = []
++
++            def inspect(node):
++                kind = self._attrs(node).get("ast_kind")
++                if kind == "Block":
++                    items = self._role(node, "statements")
++                    if items:
++                        inspect(items[-1])
++                elif kind == "IfStructure":
++                    for role in ("then_block", "else_block"):
++                        for child in self._role(node, role):

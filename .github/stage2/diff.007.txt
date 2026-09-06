@@ -1,0 +1,162 @@
+     for_in_target = producer_nodes.ForInTarget(span=SourceSpan.zero(), names=["index", "value"])
+     raw = for_in_target.to_dict()
+     node = admit_consumer_bundle(BUNDLE_V2).ast.node_by_id[
+diff --git a/tests/test_review_scalar_state.py b/tests/test_review_scalar_state.py
+index 0f1943026f514904b441e1ba600c67fd9ceffbb1..df82719527ec1f58a1b5347f5196e6cf62ce0584 100644
+--- a/tests/test_review_scalar_state.py
++++ b/tests/test_review_scalar_state.py
+@@ -2,7 +2,7 @@
+ 
+ import pytest
+ 
+-from tests.test_rc6_input_metadata import compile_source, run_source
++from tests.test_rc6_input_metadata import run_source
+ 
+ 
+ @pytest.mark.parametrize("version", [4, 5, 6])
+@@ -36,15 +36,17 @@ def test_var_initializer_is_not_evaluated_again():
+     assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 1, 1]
+ 
+ 
+-def test_local_var_fails_closed_until_callsite_identity_is_supported():
+-    with pytest.raises(Exception, match="persistent declarations"):
+-        compile_source(
+-            '//@version=6\nindicator("scope")\nif close>0\n    var int x=0\n    x:=x+1\n'
+-        )
++def test_local_var_has_separate_persistent_state():
++    runtime, _, _ = run_source(
++        '//@version=6\nindicator("scope")\nint y=0\nif close>0\n    var int x=0\n    x:=x+1\n    y:=x\nplot(y)\n',
++        closes=[1, 1, 1],
++    )
++    assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 2, 3]
+ 
+ 
+ def test_shadowed_global_does_not_silently_alias_storage():
+-    with pytest.raises(Exception, match="shadowed global"):
+-        compile_source(
+-            '//@version=6\nindicator("shadow")\nx=1\nif close>0\n    x=2\n    x:=3\nplot(x)\n'
+-        )
++    runtime, _, _ = run_source(
++        '//@version=6\nindicator("shadow")\nx=1\nif close>0\n    x=2\n    x:=3\nplot(x)\n',
++        closes=[1, 2],
++    )
++    assert [row.payload["series"] for row in runtime.visuals.committed] == [1, 1]
+diff --git a/tests/test_stage2_language_execution.py b/tests/test_stage2_language_execution.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e9671d729149b84c0cc262c1bdb9e317fc346a8
+--- /dev/null
++++ b/tests/test_stage2_language_execution.py
+@@ -0,0 +1,248 @@
++"""Versioned scalar/control semantics through the exact generated-Pine path.
++
++Expectations are hand-derived, not generated from OpenPine output or a TV oracle.
++"""
++
++import json
++
++import pytest
++from pine2ast.hardening.consumer_bundle import ConsumerBundleError
++from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
++from pinelib.runtime.metadata import BarValues
++from pinelib.state.checkpoint import from_portable
++
++from tests.test_rc6_input_metadata import compile_source, run_source
++
++
++def source(body, version=6):
++    return f'//@version={version}\n{"indicator" if version >= 5 else "study"}("language")\n{body}\n'
++
++
++def traces(body, *, version=6, closes=(1, 2, 3, 4)):
++    runtime, _, _ = run_source(source(body, version), closes=closes)
++    return [from_portable(event.payload["series"]) for event in runtime.visuals.committed]
++
++
++@pytest.mark.parametrize("version", [3, 4, 5, 6])
++@pytest.mark.parametrize("value", ["true", "1", "1.5"])
++def test_missing_if_branch_has_versioned_typed_default(version, value):
++    # v3 has no explicit type annotations, inferred typed branch still works.
++    out = traces(f"a=if close>2\n    {value}\nplot(a)", version=version)
++    if version == 6 and value == "true":
++        assert out[:2] == [False, False]
++    else:
++        assert all(is_na(x) for x in out[:2])
++    assert out[2:] == [{"true": True, "1": 1, "1.5": 1.5}[value]] * 2
++
++
++@pytest.mark.parametrize("version", [5, 6])
++@pytest.mark.parametrize("selector", [False, True])
++def test_switch_block_returns_and_bool_default(version, selector):
++    branch = "close\n    3" if selector else "\n    close==3"
++    out = traces(
++        "a=switch " + branch + " =>\n        bool x=true\n        x\nplot(a)", version=version
++    )
++    assert out[2] is True
++    if version == 6:
++        assert out[0] is False and out[3] is False
++    else:
++        assert is_na(out[0]) and is_na(out[3])
++
++
++@pytest.mark.parametrize("version", range(1, 7))
++def test_expression_history_uses_bool_type_and_canonical_na(version):
++    out = traces("plot((close>2)[1])", version=version)
++    assert out[0] is False if version == 6 else is_na(out[0])
++    assert out[1:] == [False, False, True]
++
++
++@pytest.mark.parametrize("version", [3, 4, 5, 6])
++def test_function_ending_in_conditional_returns_value(version):
++    parameter = "float x" if version >= 4 else "x"
++    out = traces(
++        f"f({parameter})=>\n    if x>2\n        x+1\n    else\n        x-1\nplot(f(close))",
++        version=version,
++    )
++    assert out == [0, 1, 4, 5]
++
++
++@pytest.mark.parametrize("version", [4, 5, 6])
++def test_function_call_paths_are_independent_and_defaults_bound(version):
++    out = traces(
++        "f(int step=1)=>\n    var int n=0\n    n:=n+step\n    n\nplot(f())\nplot(f(step=2))",
++        version=version,
++    )
++    assert out == [1, 2, 2, 4, 3, 6, 4, 8]
++
++
++@pytest.mark.parametrize("version", [4, 5, 6])
++def test_same_written_function_in_loop_reuses_state(version):
++    out = traces(
++        "f()=>\n    var int n=0\n    n:=n+1\n    n\na=0\nfor i=1 to 3\n    a:=f()\nplot(a)",
++        version=version,
++    )
++    assert out == [3, 6, 9, 12]
++
++
++@pytest.mark.parametrize("version", [4, 5, 6])
++def test_nested_written_calls_have_independent_paths(version):
++    out = traces(
++        "f()=>\n    var int n=0\n    n:=n+1\n    n\ng()=>f()\nplot(g())\nplot(g())", version=version
++    )
++    assert out == [1, 1, 2, 2, 3, 3, 4, 4]
++
++
++@pytest.mark.parametrize("version", [5, 6])
++def test_ta_inside_two_function_calls_does_not_share_accumulator(version):
++    out = traces("f(float x)=>ta.sma(x,2)\nplot(f(close))\nplot(f(close*10))", version=version)
++    assert all(is_na(v) for v in out[:2])
++    assert out[2:] == [1.5, 15.0, 2.5, 25.0, 3.5, 35.0]
++
++
++@pytest.mark.parametrize("version", [4, 5, 6])
++def test_local_history_clock_is_per_executed_bar_not_per_loop(version):
++    body = (
++        "f(float p)=>\n    p[1]\nfloat a=na\nif close!=2\n"
++        "    for i=0 to 1\n        a:=f(close+i)\nplot(a)"
++    )
++    out = traces(body, version=version)
++    assert all(is_na(v) for v in out[:2])
++    assert out[2:] == [2, 4]
++
++
++@pytest.mark.parametrize("mode", ["var", "varip"])
