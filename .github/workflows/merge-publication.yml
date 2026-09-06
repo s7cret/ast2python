@@ -1,0 +1,88 @@
+name: Verify and publish preserved nested compiler commit
+'on':
+  push:
+    branches: ['ops/rc6-merge-20260906']
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: s7cret/pine2ast
+          ref: 8627c94308f4cbd96b2a2ce8ad54e17530c312fd
+          path: publisher
+          sparse-checkout: .github/requests/restore.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          source = Path('publisher/.github/requests/restore.py').read_text()
+          old = "STAGING = 'ops/rc6-requests-20260906'"
+          assert source.count(old) == 1
+          Path(os.environ['RUNNER_TEMP']+'/restore.py').write_text(source.replace(old,"STAGING = 'ops/rc6-merge-20260906'"))
+          PY
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Restore exact original local commit
+        run: |
+          python "$RUNNER_TEMP/restore.py" restore .github/merge/plan.json "$RUNNER_TEMP/evidence"
+          cp "$RUNNER_TEMP/restore.py" "$RUNNER_TEMP/evidence/restore.py"
+      - name: Install clean source and pinned dependencies
+        run: |
+          python -m pip install setuptools==84.0.0 wheel==0.48.0 hatchling==1.32.0 build==1.6.0 pytest==9.1.1 ruff==0.16.6
+          mkdir -p "$RUNNER_TEMP/source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/source"
+          python -m pip install 'git+https://github.com/s7cret/pine2ast.git@6ba935eceee505bcbe80bf1f5908588407d2f546' 'git+https://github.com/s7cret/pinelib.git@cddaa0bf2324db36b4cd29e944a251032658c59d' "$RUNNER_TEMP/source[dev]"
+      - name: Full compiler suite and changed-source lint
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: |
+          python -m pytest -q --junitxml="$RUNNER_TEMP/evidence/ast2python.xml"
+          python -m ruff check ast2python/emission/requests.py tests/test_compiled_request_emission.py
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/evidence/dist" "$RUNNER_TEMP/source"
+          python -m pip freeze > "$RUNNER_TEMP/evidence/environment.txt"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: merge-${{ matrix.python }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/evidence/
+          retention-days: 30
+          if-no-files-found: error
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: merge-3.13-${{ github.run_id }}
+          path: evidence
+      - run: python evidence/restore.py publish evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: merge-publication-${{ github.run_id }}
+          path: evidence/
+          retention-days: 30

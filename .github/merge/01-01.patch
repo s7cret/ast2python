@@ -1,0 +1,90 @@
+diff --git a/ast2python/emission/requests.py b/ast2python/emission/requests.py
+index 353446c6f6620c526cc49622791b9f6cf77ea52c..d8ff850d1983222e241f5aae29a00d4c3b59da8b 100644
+--- a/ast2python/emission/requests.py
++++ b/ast2python/emission/requests.py
+@@ -35,9 +35,16 @@ class RequestEmissionMixin:
+             expression = args.get("expression")
+             if expression is None:
+                 self._request_error(key, "request requires an expression")
++            enabled = self.metadata.declaration.get("arguments", {}).get(
++                "dynamic_requests", self.plan.pine_version >= 6
++            )
++            if type(enabled) is not bool:
++                self._request_error(key, "dynamic_requests must be a compile-time bool")
+             dependencies, visiting, visited = [], set(), set()
+ 
+-            def visit(node, dependencies=dependencies, visiting=visiting, visited=visited):
++            def visit(
++                node, dependencies=dependencies, visiting=visiting, visited=visited, enabled=enabled
++            ):
+                 attrs, fields = self._attrs(node), self._fields(node)
+                 symbol = str(attrs.get("symbol_id") or "")
+                 if symbol.startswith(("pine:variable:strategy.", "pine:variable:barstate.")):
+@@ -55,13 +62,11 @@ class RequestEmissionMixin:
+                     target = self.target.call_bindings.get(
+                         (sid, str(info.get("overload_id")), str(info.get("call_form")))
+                     )
+-                    if (
+-                        target is None
+-                        or target.disposition != "TARGET_DIRECT"
+-                        or target.state_model == "COMPILED_REQUEST_EXPRESSION"
+-                    ):
++                    if target is None or target.disposition != "TARGET_DIRECT":
++                        self._request_error(node, "delegated request expression is not supported")
++                    if target.state_model == "COMPILED_REQUEST_EXPRESSION" and not enabled:
+                         self._request_error(
+-                            node, "nested or delegated request expression is not supported"
++                            node, "nested request expressions require dynamic_requests"
+                         )
+                 if attrs.get("ast_kind") == "Identifier":
+                     name = fields.get("name")
+@@ -103,11 +108,6 @@ class RequestEmissionMixin:
+                 for name in ("symbol", "timeframe", "resolution")
+                 if name in args
+             )
+-            enabled = self.metadata.declaration.get("arguments", {}).get(
+-                "dynamic_requests", self.plan.pine_version >= 6
+-            )
+-            if type(enabled) is not bool:
+-                self._request_error(key, "dynamic_requests must be a compile-time bool")
+             if not enabled and (dynamic or self._attrs(key).get("scope_id") != "scope:global"):
+                 self._request_error(
+                     key,
+diff --git a/tests/test_compiled_request_emission.py b/tests/test_compiled_request_emission.py
+index 9595ad4695461cb7a9b20cbaf1b13b84065df726..0377a26d9c6bff752a8f46000610276cccbf3581 100644
+--- a/tests/test_compiled_request_emission.py
++++ b/tests/test_compiled_request_emission.py
+@@ -27,7 +27,6 @@ def test_request_child_method_all_versions(version):
+ @pytest.mark.parametrize(
+     "body",
+     [
+-        'x=request.security("EX:S","5",request.security("EX:S","1",close))',
+         'f(x)=>x+1\ny=request.security("EX:S","5",f(close))',
+         'x=request.security("EX:S","5",strategy.equity)',
+     ],
+@@ -57,3 +56,25 @@ def test_na_broker_field_and_lower_array_have_bindings():
+     )
+     assert "na_v1" in result.emitted.code
+     assert "get_v1" in result.emitted.code
++
++
++@pytest.mark.parametrize("version,enabled", [(5, True), (6, None)])
++def test_nested_child_methods_preserve_independent_context_calls(version, enabled):
++    option = "" if enabled is None else ",dynamic_requests=true"
++    result = compile_source(
++        f'//@version={version}\nindicator("nested"{option})\nx=request.security("EX:S","5",request.security("","",close))\n'
++    )
++    methods = [
++        node
++        for node in ast.walk(ast.parse(result.emitted.code))
++        if isinstance(node, ast.FunctionDef) and node.name.startswith("request_")
++    ]
++    assert len(methods) == 2
++    assert all("self.runtime" in ast.unparse(method) for method in methods)
++
++
++def test_nested_requests_disabled_still_fail_explicitly():
++    with pytest.raises(BundleInvariantError, match="dynamic_requests"):
++        compile_source(
++            '//@version=6\nindicator("disabled",dynamic_requests=false)\nx=request.security("EX:S","5",request.security("EX:S","1",close))\n'
++        )
