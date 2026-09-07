@@ -11,6 +11,7 @@ from typing import Any, cast
 from ast2python.admission.canonical import thaw_json
 from ast2python.emission.language import LanguageEmissionMixin
 from ast2python.emission.loops import LOOPS, LoopEmissionMixin
+from ast2python.emission.nominal import NominalEmissionMixin
 from ast2python.emission.requests import RequestEmissionMixin
 from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
 from ast2python.errors import BundleInvariantError
@@ -118,7 +119,7 @@ class _Writer:
         return "\n".join(self.lines) + "\n"
 
 
-class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMixin):
+class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMixin, RequestEmissionMixin):
     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
         self.plan = plan
         self.target = target
@@ -552,17 +553,29 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
                 rendered.append(value)
                 delegated_positional.append(value)
         symbol_id = str(call["symbol_id"])
-        if symbol_id.startswith("user:function:"):
+        if symbol_id.startswith("user:type:") and self.exact_pinelib:
+            return self._nominal_call(ir_id, call, rendered_by_parameter)
+        if symbol_id.startswith(("user:function:", "user:method:")):
             callee = str(call["callee"])
-            function_name = self.functions_by_name.get(callee)
+            declaration = self.callable_declarations.get(symbol_id) if self.exact_pinelib else None
+            function_name = self.callable_names.get(declaration) if self.exact_pinelib else self.functions_by_name.get(callee)
             if function_name is None:
                 raise BundleInvariantError(
                     "A2P_EMIT_UDF_BINDING", "user function declaration is missing"
                 )
             if not self.exact_pinelib:
                 return f"self.{function_name}({', '.join(rendered)})"
-            declaration = self.function_declarations[callee]
             arguments = []
+            if call.get("call_form") == "USER_METHOD":
+                callee_ir = self._role(ir_id, "callee")[0]
+                receiver = self._role(callee_ir, "object")
+                if len(receiver) != 1 or declaration not in self.method_receivers:
+                    raise BundleInvariantError("A2P_METHOD_RECEIVER", "method lacks checked receiver")
+                pyname, declared = self.method_receivers[declaration]
+                actual = self._node(receiver[0]).result_type
+                if actual is None or self._runtime_type(actual.base) != declared:
+                    raise BundleInvariantError("A2P_METHOD_RECEIVER", "method receiver type differs from declaration")
+                arguments.append(f"{pyname!r}: {self._expr(receiver[0])}")
             for parameter in self._role(declaration, "parameters"):
                 pname = self._fields(parameter)["name"]
                 value = rendered_by_parameter.get(pname)
@@ -722,7 +735,7 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
                     injected = repr(binding.return_type)
                 elif source == "SEMANTIC_TYPE_DESCRIPTOR":
                     result_type = self._node(ir_id).result_type
-                    pine_type = result_type.base if result_type is not None else "unknown"
+                    pine_type = self._runtime_type(result_type.base) if result_type is not None else "unknown"
                     if "<" not in pine_type or not pine_type.endswith(">"):
                         raise BundleInvariantError(
                             "A2P_PINELIB_TYPE_DESCRIPTOR",
@@ -806,6 +819,10 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
             symbol_id = attrs.get("symbol_id")
             if isinstance(symbol_id, str) and symbol_id in self.target.value_bindings:
                 return self._value(ir_id, self.target.value_bindings[symbol_id])
+            if self.exact_pinelib:
+                value = self._nominal_member(ir_id)
+                if value is not None:
+                    return value
             raise BundleInvariantError(
                 "A2P_EMIT_VALUE_BINDING", "member access lacks exact value binding"
             )
@@ -878,13 +895,13 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
             )
             if self.exact_pinelib and series_identity is None:
                 typ = self._node(base[0]).result_type
-                if typ is None or not self._stored_type(typ.base):
+                if typ is None or not self._stored_type(self._runtime_type(typ.base)):
                     raise BundleInvariantError(
                         "A2P_HISTORY_TYPE", "history requires an exact scalar type"
                     )
                 return (
                     f"self.runtime.history_value_v1({self._node(base[0]).source.node_id!r}, "
-                    f"{base_expression}, {self._expr(offset[0])}, {typ.base!r})"
+                    f"{base_expression}, {self._expr(offset[0])}, {self._runtime_type(typ.base)!r})"
                 )
             return self._runtime_operation(
                 self._node(ir_id).opcode,
@@ -945,7 +962,7 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
                             self._scope(statement), self._fields(statement)["name"]
                         )
                     else:
-                        value = self._identifier(self._role(statement, "target")[0])
+                        value = self._assignment_value(statement)
                     self.writer.line(f"return {value}", ir_ids=(statement,), origin="PINE")
                     continue
             self._emit_statement(statement)
@@ -985,9 +1002,12 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
                 and mode == "varip"
                 and dtype.startswith(("array<", "map<", "matrix<"))
             ):
-                raise BundleInvariantError(
-                    "A2P_VARIP_REFERENCE", "varip reference persistence is not yet admitted"
-                )
+                self._require_language_contract("compiler.varip_reference_bindings.v1")
+                parts = dtype.split("<", 1)[1][:-1].split(",")
+                if (self.plan.pine_version < 5
+                    or len(parts) != (2 if dtype.startswith("map<") else 1)
+                    or any(part.strip() not in {"int", "float", "bool", "color", "string"} for part in parts)):
+                    raise BundleInvariantError("A2P_VARIP_REFERENCE_TYPE", "varip collections require supported fundamental element types")
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(
                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
@@ -1011,6 +1031,8 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
             value = self._role(ir_id, "value")
             if len(target) != 1 or len(value) != 1:
                 raise BundleInvariantError("A2P_EMIT_ASSIGNMENT", "reassignment is incomplete")
+            if self.exact_pinelib and self._nominal_assignment(ir_id, target[0], value[0]):
+                return
             target_name = self._identifier(target[0])
             operator = str(fields.get("op"))
             if operator in {":=", "="}:
@@ -1154,9 +1176,11 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
         self.current_function = ir_id
         fields = self._fields(ir_id)
         name = str(fields.get("name"))
-        py_name = self.functions_by_name[name]
+        py_name = self.callable_names[ir_id] if self.exact_pinelib else self.functions_by_name[name]
         parameters = self._role(ir_id, "parameters")
         py_parameters: list[str] = []
+        if self.exact_pinelib and ir_id in self.method_receivers:
+            py_parameters.append(self.method_receivers[ir_id][0])
         for parameter in parameters:
             parameter_fields = self._fields(parameter)
             parameter_name = str(parameter_fields.get("name"))
