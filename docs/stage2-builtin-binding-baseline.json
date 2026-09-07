@@ -1,0 +1,204 @@
+[
+  {
+    "version": 1,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 1,
+    "name": "round",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 1,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 1,
+    "name": "macd",
+    "status": "failed",
+    "exception": "ConsumerBundleError",
+    "message": "frontend result contains production-blocking diagnostics",
+    "details": null
+  },
+  {
+    "version": 2,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 2,
+    "name": "round",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 2,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 2,
+    "name": "macd",
+    "status": "failed",
+    "exception": "ConsumerBundleError",
+    "message": "frontend result contains production-blocking diagnostics",
+    "details": null
+  },
+  {
+    "version": 3,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 3,
+    "name": "round",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 3,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 3,
+    "name": "macd",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 4,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 4,
+    "name": "round",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 4,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 4,
+    "name": "macd",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 5,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_PINELIB_UNBOUND_PARAMETER: PineLib ABI parameter is explicitly unbound",
+    "details": null
+  },
+  {
+    "version": 5,
+    "name": "round",
+    "status": "passed",
+    "observed": [
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2
+    ]
+  },
+  {
+    "version": 5,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 5,
+    "name": "macd",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_PINELIB_UNBOUND_PARAMETER: PineLib ABI parameter is explicitly unbound",
+    "details": null
+  },
+  {
+    "version": 6,
+    "name": "exp",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_PINELIB_UNBOUND_PARAMETER: PineLib ABI parameter is explicitly unbound",
+    "details": null
+  },
+  {
+    "version": 6,
+    "name": "round",
+    "status": "passed",
+    "observed": [
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2
+    ]
+  },
+  {
+    "version": 6,
+    "name": "rsi",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_TARGET_CALL_BINDING: target lacks the exact symbol/overload/call-form binding",
+    "details": null
+  },
+  {
+    "version": 6,
+    "name": "macd",
+    "status": "failed",
+    "exception": "BundleInvariantError",
+    "message": "A2P_PINELIB_UNBOUND_PARAMETER: PineLib ABI parameter is explicitly unbound",
+    "details": null
+  }
+]
