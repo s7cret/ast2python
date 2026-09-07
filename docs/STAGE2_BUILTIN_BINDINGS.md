@@ -141,3 +141,33 @@ imports. This bounded change does not suppress those diagnostics or claim the
 whole compiler is type-check clean. Local JUnit/log receipts are retained under
 `.pytest_cache/builtin-wave-*`; the root acceptance pipeline owns the immutable
 cross-component and Linux evidence.
+
+## Separate value-audit delta
+
+The subsequent review found that a runtime value such as `close` could be
+reported as structurally bound even when its ABI mapping used `SOURCE_SPAN`.
+General calls support that injection, but the existing value emitter rejects
+it. The new public `audit_pinelib_value_binding` checks the narrower value
+contract: only the runtime transaction may be injected, optional ABI defaults
+must be real defaults, required parameters must be supplied, and delegated
+values retain exact host identities. Runtime, target manifest, and production
+emission behavior did not change in this delta.
+
+The delta adds 26 tests to `test_binding_structure_audit.py`. All 54 tests in
+that file pass on both Python 3.11 and 3.13, with zero failures or skips
+(14.061 and 13.239 seconds respectively). The original 122 test node IDs are
+preserved; this is additional evidence, not a replacement or reduced test set.
+
+The independent root file `rc6_tests/test_rc6_builtin_capabilities.py` contains
+27 tests for historical source spelling and canonical identity, exact version
+and overload boundaries, partial/default parameter mappings, denominator
+preservation, and invalid value injections. On both local Python versions,
+14 pass and 13 encounter the mandatory host import's missing `fcntl` dependency.
+There are zero skips and zero assertion failures, but the root suite is **not
+green**: those 13 errors require the Linux CI run before acceptance.
+
+Compiler receipts are retained as `.pytest_cache/value-binding-audit-py311.xml`
+and `value-binding-audit-py313.xml`. Root receipts are under
+`.runtime/evidence/builtin-capabilities-final-value-py311.xml` and the analogous
+Python 3.13 path in the OpenPine workspace. The earlier publication receipt
+remains unchanged and separate from this delta.
