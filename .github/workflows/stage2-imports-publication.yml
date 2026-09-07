@@ -1,0 +1,89 @@
+name: Verify and publish locked-library compilation
+'on':
+  push:
+    branches: ['ops/stage2-imports-20260907']
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Restore original archived history with exact checksum
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python - <<'PY'
+          import base64,hashlib,os,pathlib,subprocess
+          folder=pathlib.Path('.github/stage2-imports')
+          encoded=''.join((folder/f'{i:02}.b64').read_text() for i in range(1,4))
+          # Correct one transport-only extra character; source checksum stays fixed.
+          encoded=encoded.replace('E4+TpfbarDeRjTAj5Byxx','E4+TpfbarDeRTAj5Byxx')
+          data=base64.b64decode(encoded,validate=True)
+          assert hashlib.sha256(data).hexdigest()=='e0f09e4a0ce8f2a9e9c041901af7cf547c12d869ee0e52f5f9ad427f36c6bc62','bundle checksum mismatch'
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'evidence/source.bundle';p.write_bytes(data)
+          subprocess.run(['git','bundle','verify',str(p)],check=True)
+          subprocess.run(['git','fetch',str(p),'refs/heads/stage2/locked-library-imports-20260907'],check=True)
+          subprocess.run(['git','checkout','--detach','189e390d5a2b678a7b5e195b735eb63be1b434f6'],check=True)
+          assert subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()=='645a8564773c1d82717ab04aee96e621dc23a87e'
+          PY
+      - name: Install pinned sources and complete compiler verification
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: |
+          python -m pip install setuptools==84.0.0 wheel==0.48.0 build==1.6.0 hatchling==1.32.0
+          git clone --quiet https://github.com/s7cret/pine2ast.git "$RUNNER_TEMP/pine2ast"
+          git -C "$RUNNER_TEMP/pine2ast" checkout --detach 5f88741c6a642675d6852d507a5451376f284e81
+          git clone --quiet https://github.com/s7cret/pinelib.git "$RUNNER_TEMP/pinelib"
+          git -C "$RUNNER_TEMP/pinelib" checkout --detach 3e08fe73bd9df412c742e0d27a78013f9d4e5f2a
+          mkdir -p "$RUNNER_TEMP/source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/source"
+          python -m pip install "$RUNNER_TEMP/pine2ast" "$RUNNER_TEMP/pinelib" "$RUNNER_TEMP/source[dev]"
+          python -m pytest -q --junitxml="$RUNNER_TEMP/evidence/ast2python.xml"
+          python - <<'PY'
+          import os,xml.etree.ElementTree as ET
+          cases=list(ET.parse(os.environ['RUNNER_TEMP']+'/evidence/ast2python.xml').iter('testcase'))
+          assert len(cases)==480
+          assert not any(c.find(x) is not None for c in cases for x in ('failure','error','skipped'))
+          PY
+          python -m compileall -q ast2python
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/evidence/dist" "$RUNNER_TEMP/source"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: locked-imports-${{ matrix.python }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/evidence/
+          if-no-files-found: error
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: locked-imports-3.13-${{ github.run_id }}
+          path: evidence
+      - name: Fast-forward only verified RC6 and archive temporary ref
+        run: |
+          git fetch evidence/source.bundle refs/heads/stage2/locked-library-imports-20260907
+          actual=$(git ls-remote origin refs/heads/release/5.0.0rc6 | cut -f1)
+          test "$actual" = 1fadbb140a49e34dc433d45c5ee8ebae39d94c17 || test "$actual" = 189e390d5a2b678a7b5e195b735eb63be1b434f6
+          git push origin 189e390d5a2b678a7b5e195b735eb63be1b434f6:refs/heads/release/5.0.0rc6
+          git push --atomic --force-with-lease=refs/heads/ops/stage2-imports-20260907:${{ github.sha }} --force-with-lease=refs/tags/ops/stage2-imports-20260907: origin ${{ github.sha }}:refs/tags/ops/stage2-imports-20260907 :refs/heads/ops/stage2-imports-20260907
