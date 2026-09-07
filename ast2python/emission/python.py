@@ -1239,6 +1239,8 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
         writer.line(f"PINE_VERSION = {self.plan.pine_version}")
         if self.metadata is not None:
             writer.line(f"SCRIPT_METADATA = {self.metadata.to_dict()!r}")
+        if self.nominal_registry is not None:
+            writer.line(f"NOMINAL_TYPE_REGISTRY = {self.nominal_registry!r}")
         writer.line(f"TARGET_MANIFEST_HASH = {self.target.content_hash!r}")
         if self.exact_pinelib:
             writer.line(f"PINELIB_TARGET_MANIFEST_HASH = {self.target.target_version!r}")

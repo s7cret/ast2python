@@ -1,0 +1,111 @@
+{
+  "artifact": {
+    "ast_hash": "sha256:cd37d45469f6b3dbc5f17e55d1912efbc657439088ab08aa907b6b9a36cb2558",
+    "build_determinism_identity": "sha256:a3eb159a0f20a3bc251a3f46ff6f257c6a40aa5b00d4a20d6a6b0ff898e051f4",
+    "build_identity": {
+      "build_manifest_hash": "sha256:a3eb159a0f20a3bc251a3f46ff6f257c6a40aa5b00d4a20d6a6b0ff898e051f4",
+      "producer_wheel_hash": "sha256:01401242cebf345c0318d971544d9eb720b740f82e5c4e70b9704fd7654e335a",
+      "stack_manifest_hash": "sha256:a3eb159a0f20a3bc251a3f46ff6f257c6a40aa5b00d4a20d6a6b0ff898e051f4"
+    },
+    "bundle_hash": "sha256:c03ea2a15d82fdd397fb357078183b1db018ce29f8d07ea4041fdbe251abe7a9",
+    "catalog_hash": "sha256:4b9f9bf7a6c720532504e5b9bf5a74fb4dff3c450f61d8fd4e593f53654a2537",
+    "content_hash": "sha256:204da84c0d5215793b624a964a93667f60bacea4d0715c66046e2a1815e8f8e6",
+    "emitted_module_hash": "sha256:9870126a6f8e6d05ab1ebf0e886c7adbfff7f2bd663c62db50af92e1b5c9f2cb",
+    "entrypoint": {
+      "class": "GeneratedScript",
+      "module": "prior_nominal"
+    },
+    "external_library_dependency_hashes": {},
+    "import_manifest": [
+      "__future__",
+      "pinelib.abi",
+      "pinelib.abi.visual",
+      "pinelib.core.values",
+      "pinelib.events.common",
+      "typing"
+    ],
+    "import_manifest_hash": "sha256:0800fe5a3a1dcfacf35d459a149c62856e642d891ca6c18df9fc094d973e9ebe",
+    "lowering_pack_hash": "sha256:9c57fcf009825ceadccc223c8022f033e193d810900a1de1f28514ff24faa054",
+    "lowering_pack_id": "ast2python.lowering.rc6.v1",
+    "lowering_plan_hash": "sha256:9c57fcf009825ceadccc223c8022f033e193d810900a1de1f28514ff24faa054",
+    "node_index_hash": "sha256:2aaff26d09d913c3dbe2ae432f3c2453d40f4353cf230963ccbf7dc42757c424",
+    "producer": {
+      "commit": "2222222222222222222222222222222222222222",
+      "name": "ast2python",
+      "source_state": "COMMIT_PINNED",
+      "version": "5.0.0rc6"
+    },
+    "projection_proof": {
+      "disposition_counts": {
+        "COMPILE_TIME_ONLY": 0,
+        "DELEGATED": 0,
+        "EMITTED": 20,
+        "EXPANDED": 0,
+        "FOLDED": 0,
+        "REJECTED": 0
+      },
+      "ir_node_count": 20,
+      "mapped_ir_count": 20,
+      "mapped_ir_coverage": true,
+      "source_map_entry_count": 40,
+      "source_node_count": 20
+    },
+    "release_acceptance": {
+      "pine2ast_rc6": "EXACT_CORRECTED_BUNDLE_ACCEPTED",
+      "pinelib_rc6": "EXACT_PINELIB_TARGET_MANIFEST_V2",
+      "tradingview_oracle": "NOT_CLAIMED"
+    },
+    "required_capabilities": [
+      "compiler.nominal_types.v1",
+      "pine_ast_v2",
+      "pine_semantic_facts_v1",
+      "pine_version_context_v1",
+      "resolved_overload_identity",
+      "resolved_symbol_identity",
+      "source_span_identity"
+    ],
+    "required_operations": [
+      "builtin.invoke.pure",
+      "builtin.invoke.stateful",
+      "call.argument",
+      "declaration.script",
+      "literal.value",
+      "module.program",
+      "state.declare",
+      "statement.expression",
+      "symbol.member",
+      "symbol.read",
+      "type.define",
+      "type.field",
+      "type.reference",
+      "visual.invoke"
+    ],
+    "schema_id": "openpine.generated_artifact.v3",
+    "schema_version": "3.0.0",
+    "semantic_facts_hash": "sha256:016d98e68a044a3241eedf86c5e9b8340522baaeb18af540b781fc521fa2361e",
+    "source_hash": "sha256:699d3c28e6c5fab8655eeab19d5ede19279f85265cd0345dc419f91720125021",
+    "source_map_hash": "sha256:518b27f4cbe3c60ad230eb4ce70cb7653dd9a4533088a5f012aa0539213a2a8a",
+    "target_abi_hash": "sha256:71fdc1f483eb831ef8d21fe05b3d5858f1c55369cbe5b5dac55bfa985185dace",
+    "target_abi_id": "pinelib.generated_abi.v1",
+    "target_manifest_hash": "sha256:71fdc1f483eb831ef8d21fe05b3d5858f1c55369cbe5b5dac55bfa985185dace",
+    "version_context": {
+      "annotation_span": {
+        "end_col": 13,
+        "end_line": 1,
+        "end_offset": 12,
+        "start_col": 1,
+        "start_line": 1,
+        "start_offset": 0
+      },
+      "catalog_hash": "sha256:4b9f9bf7a6c720532504e5b9bf5a74fb4dff3c450f61d8fd4e593f53654a2537",
+      "context_hash": "sha256:4c9ae92f43fbb2dd56750f307c9be8e8f4d4322b6303845821c12fc1c431de6a",
+      "origin": "compiler_annotation",
+      "pine_version": 6,
+      "spec_snapshot_ref": "tradingview-pine-v6-reference-snapshot-2026-08-26"
+    },
+    "visual_projection_policy": "VISUAL_TAPE_REQUIRED"
+  },
+  "module": "from __future__ import annotations\nfrom typing import Any\nfrom pinelib.abi import load_target_manifest as _load_pinelib_target_manifest\nfrom pinelib.events.common import SourceSpan as _PineLibSourceSpan\nfrom pinelib.core.values import na as _PineLibNA\nfrom pinelib.abi.visual import plot_v1 as pl_plot_v1_b84a0c3b\n\nPINE_VERSION = 6\nSCRIPT_METADATA = {'schema_id': 'ast2python.script_metadata.v1', 'pine_version': 6, 'source_hash': 'sha256:699d3c28e6c5fab8655eeab19d5ede19279f85265cd0345dc419f91720125021', 'declaration': {'script_type': 'indicator', 'arguments': {'title': 'prior nominal'}}, 'inputs': {}}\nTARGET_MANIFEST_HASH = 'sha256:71fdc1f483eb831ef8d21fe05b3d5858f1c55369cbe5b5dac55bfa985185dace'\nPINELIB_TARGET_MANIFEST_HASH = 'sha256:739bcc3e7167e49ecbb1f37c76b4fdb4763fad724364ba9ab1cebc989e17d9aa'\nREQUIRED_OPERATIONS = ('builtin.invoke.pure', 'builtin.invoke.stateful', 'call.argument', 'declaration.script', 'literal.value', 'module.program', 'state.declare', 'statement.expression', 'symbol.member', 'symbol.read', 'type.define', 'type.field', 'type.reference', 'visual.invoke')\nREQUIRED_CAPABILITIES = ('compiler.nominal_types.v1', 'pine_ast_v2', 'pine_semantic_facts_v1', 'pine_version_context_v1', 'resolved_overload_identity', 'resolved_symbol_identity', 'source_span_identity')\n\nclass GeneratedScript:\n    def __init__(self, runtime: Any) -> None:\n        self.runtime = runtime\n        actual_hash = _load_pinelib_target_manifest()['content_hash']\n        if actual_hash != PINELIB_TARGET_MANIFEST_HASH:\n            raise RuntimeError(f'PineLib target manifest mismatch: {actual_hash!r}')\n\n    def run(self) -> Any:\n        # Pine declaration (compile time only)\n        var_p_55141fbf = self.runtime.declare_reference_v1('series:n00000010', 'default', lambda: self.runtime.new_udt_v1(self.runtime.reference_id_v1('n00000011'), 'udt:sha256:699d3c28e6c5fab8655eeab19d5ede19279f85265cd0345dc419f91720125021:P:n00000006', {'n': 1}, field_types={'n': 'int'}, varip_fields=()), 'udt:sha256:699d3c28e6c5fab8655eeab19d5ede19279f85265cd0345dc419f91720125021:P:n00000006', history_policy='each_bar')\n        pl_plot_v1_b84a0c3b(tx=self.runtime, call_site_id=self.runtime.scoped_id_v1('n00000015:call_site_id'), source_span=_PineLibSourceSpan(source_hash='sha256:699d3c28e6c5fab8655eeab19d5ede19279f85265cd0345dc419f91720125021', file_id='generated.pine', start_line=6, start_column=1, end_line=6, end_column=10), series=self.runtime.get_udt_field_v1(var_p_55141fbf, 'n'))\n        return None\n# compile-time-only source mappings\n",
+  "provenance": "Captured from pre-registry compiler emission before next-wave wiring; verifies legacy recompile rejection only.",
+  "source": "//@version=6\nindicator(\"prior nominal\")\ntype P\n    int n=1\np=P.new()\nplot(p.n)\n"
+}

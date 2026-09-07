@@ -8,12 +8,13 @@ from pine2ast.hardening.consumer_bundle import ConsumerBundleError, build_consum
 from pine2ast.libraries import LibraryStore, link_libraries
 from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
 from pinelib.input import InputRegistry
+from pinelib.reference.registry import NominalTypeRegistry
 from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
 
 from ast2python import compile_consumer_bundle
 from ast2python.admission.canonical import canonical_json_bytes
-from ast2python.artifacts.generated import verify_generated_artifact_v3
+from ast2python.artifacts import admitted_nominal_registry, verify_generated_artifact_v3
 from ast2python.errors import BundleInvariantError
 from ast2python.lowering import load_pinelib_target_manifest
 
@@ -39,6 +40,7 @@ def compile_linked(source, libs):
 
 
 def runtime_for(compiled, overrides=None):
+    verify_generated_artifact_v3(compiled.artifact.payload, emitted=compiled.emitted, plan=compiled.plan)
     ns = {}
     exec(compile(compiled.emitted.code, "linked_library.py", "exec"), ns)
     metadata = ns["SCRIPT_METADATA"]
@@ -51,6 +53,9 @@ def runtime_for(compiled, overrides=None):
             "compiler_annotation",
         ),
         inputs=InputRegistry.from_descriptors(metadata["inputs"], overrides),
+        nominal_registry=admitted_nominal_registry(
+            ns, compiled.artifact.payload, admit_registry=NominalTypeRegistry.from_json
+        ),
     )
     return runtime, ns["GeneratedScript"]
 
