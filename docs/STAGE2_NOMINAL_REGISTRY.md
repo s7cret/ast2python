@@ -32,13 +32,23 @@ target. A boolean revision, floating-point version, missing field, or extra fiel
 cannot satisfy it. Nominal plans require this capability as well as the existing
 `compiler.nominal_types.v1` contract.
 
-`ast2python.artifacts.admitted_nominal_registry(namespace, envelope)` returns the
-immutable `pinelib.reference.registry.NominalTypeRegistry` owner. The caller must
+`ast2python.artifacts.admitted_nominal_registry(namespace, envelope,
+admit_registry=NominalTypeRegistry.from_json)` returns the exact immutable runtime
+owner. The host imports that owner and supplies its factory explicitly; the
+compiler has no runtime import or registry implementation. The caller must
 verify module bytes against the envelope before executing the module and calling
 this helper, and must pass the returned owner to the session before callbacks or
 checkpoint restore. The helper revalidates the complete envelope and delegates
 registry shape, source/version identity, closure, and membership validation to
 PineLib. A namespace alone cannot authenticate its originating module bytes.
+
+`admit_registry` is a required keyword argument conforming to the generic
+`NominalRegistryAdmission` protocol. The factory receives the module literal and
+the exact `pine_version` and `expected_source_hash` from the verified envelope.
+It is invoked once after all compiler admission checks, and its object and
+validation exceptions pass through unchanged. It is never selected from the
+generated namespace. Legacy absence still requires a callable factory argument
+but does not invoke it.
 
 Legacy nonnominal modules with neither nominal capability nor literal return
 `None`. Pine v1-v4 cannot request this registry profile, even with an empty type
@@ -92,3 +102,31 @@ not a claim that the complete compiler or host suite ran locally.
 Recursive varip collection acceptance is unchanged. Existing request dependency
 slicing restrictions are also unchanged: forwarding a registry to a request child
 does not add support for UDF or UDT constructor dependencies in request source.
+
+## Architecture correction after registry CI
+
+The immutable registry CI run `34163246799` completed the test steps but rejected
+two direct PineLib imports in this compiler's admission helper, including its
+type-checking import. The existing architecture policy permits the compiler's
+frontend dependency and reserves runtime construction for the host. This
+correction follows that policy through explicit factory injection. It does not
+change the policy, hide an import dynamically, or duplicate registry validation.
+
+Relative to compiler `e0829d7881024abb8bb1882bafa0dad009068bb2`, the functional
+change is confined to `ast2python/artifacts/nominal_registry.py`. Four existing
+test fixture/registry files explicitly pass `NominalTypeRegistry.from_json` at
+their 17 admission calls. Their original node IDs and expected assertions remain;
+the 61 admission cases still exercise the real immutable owner and its negative
+validation. Scalar availability files and their separate test corrections are
+not part of this architecture correction.
+
+The 25 new dependency-boundary tests failed before the change and pass after it.
+They check required/invalid factories, exact argument forwarding and owner
+identity, no invocation on legacy absence or failed compiler checks, unmodified
+owner errors, and absence of static or dynamic runtime imports in the helper.
+Together with the existing 61 admission, 21 emission and 48 nominal/library
+cases, **155 tests pass on each Python 3.11 and 3.13**. Ruff passes and scoped mypy
+validation of the helper passes. The unchanged full architecture checker also
+passes locally: the compiler has only the allowed frontend edge. Local evidence
+is recorded separately in `nominal-registry-dependency-*.json` and test logs;
+this is not a replacement for the next immutable Linux CI run.
