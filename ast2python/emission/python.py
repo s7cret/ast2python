@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from ast2python.admission.canonical import thaw_json
 from ast2python.emission.language import LanguageEmissionMixin
+from ast2python.emission.loops import LOOPS, LoopEmissionMixin
 from ast2python.emission.requests import RequestEmissionMixin
 from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
 from ast2python.errors import BundleInvariantError
@@ -117,7 +118,7 @@ class _Writer:
         return "\n".join(self.lines) + "\n"
 
 
-class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
+class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMixin):
     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
         self.plan = plan
         self.target = target
@@ -697,11 +698,15 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                     consumed.add(source_name)
                 elif source == "RUNTIME_TRANSACTION":
                     injected = "self.runtime"
-                elif source in {
-                    "SOURCE_LOCATION_STATE_ID",
-                    "SOURCE_LOCATION_OBJECT_ID",
-                }:
-                    injected = f"self.runtime.scoped_id_v1({(self._node(ir_id).source.node_id + chr(58) + abi_parameter)!r})"
+                elif source in {"SOURCE_LOCATION_STATE_ID", "SOURCE_LOCATION_OBJECT_ID"}:
+                    if source == "SOURCE_LOCATION_OBJECT_ID":
+                        self._require_language_contract("compiler.reference_bindings.v1")
+                    helper = (
+                        "reference_id_v1"
+                        if source == "SOURCE_LOCATION_OBJECT_ID"
+                        else "scoped_id_v1"
+                    )
+                    injected = f"self.runtime.{helper}({(self._node(ir_id).source.node_id + chr(58) + abi_parameter)!r})"
                 elif source == "SOURCE_SPAN":
                     span = thaw_json(self._node(ir_id).source.span)
                     injected = (
@@ -855,6 +860,16 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             offset = self._role(ir_id, "offset")
             if len(base) != 1 or len(offset) != 1:
                 raise BundleInvariantError("A2P_EMIT_HISTORY", "history reference is incomplete")
+            base_type = self._node(base[0]).result_type
+            if (
+                self.exact_pinelib
+                and base_type
+                and base_type.base.startswith("array<")
+                and self.plan.pine_version < 5
+            ):
+                raise BundleInvariantError(
+                    "A2P_ARRAY_HISTORY_VERSION", "array instance history requires Pine v5 or later"
+                )
             series_identity = self._series_identity(base[0])
             base_expression = (
                 self._series_argument(series_identity)
@@ -863,7 +878,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             )
             if self.exact_pinelib and series_identity is None:
                 typ = self._node(base[0]).result_type
-                if typ is None or typ.base not in {"bool", "int", "float", "string", "color"}:
+                if typ is None or not self._stored_type(typ.base):
                     raise BundleInvariantError(
                         "A2P_HISTORY_TYPE", "history requires an exact scalar type"
                     )
@@ -882,6 +897,8 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             )
         if kind == "CallExpr":
             return self._call(ir_id)
+        if kind in LOOPS and self.exact_pinelib:
+            return self._loop_expression(ir_id)
         if kind in {"IfStructure", "SwitchStructure"}:
             return self._block_expression(ir_id)
         raise BundleInvariantError(
@@ -903,6 +920,13 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                     expression = self._role(statement, "expression")
                     self.writer.line(
                         f"return {self._expr(expression[0])}",
+                        ir_ids=self._subtree(statement),
+                        origin="PINE",
+                    )
+                    continue
+                if kind in LOOPS and self.exact_pinelib:
+                    self.writer.line(
+                        f"return {self._loop_expression(statement)}",
                         ir_ids=self._subtree(statement),
                         origin="PINE",
                     )
@@ -952,10 +976,18 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             dtype = self._declaration_type(ir_id)
             series_id = (
                 self.series_ids.get((scope, name))
-                if self.exact_pinelib and dtype in {"bool", "color", "float", "int", "string"}
+                if self.exact_pinelib and self._stored_type(dtype)
                 else None
             )
             mode = str(fields.get("mode") or "default")
+            if (
+                self.exact_pinelib
+                and mode == "varip"
+                and dtype.startswith(("array<", "map<", "matrix<"))
+            ):
+                raise BundleInvariantError(
+                    "A2P_VARIP_REFERENCE", "varip reference persistence is not yet admitted"
+                )
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(
                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
@@ -963,7 +995,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                 )
             if series_id is not None:
                 self.writer.line(
-                    f"{py_name} = self.runtime.declare_scalar_v1({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
+                    f"{py_name} = self.runtime.{self._binding_helper(dtype, 'declare')}({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
                     ir_ids=self._subtree(ir_id),
                     origin="PINE",
                 )
@@ -994,7 +1026,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             if scalar is not None:
                 series_id, mode, dtype = scalar
                 self.writer.line(
-                    f"self.runtime.write_scalar_v1({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
+                    f"self.runtime.{self._binding_helper(dtype, 'write')}({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
                 )
             return
         if kind == "TupleDeclaration":
@@ -1032,6 +1064,9 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             ]
             other = self._role(ir_id, "else_block")
             self._emit_if_chain(arms, other[0] if other else None, value=False)
+            return
+        if kind in LOOPS and self.exact_pinelib:
+            self._emit_loop(ir_id)
             return
         if kind == "ForRangeStructure":
             start = self._role(ir_id, "start")
@@ -1142,7 +1177,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                 if scalar is not None:
                     sid, mode, dtype = scalar
                     self.writer.line(
-                        f"self.runtime.declare_scalar_v1({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
+                        f"self.runtime.{self._binding_helper(dtype, 'declare')}({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
                     )
         body = self._role(ir_id, "body")
         if not body:

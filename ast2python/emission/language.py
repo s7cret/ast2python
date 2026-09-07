@@ -40,7 +40,7 @@ class LanguageEmissionMixin:
                 self.declarations_by_py[pyname] = (scope, key)
                 if kind in {"VarDeclaration", "Parameter"}:
                     dtype = self._declaration_type(key)
-                    if dtype in SCALARS:
+                    if self._stored_type(dtype):
                         sid = (
                             "series:" if scope == "scope:global" else "local-series:"
                         ) + self._node(key).source.node_id
@@ -50,12 +50,17 @@ class LanguageEmissionMixin:
                             str(fields.get("mode") or "default"),
                             dtype,
                         )
-            elif kind == "ForRangeStructure":
-                variable = fields.get("variable")
-                if isinstance(variable, str):
-                    self.local_names[("scope:loop:" + self._node(key).source.node_id, variable)] = (
-                        self._safe(variable, "loop", key)
-                    )
+            elif kind in {"ForRangeStructure", "ForInStructure"}:
+                variables = (
+                    [fields.get("variable")]
+                    if kind == "ForRangeStructure"
+                    else self._fields(self._role(key, "target")[0]).get("names", [])
+                )
+                for variable in variables:
+                    if isinstance(variable, str):
+                        self.local_names[
+                            ("scope:loop:" + self._node(key).source.node_id, variable)
+                        ] = self._safe(variable, "loop", key)
             elif kind in {"FunctionDeclaration", "MethodDeclaration"} and isinstance(name, str):
                 self.functions_by_name[name] = self._safe(
                     name, "udf", self._node(key).source.node_id
@@ -80,10 +85,37 @@ class LanguageEmissionMixin:
             scope = self.scope_parents.get(scope)
         return None
 
+    @staticmethod
+    def _stored_type(dtype):
+        return dtype in SCALARS or (
+            isinstance(dtype, str) and dtype.startswith(("array<", "map<", "matrix<"))
+        )
+
+    def _binding_helper(self, dtype, operation):
+        kind = "scalar" if dtype in SCALARS else "reference"
+        if kind == "reference":
+            self._require_language_contract("compiler.reference_bindings.v1")
+        return f"{operation}_{kind}_v1"
+
+    def _require_language_contract(self, capability):
+        if capability not in self.target.capabilities:
+            raise BundleInvariantError(
+                "A2P_LANGUAGE_CONTRACT",
+                "exact target lacks required language contract",
+                details={"capability": capability},
+            )
+
+    def _type_ref_text(self, key):
+        name = str(self._fields(key).get("name", "unknown"))
+        arguments = self._role(key, "template_args")
+        return name + (
+            "<" + ",".join(self._type_ref_text(arg) for arg in arguments) + ">" if arguments else ""
+        )
+
     def _declaration_type(self, key):
         declared = self._role(key, "type_ref")
         if declared:
-            return str(self._fields(declared[0]).get("name"))
+            return self._type_ref_text(declared[0])
         initializer = self._role(key, "initializer")
         typ = self._node(initializer[0]).result_type if initializer else None
         return typ.base if typ is not None else "object"
@@ -129,6 +161,10 @@ class LanguageEmissionMixin:
     def _default_block_value(self, key):
         typ = self._node(key).result_type
         if typ is not None:
+            if typ.base.startswith("tuple<"):
+                from ast2python.emission.loop_types import missing_value_expression
+
+                return missing_value_expression(typ.base, self.plan.pine_version)
             is_bool = typ.base == "bool"
         else:
             # Statements used as the last expression of a UDF have structural
@@ -179,20 +215,7 @@ class LanguageEmissionMixin:
         name = self._safe("value", "block_value", key)
         self.writer.line(f"def {name}():")
         self.writer.indent()
-        subtree = set(self._subtree(key))
-        nonlocals = set()
-        for child in subtree:
-            if self._attrs(child).get("ast_kind") != "Reassignment":
-                continue
-            targets = self._role(child, "target")
-            if targets and self._attrs(targets[0]).get("ast_kind") == "Identifier":
-                target = targets[0]
-                pyname = self._lookup_local(self._scope(target), self._fields(target).get("name"))
-                decl = self.declarations_by_py.get(pyname)
-                if decl and decl[1] not in subtree:
-                    nonlocals.add(pyname)
-        if nonlocals:
-            self.writer.line("nonlocal " + ", ".join(sorted(nonlocals)))
+        self._capture_nonlocals(key)
         if self._attrs(key).get("ast_kind") == "IfStructure":
             arms = [(self._role(key, "condition")[0], self._role(key, "then_block")[0])]
             arms += [

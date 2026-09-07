@@ -50,6 +50,20 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         "pinelib.core.values",
     }
     capabilities = set(reference.capabilities)
+    if source.get("compiled_reference_storage") == {
+        "revision": 1,
+        "identity": "callback-and-occurrence",
+        "binding_modes": ["default", "var"],
+        "reference_history_min_version": {"array": 5},
+    }:
+        capabilities.add("compiler.reference_bindings.v1")
+    if source.get("compiled_loop_values") == {
+        "revision": 1,
+        "budget": "shared-callback",
+        "for_in": "live-array",
+        "empty_tuple": "typed-elements",
+    }:
+        capabilities.add("compiler.loop_values.v1")
 
     compiler_operations = source.get("compiler_operations")
     if not isinstance(compiler_operations, list):
