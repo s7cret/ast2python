@@ -136,7 +136,7 @@ class LoopEmissionMixin:
             name = (
                 self._lookup_local(self._scope(last), self._fields(last)["name"])
                 if kind == "VarDeclaration"
-                else self._identifier(self._role(last, "target")[0])
+                else self._assignment_value(last)
             )
             self.writer.line(f"{result} = {name}", ir_ids=(last,), origin="PINE")
         elif kind == "IfStructure":

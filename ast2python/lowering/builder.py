@@ -64,10 +64,13 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
     bundle = session.bundle
     records: list[tuple[Any, Any, Any, LoweringRecipe]] = []
     required_operations: set[str] = set()
+    required_capabilities = set(bundle.required_capabilities)
     for node_id in bundle.ast.ordered_node_ids:
         node = bundle.ast.node(node_id)
         fact = bundle.semantic_facts.fact_by_node_id[node_id]
         call = bundle.semantic_facts.call_by_node_id.get(node_id)
+        if node.kind in {"TypeDeclaration", "EnumDeclaration"}:
+            required_capabilities.add("compiler.nominal_types.v1")
         recipe = select_recipe(
             version=bundle.version_context.pine_version,
             node=node,
@@ -92,7 +95,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
             )
         if (
             call is not None
-            and not call.symbol_id.startswith("user:function:")
+            and not call.symbol_id.startswith(("user:function:", "user:method:", "user:type:"))
             and call.symbol_id not in _COMPILE_TIME_DECLARATIONS
         ):
             binding_key = (call.symbol_id, call.overload_id, call.call_form)
@@ -178,5 +181,5 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         nodes=nodes,
         dispositions=tuple(dispositions),
         required_operations=frozenset(required_operations),
-        required_capabilities=bundle.required_capabilities,
+        required_capabilities=frozenset(required_capabilities),
     )

@@ -87,7 +87,7 @@ def _for_range_recipe(version: int) -> LoweringRecipe:
 
 def _call_recipe(call: ResolvedCallView) -> LoweringRecipe:
     symbol = call.symbol_id
-    if symbol.startswith("user:function:"):
+    if symbol.startswith(("user:function:", "user:method:")):
         return LoweringRecipe(
             "function.invoke.stateful" if call.stateful else "function.invoke.pure",
             "eager",

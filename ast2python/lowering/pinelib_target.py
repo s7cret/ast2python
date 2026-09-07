@@ -50,6 +50,15 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         "pinelib.core.values",
     }
     capabilities = set(reference.capabilities)
+    if source.get("compiled_nominal_types") == {
+        "revision": 1,
+        "identity": "source-declaration",
+        "udt_binding_modes": ["default", "var", "varip"],
+        "udt_fields": "declared-schema-field-rollback",
+        "enum_storage": "nominal-portable-values",
+        "min_pine_version": 5,
+    }:
+        capabilities.add("compiler.nominal_types.v1")
     if source.get("compiled_reference_storage") == {
         "revision": 1,
         "identity": "callback-and-occurrence",

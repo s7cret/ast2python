@@ -17,6 +17,7 @@ class LanguageEmissionMixin:
         self.scope_parents = {"scope:global": None}
         self.declarations_by_py = {}
         self.function_declarations = {}
+        self._prepare_nominal_types()
         if not self.exact_pinelib:
             self._prepare_legacy_names()
             return
@@ -62,11 +63,24 @@ class LanguageEmissionMixin:
                             ("scope:loop:" + self._node(key).source.node_id, variable)
                         ] = self._safe(variable, "loop", key)
             elif kind in {"FunctionDeclaration", "MethodDeclaration"} and isinstance(name, str):
-                self.functions_by_name[name] = self._safe(
+                pyname = self._safe(
                     name, "udf", self._node(key).source.node_id
                 )
+                self.functions_by_name[name] = pyname
                 self.function_ir_ids.add(key)
                 self.function_declarations[name] = key
+                self.callable_names[key] = pyname
+                self.callable_declarations[attrs.get("symbol_id")] = key
+                if kind == "MethodDeclaration":
+                    receiver_name = fields["receiver_name"]
+                    receiver_type = self._runtime_type(self._type_ref_text(self._role(key, "receiver_type")[0]))
+                    receiver_scope = "scope:method:" + self._node(key).source.node_id
+                    receiver_py = self._safe(receiver_name, "receiver", self._node(key).source.node_id)
+                    self.local_names[(receiver_scope, receiver_name)] = receiver_py
+                    self.declarations_by_py[receiver_py] = (receiver_scope, key)
+                    sid = "local-series:" + self._node(key).source.node_id + ":receiver"
+                    self.scalar_declarations[receiver_py] = (sid, "default", receiver_type)
+                    self.method_receivers[key] = (receiver_py, receiver_type)
 
     def _scope(self, key):
         return str(self._attrs(key).get("scope_id") or "scope:global")
@@ -88,11 +102,13 @@ class LanguageEmissionMixin:
     @staticmethod
     def _stored_type(dtype):
         return dtype in SCALARS or (
-            isinstance(dtype, str) and dtype.startswith(("array<", "map<", "matrix<"))
+            isinstance(dtype, str) and dtype.startswith(("array<", "map<", "matrix<", "udt:", "enum:"))
         )
 
     def _binding_helper(self, dtype, operation):
-        kind = "scalar" if dtype in SCALARS else "reference"
+        kind = "enum" if dtype.startswith("enum:") else "scalar" if dtype in SCALARS else "reference"
+        if kind == "enum" or dtype.startswith("udt:"):
+            self._require_language_contract("compiler.nominal_types.v1")
         if kind == "reference":
             self._require_language_contract("compiler.reference_bindings.v1")
         return f"{operation}_{kind}_v1"
@@ -115,10 +131,10 @@ class LanguageEmissionMixin:
     def _declaration_type(self, key):
         declared = self._role(key, "type_ref")
         if declared:
-            return self._type_ref_text(declared[0])
+            return self._runtime_type(self._type_ref_text(declared[0]))
         initializer = self._role(key, "initializer")
         typ = self._node(initializer[0]).result_type if initializer else None
-        return typ.base if typ is not None else "object"
+        return self._runtime_type(typ.base) if typ is not None else "object"
 
     def _series_argument(self, sid):
         return (
