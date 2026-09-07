@@ -10,22 +10,31 @@ it does not replace that module verification or establish source authenticity.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol, TypeVar
 
 from ast2python.artifacts.generated import verify_generated_artifact_v3
 from ast2python.errors import BundleInvariantError
 
-if TYPE_CHECKING:
-    from pinelib.reference.registry import NominalTypeRegistry
-
 _REGISTRY_CAPABILITY = "compiler.nominal_registry.v1"
 _NOMINAL_CAPABILITY = "compiler.nominal_types.v1"
 _LITERAL = "NOMINAL_TYPE_REGISTRY"
+_RegistryT = TypeVar("_RegistryT", covariant=True)
+
+
+class NominalRegistryAdmission(Protocol[_RegistryT]):
+    """Host-injected owner admission; compiler does not depend on that owner."""
+
+    def __call__(
+        self, payload: object, *, pine_version: int, expected_source_hash: str
+    ) -> _RegistryT: ...
 
 
 def admitted_nominal_registry(
-    namespace: Mapping[str, Any], envelope: Mapping[str, Any]
-) -> NominalTypeRegistry | None:
+    namespace: Mapping[str, Any],
+    envelope: Mapping[str, Any],
+    *,
+    admit_registry: NominalRegistryAdmission[_RegistryT],
+) -> _RegistryT | None:
     """Return the immutable runtime owner, or explicit legacy nonnominal absence.
 
     Pine v5/v6 registry literals require the exact registry capability. Earlier
@@ -33,8 +42,14 @@ def admitted_nominal_registry(
     learned from values or callbacks. Pine v1-v4 only retain the legacy path
     with neither a nominal capability nor a registry literal. Runtime owns all
     registry shape, identity, declaration closure, and membership validation.
+    The host must explicitly supply that trusted owner's factory; a generated
+    namespace cannot select it. Its result and exceptions pass through unchanged.
     """
     verify_generated_artifact_v3(envelope)
+    if not callable(admit_registry):
+        raise BundleInvariantError(
+            "A2P_NOMINAL_REGISTRY_ADAPTER", "nominal registry admission requires a callable owner"
+        )
     capabilities = envelope["required_capabilities"]
     has_literal = _LITERAL in namespace
     requires_registry = _REGISTRY_CAPABILITY in capabilities
@@ -57,11 +72,7 @@ def admitted_nominal_registry(
             "A2P_NOMINAL_REGISTRY_MISSING", "generated nominal registry literal is missing"
         )
 
-    # Keep legacy nonnominal admission independent of the optional runtime.
-    # from_json freezes its own records; no live namespace containers survive.
-    from pinelib.reference.registry import NominalTypeRegistry
-
-    return NominalTypeRegistry.from_json(
+    return admit_registry(
         namespace[_LITERAL],
         pine_version=version,
         expected_source_hash=envelope["source_hash"],
