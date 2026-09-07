@@ -75,14 +75,17 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         capabilities.add("compiler.loop_values.v1")
 
     if source.get("compiled_collection_iteration") == {
-        "revision": 1, "map": "insertion-order-stable-keys-live-values",
-        "matrix": "live-size-row-arrays", "min_pine_version": 5,
+        "revision": 1,
+        "map": "insertion-order-stable-keys-live-values",
+        "matrix": "live-size-row-arrays",
+        "min_pine_version": 5,
     }:
         capabilities.add("compiler.collection_iteration.v1")
 
     varip = source.get("compiled_varip_reference_storage")
     if varip == {
-        "revision": 1, "policy": "per-object-transactional-persistence",
+        "revision": 1,
+        "policy": "per-object-transactional-persistence",
         "kinds": ["array", "matrix", "map"],
         "element_types": ["int", "float", "bool", "color", "string"],
         "min_pine_version": 5,
@@ -155,7 +158,47 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
     rows = source.get("rows")
     if not isinstance(rows, list):
         raise BundleInvariantError("A2P_PINELIB_TARGET_ROWS", "PineLib rows must be an array")
-    for row in rows:
+    historical_rows = source.get("historical_call_bindings", [])
+    if not isinstance(historical_rows, list):
+        raise BundleInvariantError(
+            "A2P_PINELIB_HISTORICAL_BINDINGS", "historical call bindings must be an array"
+        )
+    for row in historical_rows:
+        if (
+            not isinstance(row, dict)
+            or row.get("disposition") != "TARGET_DIRECT"
+            or row.get("category") != "functions"
+            or row.get("call_form") != "global_function"
+            or row.get("producer_call_forms") != ["FUNCTION"]
+            or not isinstance(row.get("source_symbol_ids"), list)
+            or not row["source_symbol_ids"]
+            or any(
+                not isinstance(symbol, str)
+                or not symbol.startswith("pine:function:")
+                or "#" in symbol
+                for symbol in row["source_symbol_ids"]
+            )
+            or not isinstance(row.get("producer_overload_ids"), list)
+            or not row["producer_overload_ids"]
+            or any(
+                not isinstance(overload, str)
+                or not any(overload.startswith(symbol + "#") for symbol in row["source_symbol_ids"])
+                for overload in row["producer_overload_ids"]
+            )
+            or not isinstance(row.get("version_availability"), list)
+            or not row["version_availability"]
+            or any(
+                type(version) is not int or version not in range(1, 5)
+                for version in row["version_availability"]
+            )
+            or len(set(row["version_availability"])) != len(row["version_availability"])
+        ):
+            raise BundleInvariantError(
+                "A2P_PINELIB_HISTORICAL_BINDINGS",
+                "historical bindings require exact direct global producer identities and versions",
+            )
+    historical_row_ids = {id(row) for row in historical_rows}
+    for row in [*rows, *historical_rows]:
         if not isinstance(row, dict):
             continue
         disposition = row.get("disposition")
@@ -276,7 +319,7 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         if disposition not in {"TARGET_DIRECT", "TARGET_DELEGATED"}:
             continue
         row_call_form = row.get("call_form")
-        call_forms = (
+        default_call_forms = (
             ("METHOD",)
             if row_call_form == "method"
             else (
@@ -285,6 +328,17 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                 else ("FUNCTION",)
             )
         )
+        call_forms = row.get("producer_call_forms", default_call_forms)
+        if (
+            not isinstance(call_forms, (list, tuple))
+            or not call_forms
+            or any(form not in default_call_forms for form in call_forms)
+            or len(set(call_forms)) != len(call_forms)
+        ):
+            raise BundleInvariantError(
+                "A2P_PINELIB_TARGET_CALL_FORMS",
+                "producer call forms must be an exact nonempty subset of the row call forms",
+            )
         versions = row.get("version_availability")
         if not isinstance(versions, list) or not versions:
             raise BundleInvariantError(
@@ -320,7 +374,9 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         for source_symbol in sorted(source_symbols):
             overloads = [
                 item for item in producer_overloads if item.startswith(source_symbol + "#")
-            ] or [source_symbol + "#canonical"]
+            ]
+            if not overloads and id(row) not in historical_row_ids:
+                overloads = [source_symbol + "#canonical"]
             for overload_id in overloads:
                 for call_form in call_forms:
                     key = (source_symbol, overload_id, call_form)

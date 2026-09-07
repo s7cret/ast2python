@@ -1,3 +1,4 @@
+from ast2python.lowering.binding_audit import audit_pinelib_call_binding
 from ast2python.lowering.builder import build_lowering_plan
 from ast2python.lowering.model import (
     IRNode,
@@ -25,6 +26,7 @@ __all__ = [
     "LoweringPlan",
     "TargetManifest",
     "TargetOperation",
+    "audit_pinelib_call_binding",
     "build_lowering_plan",
     "load_pinelib_target_manifest",
     "load_reference_target_manifest",
