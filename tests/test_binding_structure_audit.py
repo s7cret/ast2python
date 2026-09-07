@@ -7,7 +7,11 @@ from pine2ast.hardening.consumer_bundle import build_consumer_bundle
 
 from ast2python import compile_consumer_bundle
 from ast2python.errors import BundleInvariantError
-from ast2python.lowering import audit_pinelib_call_binding, load_pinelib_target_manifest
+from ast2python.lowering import (
+    audit_pinelib_call_binding,
+    audit_pinelib_value_binding,
+    load_pinelib_target_manifest,
+)
 
 
 def binding(symbol, form="NAMESPACE_FUNCTION", overload="canonical"):
@@ -138,3 +142,97 @@ def test_exact_strategy_delegate_preserves_host_owned_validation(version):
     assert "A2P_PINELIB_CALL_DELEGATION" in audit(
         replace(row, delegation_owner=None), ["id", "direction"], version
     )
+
+
+@pytest.mark.parametrize("version", range(1, 7))
+def test_runtime_value_transaction_and_zero_argument_constant_are_structurally_bound(version):
+    target = load_pinelib_target_manifest()
+    for symbol in ("pine:variable:close", "pine:constant:barmerge.gaps_off"):
+        assert not audit_pinelib_value_binding(target.value_bindings[symbol], pine_version=version)
+
+
+@pytest.mark.parametrize(
+    "kind,source",
+    [
+        ("INJECTED", "SOURCE_SPAN"),
+        ("INJECTED", "SOURCE_LOCATION_STATE_ID"),
+        ("INJECTED", "SEMANTIC_RETURN_TYPE"),
+        ("INJECTED", "COMPILED_REQUEST_EXPRESSION"),
+        ("INJECTED", "REQUEST_TIMEFRAME_ARGUMENT"),
+        ("METHOD_RECEIVER", "receiver"),
+        ("SOURCE_PARAMETER", "x"),
+    ],
+)
+def test_value_injections_do_not_inherit_general_call_injection_support(kind, source):
+    target = load_pinelib_target_manifest()
+    original = target.value_bindings["pine:variable:close"]
+    wrong = replace(
+        original, parameter_bindings=({"abi_parameter": "tx", "binding": kind, "source": source},)
+    )
+    assert "A2P_PINELIB_VALUE_PARAMETER_BINDING" in audit_pinelib_value_binding(
+        wrong, pine_version=6
+    )
+    with pytest.raises(BundleInvariantError, match="A2P_PINELIB_VALUE_PARAMETER_BINDING"):
+        compile_consumer_bundle(
+            build_consumer_bundle('//@version=6\nindicator("value")\nplot(close)\n'),
+            target=replace(
+                target, value_bindings={**target.value_bindings, original.symbol_id: wrong}
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "mappings",
+    [
+        (),
+        ({"abi_parameter": "tx", "binding": "ABI_DEFAULT", "source": None},),
+        ({"abi_parameter": "tx", "binding": "UNBOUND_FAIL_CLOSED", "source": None},),
+    ],
+)
+def test_value_required_transaction_cannot_be_omitted_or_defaulted(mappings):
+    original = load_pinelib_target_manifest().value_bindings["pine:variable:close"]
+    wrong = replace(original, parameter_bindings=mappings)
+    assert "A2P_PINELIB_UNBOUND_VALUE_PARAMETER" in audit_pinelib_value_binding(
+        wrong, pine_version=6
+    )
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "unknown_keyword", "unknown_kind"])
+def test_value_abi_keyword_identity_and_binding_kind_are_checked(fault):
+    original = load_pinelib_target_manifest().value_bindings["pine:variable:close"]
+    mappings = [dict(original.parameter_bindings[0])]
+    if fault == "duplicate":
+        mappings.append(dict(mappings[0]))
+    elif fault == "unknown_keyword":
+        mappings[0]["abi_parameter"] = "ghost"
+    else:
+        mappings[0]["binding"] = "UNKNOWN"
+    wrong = replace(original, parameter_bindings=tuple(mappings))
+    assert "A2P_PINELIB_VALUE_PARAMETER_BINDING" in audit_pinelib_value_binding(
+        wrong, pine_version=6
+    )
+
+
+@pytest.mark.parametrize("version", range(1, 7))
+def test_value_delegation_requires_exact_host_identity_and_version(version):
+    row = load_pinelib_target_manifest().value_bindings["pine:variable:strategy.position_size"]
+    assert not audit_pinelib_value_binding(row, pine_version=version)
+    assert "A2P_PINELIB_VALUE_DELEGATION" in audit_pinelib_value_binding(
+        replace(row, delegation_owner=None), pine_version=version
+    )
+    assert "A2P_PINELIB_VALUE_VERSION" in audit_pinelib_value_binding(
+        replace(row, supported_pine_versions=()), pine_version=version
+    )
+
+
+def test_missing_or_unsupported_value_callable_cannot_be_certified():
+    row = load_pinelib_target_manifest().value_bindings["pine:variable:close"]
+    assert audit_pinelib_value_binding(replace(row, python_module=None), pine_version=6) == (
+        "A2P_PINELIB_VALUE_CALLABLE",
+    )
+    assert audit_pinelib_value_binding(
+        replace(row, python_name="missing_value_callable"), pine_version=6
+    ) == ("A2P_PINELIB_VALUE_ABI_SIGNATURE_UNVERIFIED",)
+    assert audit_pinelib_value_binding(
+        replace(row, disposition="UNSUPPORTED_FAIL_CLOSED"), pine_version=6
+    ) == ("A2P_PINELIB_VALUE_UNSUPPORTED",)
