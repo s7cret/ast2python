@@ -98,8 +98,11 @@ def test_audited_moving_average_aliases_and_udf_state(version, name, expected):
 @pytest.mark.parametrize("version", range(1, 7))
 def test_exp_and_round_propagate_typed_na(version):
     exp, rounding = builtin("exp", version), builtin("round", version)
+    # Explicit float() was introduced in v4. Before v4, the numeric builtin's
+    # parameter supplies the type for na; the expected propagation is unchanged.
+    number = "float(na)" if version >= 4 else "na"
     runtime, _, _ = run_source(
-        source(f"plot({exp}(float(na)))\nplot({rounding}(float(na)))", version), closes=[1]
+        source(f"plot({exp}({number}))\nplot({rounding}({number}))", version), closes=[1]
     )
     assert all(is_na(value) for value in values(runtime))
 
