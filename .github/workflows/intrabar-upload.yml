@@ -1,0 +1,72 @@
+name: Preserve exact local intrabar collection commit
+'on':
+  push:
+    branches: ['ops/publish-intrabar-20260907']
+permissions:
+  contents: write
+defaults:
+  run:
+    shell: bash
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore and publish original source without changing any release
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json, os, pathlib, subprocess
+          def git(*args):
+              return subprocess.check_output(['git',*args],text=True).strip()
+          def refs():
+              return {ref:sha for sha,ref in (line.split() for line in git('ls-remote','--refs','origin').splitlines())}
+          if os.environ['GITHUB_REPOSITORY'] != 's7cret/ast2python':
+              raise SystemExit('wrong repository')
+          before=refs()
+          data=pathlib.Path('.github/intrabar-upload/source.bundle').read_bytes()
+          # Restore transmission bytes only; the original binary checksum and all
+          # Git identities below remain immutable. No source transformation.
+          encoded=base64.b64encode(data).decode().replace('86H1/fg','86uU8UiH1/fg').replace('OEwlfGUHUWXL','OEwlfGUH/WXL')
+          data=base64.b64decode(encoded[:7312]+'RiY=',validate=True)
+          if hashlib.sha256(data).hexdigest() != 'ba9084b216c6773cdc35debc82a293fb3ea1390ac5f73f07b06b8d9d801eeff9':
+              raise SystemExit('original bundle checksum mismatch')
+          evidence=pathlib.Path(os.environ['RUNNER_TEMP'])/'publication'; evidence.mkdir()
+          bundle=evidence/'source.bundle'; bundle.write_bytes(data)
+          git('bundle','verify',str(bundle))
+          git('fetch',str(bundle),'refs/heads/stage2/varip-collections-20260907')
+          head='1d79941c992c0523f1a4c7d632066a884ba18898'
+          if git('rev-parse','FETCH_HEAD') != head or git('rev-parse',head+'^{tree}') != '88c6890e1e1c0ff68647f71ed9836f42f44e91c6':
+              raise SystemExit('source identity mismatch')
+          if git('rev-parse',head+'^') != '0bbfd5910b3faab0070111875d37eb141794e457':
+              raise SystemExit('source parent mismatch')
+          tag='refs/tags/local/stage2-intrabar-20260907'
+          branch='refs/heads/ops/publish-intrabar-20260907'
+          archive='refs/tags/ops/publish-intrabar-20260907'
+          sha=os.environ['GITHUB_SHA']
+          if before.get(branch)!=sha or before.get(tag) not in (None,head) or archive in before:
+              raise SystemExit('concurrent publication or conflicting tag')
+          args=['push','--atomic','--force-with-lease='+branch+':'+sha,'--force-with-lease='+archive+':']
+          updates=[sha+':'+archive,':'+branch]
+          if tag not in before:
+              args.append('--force-with-lease='+tag+':'); updates.append(head+':'+tag)
+          git(*args,'origin',*updates)
+          after=refs()
+          expected={k:v for k,v in before.items() if k!=branch}
+          expected.update({tag:head,archive:sha})
+          if after != expected:
+              raise SystemExit('post-publication ref inventory differs')
+          receipt={'repository':'s7cret/ast2python','head':head,'tree':git('rev-parse',head+'^{tree}'),'tag':tag,'release_changed':False,'tests_run':False,'full_stage2_accepted':False}
+          for name,value in [('before',before),('after',after),('receipt',receipt)]:
+              (evidence/(name+'.json')).write_text(json.dumps(value,indent=2)+'\n')
+          print(json.dumps(receipt,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: intrabar-source-publication-${{ github.run_id }}
+          path: ${{ runner.temp }}/publication/
+          if-no-files-found: error
+          retention-days: 30
