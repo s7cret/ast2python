@@ -125,7 +125,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
         self.exact_pinelib = target.release_acceptance == "EXACT_PINELIB_TARGET_MANIFEST_V2"
         self.local_names: dict[tuple[str, str], str] = {}
         self.series_ids: dict[tuple[str, str], str] = {}
-        self.scalar_declarations: dict[str, tuple[str, str, str]] = {}
+        self.stored_declarations: dict[str, tuple[str, str, str]] = {}
         self.names_by_source: dict[str, str] = {}
         self.functions_by_name: dict[str, str] = {}
         self.function_ir_ids: set[str] = set()
@@ -222,7 +222,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                         self.series_ids[(scope, name)] = (
                             f"series:{self._node(ir_id).source.node_id}"
                         )
-                        self.scalar_declarations[py_name] = (
+                        self.stored_declarations[py_name] = (
                             self.series_ids[(scope, name)],
                             str(fields.get("mode") or "default"),
                             result_type.base,
@@ -260,8 +260,8 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
         symbol_id = attrs.get("symbol_id")
         if isinstance(symbol_id, str) and symbol_id.startswith("user:variable:"):
             py_name = self._lookup_local(scope, name)
-            if py_name in self.scalar_declarations:
-                return self.scalar_declarations[py_name][0]
+            if py_name in self.stored_declarations:
+                return self.stored_declarations[py_name][0]
         if (
             isinstance(symbol_id, str)
             and symbol_id == f"pine:variable:{name}"
@@ -464,10 +464,10 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                 and declaration
                 and declaration[0] == "scope:global"
             ):
-                scalar = self.scalar_declarations.get(local)
+                scalar = self.stored_declarations.get(local)
                 if scalar is None:
                     raise BundleInvariantError(
-                        "A2P_UDF_GLOBAL_CAPTURE", "global reference capture is not yet supported"
+                        "A2P_UDF_GLOBAL_CAPTURE", "global value lacks a supported typed storage contract"
                     )
                 return f"self.runtime.read_series({scalar[0]!r})"
             return local
@@ -695,6 +695,8 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                     source_name = candidates.pop()
                     injected = rendered_by_parameter[source_name]
                     consumed.add(source_name)
+                elif source == "REFERENCE_ALLOCATION_ID":
+                    injected = f"self.runtime.new_reference_id_v1({(self._node(ir_id).source.node_id + ':' + abi_parameter)!r})"
                 elif source == "RUNTIME_TRANSACTION":
                     injected = "self.runtime"
                 elif source in {
@@ -863,9 +865,9 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             )
             if self.exact_pinelib and series_identity is None:
                 typ = self._node(base[0]).result_type
-                if typ is None or typ.base not in {"bool", "int", "float", "string", "color"}:
+                if typ is None or not self._stored_type(typ.base):
                     raise BundleInvariantError(
-                        "A2P_HISTORY_TYPE", "history requires an exact scalar type"
+                        "A2P_HISTORY_TYPE", "history requires an exact supported value type"
                     )
                 return (
                     f"self.runtime.history_value_v1({self._node(base[0]).source.node_id!r}, "
@@ -952,7 +954,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             dtype = self._declaration_type(ir_id)
             series_id = (
                 self.series_ids.get((scope, name))
-                if self.exact_pinelib and dtype in {"bool", "color", "float", "int", "string"}
+                if self.exact_pinelib and self._stored_type(dtype)
                 else None
             )
             mode = str(fields.get("mode") or "default")
@@ -963,7 +965,7 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                 )
             if series_id is not None:
                 self.writer.line(
-                    f"{py_name} = self.runtime.declare_scalar_v1({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
+                    f"{py_name} = self.runtime.{self._storage_method('declare', dtype)}({self._series_argument(series_id)}, {mode!r}, lambda: {initializer_expression}, {dtype!r}, history_policy={self._history_policy(series_id)!r})",
                     ir_ids=self._subtree(ir_id),
                     origin="PINE",
                 )
@@ -980,6 +982,12 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             if len(target) != 1 or len(value) != 1:
                 raise BundleInvariantError("A2P_EMIT_ASSIGNMENT", "reassignment is incomplete")
             target_name = self._identifier(target[0])
+            declaration = self.declarations_by_py.get(target_name)
+            if self.exact_pinelib and (
+                not target_name.isidentifier()
+                or (declaration is not None and self._attrs(declaration[1]).get("ast_kind") == "Parameter")
+            ):
+                raise BundleInvariantError("A2P_ASSIGNMENT_SCOPE", "cannot reassign a function parameter or captured global")
             operator = str(fields.get("op"))
             if operator in {":=", "="}:
                 text = f"{target_name} = {self._expr(value[0])}"
@@ -990,11 +998,11 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                     else f"{target_name} {operator} {self._expr(value[0])}"
                 )
             self.writer.line(text, ir_ids=self._subtree(ir_id), origin="PINE")
-            scalar = self.scalar_declarations.get(target_name) if self.exact_pinelib else None
+            scalar = self.stored_declarations.get(target_name) if self.exact_pinelib else None
             if scalar is not None:
                 series_id, mode, dtype = scalar
                 self.writer.line(
-                    f"self.runtime.write_scalar_v1({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
+                    f"self.runtime.{self._storage_method('write', dtype)}({self._series_argument(series_id)}, {mode!r}, {target_name}, {dtype!r}, history_policy={self._history_policy(series_id)!r})"
                 )
             return
         if kind == "TupleDeclaration":
@@ -1006,6 +1014,14 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
                 ir_ids=self._subtree(ir_id),
                 origin="PINE",
             )
+            if self.exact_pinelib:
+                for target, pyname in zip(targets, names, strict=True):
+                    if self._fields(target)["name"] == "_":
+                        continue
+                    sid, mode, dtype = self.stored_declarations[pyname]
+                    self.writer.line(
+                        f"self.runtime.{self._storage_method('declare', dtype)}({self._series_argument(sid)}, 'default', lambda: {pyname}, {dtype!r}, history_policy={self._history_policy(sid)!r})"
+                    )
             return
         if kind == "OnceStructure":
             if self.plan.pine_version != 6:
@@ -1074,8 +1090,14 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
             target_fields = self._fields(target[0])
             names = target_fields.get("names", [])
             py_names = [self._safe(str(name), "loop", f"{ir_id}:{name}") for name in names]
+            iterator = self._expr(iterable[0])
+            if self.exact_pinelib:
+                typ = self._node(iterable[0]).result_type
+                if typ is None or not typ.base.startswith("array<") or len(names) not in {1, 2}:
+                    raise BundleInvariantError("A2P_FOR_IN_TYPE", "compiled for-in requires a typed array")
+                iterator = f"self.runtime.array_iterator_v1({iterator}, indexed={len(names) == 2!r})"
             self.writer.line(
-                f"for {', '.join(py_names)} in {self._expr(iterable[0])}:",
+                f"for {', '.join(py_names)} in {iterator}:",
                 ir_ids=(ir_id, target[0], *self._subtree(iterable[0])),
                 origin="PINE",
             )
@@ -1138,11 +1160,11 @@ class _DirectEmitter(LanguageEmissionMixin, RequestEmissionMixin):
         self.writer.indent()
         if self.exact_pinelib:
             for pyparam in py_parameters:
-                scalar = self.scalar_declarations.get(pyparam)
+                scalar = self.stored_declarations.get(pyparam)
                 if scalar is not None:
                     sid, mode, dtype = scalar
                     self.writer.line(
-                        f"self.runtime.declare_scalar_v1({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
+                        f"self.runtime.{self._storage_method('declare', dtype)}({self._series_argument(sid)}, 'default', lambda: {pyparam}, {dtype!r}, history_policy='on_evaluation')"
                     )
         body = self._role(ir_id, "body")
         if not body:

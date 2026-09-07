@@ -40,12 +40,12 @@ class LanguageEmissionMixin:
                 self.declarations_by_py[pyname] = (scope, key)
                 if kind in {"VarDeclaration", "Parameter"}:
                     dtype = self._declaration_type(key)
-                    if dtype in SCALARS:
+                    if self._stored_type(dtype):
                         sid = (
                             "series:" if scope == "scope:global" else "local-series:"
                         ) + self._node(key).source.node_id
                         self.series_ids[(scope, name)] = sid
-                        self.scalar_declarations[pyname] = (
+                        self.stored_declarations[pyname] = (
                             sid,
                             str(fields.get("mode") or "default"),
                             dtype,
@@ -62,6 +62,64 @@ class LanguageEmissionMixin:
                 )
                 self.function_ir_ids.add(key)
                 self.function_declarations[name] = key
+
+        for key in self.plan.ordered_ir_ids:
+            kind = self._attrs(key).get("ast_kind")
+            if kind == "TupleDeclaration":
+                initializer = self._role(key, "initializer")[0]
+                typ = self._node(initializer).result_type
+                targets = self._role(key, "targets")
+                parts = self._type_args(typ.base, "tuple") if typ is not None else []
+                if len(parts) != len(targets):
+                    raise BundleInvariantError("A2P_TUPLE_STORAGE", "tuple needs checked element types")
+                for target, dtype in zip(targets, parts, strict=True):
+                    name, scope = self._fields(target)["name"], self._scope(target)
+                    if name == "_":
+                        continue
+                    self._register_storage(scope, name, target, "default", dtype)
+            elif kind == "ForInStructure":
+                target = self._role(key, "target")[0]
+                names = self._fields(target).get("names", [])
+                scope = self._scope(target)
+                for name in names:
+                    self.local_names[(scope, name)] = self._safe(str(name), "loop", f"{key}:{name}")
+
+    @staticmethod
+    def _type_args(dtype, prefix):
+        if not dtype.startswith(prefix + "<") or not dtype.endswith(">"):
+            return []
+        text, depth, start, parts = dtype[len(prefix) + 1:-1], 0, 0, []
+        for i, char in enumerate(text):
+            depth += (char == "<") - (char == ">")
+            if char == "," and depth == 0:
+                parts.append(text[start:i])
+                start = i + 1
+        return [*parts, text[start:]]
+
+    def _stored_type(self, dtype):
+        if dtype in SCALARS:
+            return True
+        for kind, arity in (("array", 1), ("matrix", 1), ("map", 2)):
+            args = self._type_args(dtype, kind)
+            if len(args) == arity and all(arg in SCALARS for arg in args):
+                return True
+        return False
+
+    def _register_storage(self, scope, name, key, mode, dtype):
+        if not self._stored_type(dtype):
+            raise BundleInvariantError("A2P_STORAGE_TYPE", "unsupported typed variable storage", details={"type": dtype})
+        sid = ("series:" if scope == "scope:global" else "local-series:") + self._node(key).source.node_id
+        self.series_ids[(scope, name)] = sid
+        self.stored_declarations[self._lookup_local(scope, name)] = (sid, mode, dtype)
+
+    @staticmethod
+    def _storage_method(action, dtype):
+        return action + ("_scalar_v1" if dtype in SCALARS else "_reference_v1")
+
+    def _type_ref(self, key):
+        name = str(self._fields(key).get("name"))
+        parts = [self._type_ref(child) for child in self._role(key, "template_args")]
+        return name + ("<" + ",".join(parts) + ">" if parts else "")
 
     def _scope(self, key):
         return str(self._attrs(key).get("scope_id") or "scope:global")
@@ -83,7 +141,7 @@ class LanguageEmissionMixin:
     def _declaration_type(self, key):
         declared = self._role(key, "type_ref")
         if declared:
-            return str(self._fields(declared[0]).get("name"))
+            return self._type_ref(declared[0])
         initializer = self._role(key, "initializer")
         typ = self._node(initializer[0]).result_type if initializer else None
         return typ.base if typ is not None else "object"
@@ -106,8 +164,8 @@ class LanguageEmissionMixin:
             return None
         name = str(fields.get("name") or "")
         local = self._lookup_local(self._scope(key), name)
-        if local in self.scalar_declarations:
-            return self.scalar_declarations[local][0]
+        if local in self.stored_declarations:
+            return self.stored_declarations[local][0]
         if attrs.get("symbol_id") == "pine:variable:" + name and name in {
             "open",
             "high",
@@ -129,7 +187,7 @@ class LanguageEmissionMixin:
     def _default_block_value(self, key):
         typ = self._node(key).result_type
         if typ is not None:
-            is_bool = typ.base == "bool"
+            return self._default_type_value(typ.base)
         else:
             # Statements used as the last expression of a UDF have structural
             # facts. Consult the typed return expressions, not a Python guess.
@@ -160,13 +218,16 @@ class LanguageEmissionMixin:
                     ends.append(node_type.base if node_type else "unknown")
 
             inspect(key)
-            is_bool = bool(ends) and all(t == "bool" for t in ends)
-        return (
-            "False"
-            if self.plan.pine_version >= 6 and is_bool
-            else "_PineLibNA"
-            if self.exact_pinelib
-            else "None"
+            if ends and len(set(ends)) == 1:
+                return self._default_type_value(ends[0])
+        return "_PineLibNA" if self.exact_pinelib else "None"
+
+    def _default_type_value(self, dtype):
+        parts = self._type_args(dtype, "tuple")
+        if parts:
+            return "(" + ", ".join(self._default_type_value(t) for t in parts) + ",)"
+        return "False" if dtype == "bool" and self.plan.pine_version >= 6 else (
+            "_PineLibNA" if self.exact_pinelib else "None"
         )
 
     def _value_block(self, key):
