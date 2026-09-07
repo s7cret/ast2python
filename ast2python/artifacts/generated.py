@@ -36,6 +36,7 @@ def build_generated_artifact_v3(
     ast_hash: str,
     semantic_facts_hash: str,
     node_index_hash: str,
+    external_library_dependency_hashes: Mapping[str, str] | None = None,
     stack_manifest_hash: str | None = None,
     producer_wheel_hash: str | None = None,
 ) -> GeneratedArtifactV3:
@@ -54,6 +55,8 @@ def build_generated_artifact_v3(
     }
     mapped_ir_ids = {entry.ir_id for entry in emitted.source_map.entries if entry.ir_id is not None}
     import_manifest = list(emitted.import_manifest)
+    dependencies = dict(external_library_dependency_hashes or {})
+    _validate_library_dependencies(dependencies)
     build_manifest_hash = _sha256_identity(
         {
             "producer_commit": producer_commit,
@@ -61,6 +64,7 @@ def build_generated_artifact_v3(
             "target_manifest_hash": target.content_hash,
             "lowering_plan_hash": plan.content_hash,
             "emitted_module_hash": emitted.code_hash,
+            **({"external_library_dependency_hashes": dependencies} if dependencies else {}),
         }
     )
     resolved_wheel_hash = producer_wheel_hash or _sha256_identity(
@@ -106,7 +110,7 @@ def build_generated_artifact_v3(
         "required_operations": sorted(plan.required_operations),
         "required_capabilities": sorted(plan.required_capabilities),
         "visual_projection_policy": "VISUAL_TAPE_REQUIRED",
-        "external_library_dependency_hashes": {},
+        "external_library_dependency_hashes": dependencies,
         "build_determinism_identity": build_manifest_hash,
         "projection_proof": {
             "disposition_counts": disposition_counts,
@@ -251,11 +255,8 @@ def verify_generated_artifact_v3(
         raise BundleInvariantError(
             "A2P_ARTIFACT_VISUAL_POLICY", "visual_projection_policy must be VISUAL_TAPE_REQUIRED"
         )
-    if artifact.get("external_library_dependency_hashes") != {}:
-        raise BundleInvariantError(
-            "A2P_ARTIFACT_EXTERNAL_LIBS",
-            "external_library_dependency_hashes must be empty for the exact target",
-        )
+    dependencies = artifact.get("external_library_dependency_hashes")
+    _validate_library_dependencies(dependencies)
     if artifact.get("build_determinism_identity") != build_identity.get("build_manifest_hash"):
         raise BundleInvariantError(
             "A2P_ARTIFACT_BUILD_IDENTITY",
@@ -268,6 +269,7 @@ def verify_generated_artifact_v3(
             "target_manifest_hash": artifact["target_manifest_hash"],
             "lowering_plan_hash": artifact["lowering_plan_hash"],
             "emitted_module_hash": artifact["emitted_module_hash"],
+            **({"external_library_dependency_hashes": dependencies} if dependencies else {}),
         }
     )
     if build_identity.get("build_manifest_hash") != expected_build_manifest_hash:
@@ -449,3 +451,21 @@ def verify_generated_artifact_v3(
                 "A2P_ARTIFACT_PROJECTION",
                 "projection source-map coverage differs from emitted module",
             )
+
+
+def _validate_library_dependencies(value: object) -> None:
+    """Keep old empty graphs valid; linked graphs bind every revision and projection."""
+    import re
+
+    if not isinstance(value, Mapping):
+        raise BundleInvariantError("A2P_ARTIFACT_EXTERNAL_LIBS", "dependency hashes must be a map")
+    if not value:
+        return
+    if "@linkage" not in value or not 2 <= len(value) <= 65:
+        raise BundleInvariantError("A2P_ARTIFACT_EXTERNAL_LIBS", "linked dependencies need a projection hash")
+    for ref, sha in value.items():
+        if (not isinstance(ref, str) or len(ref) > 240 or (
+            ref != "@linkage" and not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_]*/[A-Za-z_][A-Za-z0-9_]*/[1-9][0-9]*", ref
+            )) or not isinstance(sha, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", sha)):
+            raise BundleInvariantError("A2P_ARTIFACT_EXTERNAL_LIBS", "malformed pinned dependency identity")

@@ -47,6 +47,7 @@ def compile_consumer_bundle(
     module_name: str = "generated_pine_script",
     producer_commit: str | None = None,
     expected_pine2ast_commit: str | None = None,
+    linked_source: Any = None,
 ) -> CompilationResult:
     if target is None:
         raise BundleInvariantError(
@@ -59,7 +60,20 @@ def compile_consumer_bundle(
         mode=CompilationMode.PRODUCTION,
         expected_producer_commit=expected_pine2ast_commit,
     )
+    dependency_hashes = None
+    if linked_source is not None:
+        from pine2ast.libraries import LinkedSource
+
+        if not isinstance(linked_source, LinkedSource):
+            raise BundleInvariantError("A2P_LIBRARY_LINKAGE", "verified LinkedSource is required")
+        linked_source.verify()
+        receipt = linked_source.receipt()
+        if session.bundle.source["source_hash"] != receipt["linked_source_hash"]:
+            raise BundleInvariantError("A2P_LIBRARY_LINKAGE", "bundle source differs from library projection")
+        dependency_hashes = {**linked_source.dependency_hashes, "@linkage": receipt["content_hash"]}
     plan = build_lowering_plan(session, selected_target)
+    if "library.import" in plan.required_operations:
+        raise BundleInvariantError("A2P_LIBRARY_UNRESOLVED", "imports require an offline locked library projection")
     validate_lowering_plan(plan, selected_target)
     emitted = emit_python_module(plan, selected_target, module_name=module_name)
     artifact = build_generated_artifact_v3(
@@ -73,6 +87,7 @@ def compile_consumer_bundle(
         ast_hash=str(session.bundle.artifacts["ast_hash"]),
         semantic_facts_hash=str(session.bundle.artifacts["semantic_facts_hash"]),
         node_index_hash=str(session.bundle.artifacts["node_index_hash"]),
+        external_library_dependency_hashes=dependency_hashes,
     )
     verify_generated_artifact_v3(
         artifact.payload, plan=plan, target=selected_target, emitted=emitted
