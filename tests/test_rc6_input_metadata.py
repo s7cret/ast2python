@@ -10,6 +10,7 @@ from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
 
 from ast2python import compile_consumer_bundle
+from ast2python.artifacts import admitted_nominal_registry, verify_generated_artifact_v3
 from ast2python.lowering import load_pinelib_target_manifest
 
 
@@ -25,6 +26,7 @@ def compile_source(source):
 
 def run_source(source, overrides=None, closes=range(1, 9)):
     result = compile_source(source)
+    verify_generated_artifact_v3(result.artifact.payload, emitted=result.emitted, plan=result.plan)
     namespace = {}
     exec(compile(result.emitted.code, "input_case.py", "exec"), namespace)
     metadata = namespace["SCRIPT_METADATA"]
@@ -38,6 +40,7 @@ def run_source(source, overrides=None, closes=range(1, 9)):
             "compiler_annotation",
         ),
         inputs=inputs,
+        nominal_registry=admitted_nominal_registry(namespace, result.artifact.payload),
     )
     for i, close in enumerate(closes):
         tx = runtime.begin(
