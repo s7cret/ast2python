@@ -8,6 +8,7 @@ from pine2ast.hardening.consumer_bundle import ConsumerBundleError, build_consum
 from pine2ast.libraries import LibraryStore, link_libraries
 from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
 from pinelib.input import InputRegistry
+from pinelib.reference.registry import NominalTypeRegistry
 from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
 
@@ -52,7 +53,9 @@ def runtime_for(compiled, overrides=None):
             "compiler_annotation",
         ),
         inputs=InputRegistry.from_descriptors(metadata["inputs"], overrides),
-        nominal_registry=admitted_nominal_registry(ns, compiled.artifact.payload),
+        nominal_registry=admitted_nominal_registry(
+            ns, compiled.artifact.payload, admit_registry=NominalTypeRegistry.from_json
+        ),
     )
     return runtime, ns["GeneratedScript"]
 

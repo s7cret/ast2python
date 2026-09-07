@@ -34,7 +34,9 @@ def admit(result):
     )
     namespace = {}
     exec(compile(result.emitted.code, "registry.py", "exec"), namespace)
-    return namespace, admitted_nominal_registry(namespace, envelope)
+    return namespace, admitted_nominal_registry(
+        namespace, envelope, admit_registry=NominalTypeRegistry.from_json
+    )
 
 
 def declared_id(result, name, kind):

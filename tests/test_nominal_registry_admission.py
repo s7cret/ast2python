@@ -126,7 +126,11 @@ def test_sealed_registry_admits_complete_records_before_any_callback(compiled, v
     namespace, envelope, _ = sealed_fixture(
         compiled, version=version, payload=payload, capabilities=(REGISTRY, NOMINAL)
     )
-    registry = admitted_nominal_registry(MappingProxyType(namespace), MappingProxyType(envelope))
+    registry = admitted_nominal_registry(
+        MappingProxyType(namespace),
+        MappingProxyType(envelope),
+        admit_registry=NominalTypeRegistry.from_json,
+    )
     assert type(registry) is NominalTypeRegistry
     assert registry.to_json() == payload
     enum, udt = payload["types"]
@@ -145,7 +149,9 @@ def test_empty_current_registry_is_explicit_and_distinct_from_legacy_absence(com
     namespace, envelope, _ = sealed_fixture(
         compiled, version=version, payload=payload, capabilities=(REGISTRY,)
     )
-    registry = admitted_nominal_registry(namespace, envelope)
+    registry = admitted_nominal_registry(
+        namespace, envelope, admit_registry=NominalTypeRegistry.from_json
+    )
     assert type(registry) is NominalTypeRegistry
     assert registry.to_json() == payload
 
@@ -153,7 +159,10 @@ def test_empty_current_registry_is_explicit_and_distinct_from_legacy_absence(com
 @pytest.mark.parametrize("version", range(1, 7))
 def test_legacy_nonnominal_artifact_has_explicit_absence(compiled, version):
     namespace, envelope, _ = sealed_fixture(compiled, version=version)
-    assert admitted_nominal_registry(namespace, envelope) is None
+    assert (
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
+        is None
+    )
 
 
 @pytest.mark.parametrize("version", [5, 6])
@@ -163,7 +172,7 @@ def test_literal_without_exact_registry_capability_is_rejected(compiled, version
         compiled, version=version, payload=payload_for(compiled, version), capabilities=caps
     )
     with pytest.raises(BundleInvariantError, match="A2P_NOMINAL_REGISTRY_CAPABILITY"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize("version", [5, 6])
@@ -180,7 +189,7 @@ def test_capabilities_never_fall_back_to_callback_learned_declarations(
 ):
     namespace, envelope, _ = sealed_fixture(compiled, version=version, capabilities=caps)
     with pytest.raises(BundleInvariantError, match=code):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize("version", [5, 6])
@@ -202,7 +211,7 @@ def test_actual_prior_nominal_compiler_output_requires_recompilation(compiled, v
     assert NOMINAL in envelope["required_capabilities"]
     assert "NOMINAL_TYPE_REGISTRY" not in namespace
     with pytest.raises(BundleInvariantError, match="A2P_NOMINAL_REGISTRY_CAPABILITY.*recompile"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize("version", range(1, 5))
@@ -219,7 +228,7 @@ def test_legacy_versions_reject_registry_profile_even_with_zero_types(
         capabilities=caps,
     )
     with pytest.raises(BundleInvariantError, match="A2P_NOMINAL_REGISTRY_VERSION"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize("version", [5, 6])
@@ -241,7 +250,7 @@ def test_registry_identity_is_admitted_by_runtime_against_exact_envelope(
         compiled, version=version, payload=payload, capabilities=(REGISTRY,)
     )
     with pytest.raises(PineRuntimeError) as error:
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
     assert error.value.code == PL_REFERENCE_TYPE
 
 
@@ -249,7 +258,7 @@ def test_registry_identity_is_admitted_by_runtime_against_exact_envelope(
 def test_present_malformed_literal_cannot_be_treated_as_missing_legacy_metadata(compiled, payload):
     namespace, envelope, _ = sealed_fixture(compiled, payload=payload, capabilities=(REGISTRY,))
     with pytest.raises(PineRuntimeError) as error:
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
     assert error.value.code == PL_REFERENCE_TYPE
 
 
@@ -258,13 +267,15 @@ def test_undeclared_field_type_is_rejected_by_runtime_owner(compiled):
     payload["types"][1]["fields"][0]["type"] = f'enum:{payload["source_hash"]}:Missing:unused'
     namespace, envelope, _ = sealed_fixture(compiled, payload=payload, capabilities=(REGISTRY,))
     with pytest.raises(PineRuntimeError, match="undeclared type"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 def test_registry_is_independent_of_namespace_and_returned_json_mutation(compiled):
     payload = payload_for(compiled)
     namespace, envelope, _ = sealed_fixture(compiled, payload=payload, capabilities=(REGISTRY,))
-    registry = admitted_nominal_registry(namespace, envelope)
+    registry = admitted_nominal_registry(
+        namespace, envelope, admit_registry=NominalTypeRegistry.from_json
+    )
     expected = deepcopy(payload)
     original_hash = registry.content_hash
     namespace["NOMINAL_TYPE_REGISTRY"]["types"][0]["members"][1]["name"] = "forged"
@@ -289,7 +300,7 @@ def test_even_legacy_absence_requires_a_complete_verified_envelope(compiled, nom
     )
     del envelope["emitted_module_hash"]
     with pytest.raises(BundleInvariantError, match="A2P_ARTIFACT_FIELDS"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize("nominal", [False, True])
@@ -301,7 +312,7 @@ def test_stale_envelope_hash_is_rejected_before_any_registry_admission(compiled,
     )
     envelope["source_hash"] = "sha256:" + "f" * 64
     with pytest.raises(BundleInvariantError, match="A2P_ARTIFACT_HASH"):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 @pytest.mark.parametrize(
@@ -322,7 +333,7 @@ def test_rehashing_does_not_bypass_exact_envelope_rules(compiled, field, value, 
         canonical_json_bytes({k: v for k, v in envelope.items() if k != "content_hash"})
     )
     with pytest.raises(BundleInvariantError, match=code):
-        admitted_nominal_registry(namespace, envelope)
+        admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)
 
 
 def test_module_verification_precondition_rejects_registry_byte_tampering(compiled):
@@ -332,7 +343,7 @@ def test_module_verification_precondition_rejects_registry_byte_tampering(compil
     changed_code = emitted.code.replace("'title': 'Short'", "'title': 'Changed'")
     assert changed_code != emitted.code
     changed = replace(emitted, code=changed_code, code_hash=sha(changed_code.encode("utf-8")))
-    # A caller must reject here, before exec/admitted_nominal_registry. The two
-    # argument admission API cannot authenticate an arbitrary Python namespace.
+    # A caller must reject here, before exec/admitted_nominal_registry. These
+    # data arguments cannot authenticate an arbitrary Python namespace.
     with pytest.raises(BundleInvariantError, match="A2P_ARTIFACT_MODULE"):
         verify_generated_artifact_v3(envelope, emitted=changed)

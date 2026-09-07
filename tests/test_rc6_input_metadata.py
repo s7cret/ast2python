@@ -6,6 +6,7 @@ import pytest
 from pine2ast.hardening.consumer_bundle import build_consumer_bundle
 from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
 from pinelib.input import InputRegistry
+from pinelib.reference.registry import NominalTypeRegistry
 from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
 
@@ -40,7 +41,9 @@ def run_source(source, overrides=None, closes=range(1, 9)):
             "compiler_annotation",
         ),
         inputs=inputs,
-        nominal_registry=admitted_nominal_registry(namespace, result.artifact.payload),
+        nominal_registry=admitted_nominal_registry(
+            namespace, result.artifact.payload, admit_registry=NominalTypeRegistry.from_json
+        ),
     )
     for i, close in enumerate(closes):
         tx = runtime.begin(
