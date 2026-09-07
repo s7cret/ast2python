@@ -65,6 +65,21 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
     }:
         capabilities.add("compiler.loop_values.v1")
 
+    if source.get("compiled_collection_iteration") == {
+        "revision": 1, "map": "insertion-order-stable-keys-live-values",
+        "matrix": "live-size-row-arrays", "min_pine_version": 5,
+    }:
+        capabilities.add("compiler.collection_iteration.v1")
+
+    varip = source.get("compiled_varip_reference_storage")
+    if varip == {
+        "revision": 1, "policy": "per-object-transactional-persistence",
+        "kinds": ["array", "matrix", "map"],
+        "element_types": ["int", "float", "bool", "color", "string"],
+        "min_pine_version": 5,
+    }:
+        capabilities.add("compiler.varip_reference_bindings.v1")
+
     compiler_operations = source.get("compiler_operations")
     if not isinstance(compiler_operations, list):
         raise BundleInvariantError(

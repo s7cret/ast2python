@@ -985,9 +985,12 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, RequestEmissionMi
                 and mode == "varip"
                 and dtype.startswith(("array<", "map<", "matrix<"))
             ):
-                raise BundleInvariantError(
-                    "A2P_VARIP_REFERENCE", "varip reference persistence is not yet admitted"
-                )
+                self._require_language_contract("compiler.varip_reference_bindings.v1")
+                parts = dtype.split("<", 1)[1][:-1].split(",")
+                if (self.plan.pine_version < 5
+                    or len(parts) != (2 if dtype.startswith("map<") else 1)
+                    or any(part.strip() not in {"int", "float", "bool", "color", "string"} for part in parts)):
+                    raise BundleInvariantError("A2P_VARIP_REFERENCE_TYPE", "varip collections require supported fundamental element types")
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(
                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",
