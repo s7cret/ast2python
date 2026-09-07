@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from importlib import import_module
 from inspect import Parameter, signature
 
-from ast2python.lowering.target import TargetCallBinding
+from ast2python.lowering.target import TargetCallBinding, TargetValueBinding
 
 
 def audit_pinelib_call_binding(
@@ -138,4 +138,74 @@ def audit_pinelib_call_binding(
             and name not in supplied
         ):
             reasons.add("A2P_PINELIB_UNBOUND_PARAMETER")
+    return tuple(sorted(reasons))
+
+
+def audit_pinelib_value_binding(
+    binding: TargetValueBinding, *, pine_version: int
+) -> tuple[str, ...]:
+    """Audit the narrower ABI contract used by runtime value emission.
+
+    Values have no producer call arguments. Their only supported injection is
+    the runtime transaction; general call injections such as source spans,
+    method receivers, and request expressions must never certify a value.
+    Host handler availability and numerical semantics remain separate checks.
+    """
+    reasons: set[str] = set()
+    if type(pine_version) is not int or pine_version not in binding.supported_pine_versions:
+        reasons.add("A2P_PINELIB_VALUE_VERSION")
+    if binding.disposition == "TARGET_DELEGATED":
+        if not all(
+            isinstance(value, str) and value
+            for value in (
+                binding.delegation_owner,
+                binding.delegation_schema_id,
+                binding.delegation_capability_id,
+            )
+        ):
+            reasons.add("A2P_PINELIB_VALUE_DELEGATION")
+        return tuple(sorted(reasons))
+    if binding.disposition == "REFERENCE_RUNTIME_ATTRIBUTE":
+        return tuple(sorted(reasons | {"A2P_PINELIB_VALUE_REFERENCE_UNVERIFIED"}))
+    if binding.disposition != "TARGET_DIRECT":
+        return tuple(sorted(reasons | {"A2P_PINELIB_VALUE_UNSUPPORTED"}))
+    if binding.python_module is None or binding.python_name is None:
+        return tuple(sorted(reasons | {"A2P_PINELIB_VALUE_CALLABLE"}))
+    try:
+        function = getattr(import_module(binding.python_module), binding.python_name)
+        abi = signature(function).parameters
+    except (ImportError, AttributeError, TypeError, ValueError):
+        return tuple(sorted(reasons | {"A2P_PINELIB_VALUE_ABI_SIGNATURE_UNVERIFIED"}))
+    if any(p.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD) for p in abi.values()):
+        reasons.add("A2P_PINELIB_VALUE_ABI_SIGNATURE_UNVERIFIED")
+    supplied: set[str] = set()
+    mapped: set[str] = set()
+    for parameter_binding in binding.parameter_bindings:
+        if not isinstance(parameter_binding, Mapping):
+            reasons.add("A2P_PINELIB_VALUE_PARAMETER_BINDING")
+            continue
+        name = parameter_binding.get("abi_parameter")
+        kind = parameter_binding.get("binding")
+        source = parameter_binding.get("source")
+        if not isinstance(name, str) or name not in abi or name in mapped:
+            reasons.add("A2P_PINELIB_VALUE_PARAMETER_BINDING")
+            continue
+        mapped.add(name)
+        if kind == "ABI_DEFAULT":
+            continue
+        if kind == "UNBOUND_FAIL_CLOSED":
+            reasons.add("A2P_PINELIB_UNBOUND_VALUE_PARAMETER")
+        elif kind == "INJECTED" and source == "RUNTIME_TRANSACTION":
+            supplied.add(name)
+        else:
+            reasons.add("A2P_PINELIB_VALUE_PARAMETER_BINDING")
+    for name, parameter in abi.items():
+        if parameter.kind == Parameter.POSITIONAL_ONLY and name in supplied:
+            reasons.add("A2P_PINELIB_VALUE_PARAMETER_BINDING")
+        if (
+            parameter.kind not in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+            and parameter.default is Parameter.empty
+            and name not in supplied
+        ):
+            reasons.add("A2P_PINELIB_UNBOUND_VALUE_PARAMETER")
     return tuple(sorted(reasons))
