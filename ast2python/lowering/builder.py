@@ -71,6 +71,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         call = bundle.semantic_facts.call_by_node_id.get(node_id)
         if node.kind in {"TypeDeclaration", "EnumDeclaration"}:
             required_capabilities.add("compiler.nominal_types.v1")
+            required_capabilities.add("compiler.nominal_registry.v1")
         recipe = select_recipe(
             version=bundle.version_context.pine_version,
             node=node,

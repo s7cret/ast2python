@@ -50,6 +50,19 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         "pinelib.core.values",
     }
     capabilities = set(reference.capabilities)
+    registry_contract = {
+        "revision": 1,
+        "schema_id": "pinelib.nominal_registry.v1",
+        "identity": "source-declaration",
+        "admission": "module-literal-before-execution",
+        "min_pine_version": 5,
+    }
+    # JSON equality preserves primitive types; Python equality would accept
+    # True for revision 1 or 5.0 for the exact integer version boundary.
+    if canonical_json_bytes(source.get("compiled_nominal_registry")) == canonical_json_bytes(
+        registry_contract
+    ):
+        capabilities.add("compiler.nominal_registry.v1")
     if source.get("compiled_nominal_types") == {
         "revision": 1,
         "identity": "source-declaration",

@@ -7,6 +7,7 @@ class NominalEmissionMixin:
     def _prepare_nominal_types(self):
         self.nominal_types = {}
         self.nominal_declarations = {}
+        self.nominal_registry = None
         self.callable_declarations = {}
         self.callable_names = {}
         self.method_receivers = {}
@@ -19,6 +20,7 @@ class NominalEmissionMixin:
             if kind not in {"TypeDeclaration", "EnumDeclaration"}:
                 continue
             self._require_language_contract("compiler.nominal_types.v1")
+            self._require_language_contract("compiler.nominal_registry.v1")
             if self.plan.pine_version < 5:
                 raise BundleInvariantError("A2P_NOMINAL_VERSION", "nominal types require Pine v5+")
             name = fields["name"]
@@ -26,6 +28,44 @@ class NominalEmissionMixin:
             identity = f"{prefix}:{self.plan.source_hash}:{name}:{self._node(key).source.node_id}"
             self.nominal_types[name] = identity
             self.nominal_declarations[name] = key
+        if self.nominal_declarations:
+            # Resolve fields only after collecting every declaration identity:
+            # forward/cyclic fields and unused declarations are part of the
+            # same closed source contract, independent of allocated values.
+            rows = []
+            for name, key in self.nominal_declarations.items():
+                identity = self.nominal_types[name]
+                if self._attrs(key)["ast_kind"] == "EnumDeclaration":
+                    members = []
+                    for member in self._role(key, "members"):
+                        fields = self._fields(member)
+                        title = fields.get("title")
+                        members.append(
+                            {
+                                "name": fields["name"],
+                                "title": fields["name"] if title is None else title,
+                            }
+                        )
+                    rows.append({"id": identity, "kind": "enum", "members": members})
+                else:
+                    fields = []
+                    for field in self._role(key, "fields"):
+                        attributes = self._fields(field)
+                        dtype = self._type_ref_text(self._role(field, "type_ref")[0])
+                        fields.append(
+                            {
+                                "name": attributes["name"],
+                                "type": self._runtime_type(dtype),
+                                "varip": attributes.get("mode") == "varip",
+                            }
+                        )
+                    rows.append({"id": identity, "kind": "udt", "fields": fields})
+            self.nominal_registry = {
+                "schema_id": "pinelib.nominal_registry.v1",
+                "pine_version": self.plan.pine_version,
+                "source_hash": self.plan.source_hash,
+                "types": sorted(rows, key=lambda row: row["id"]),
+            }
 
     def _runtime_type(self, dtype):
         if dtype in self.nominal_types:
