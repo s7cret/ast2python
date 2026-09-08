@@ -96,14 +96,30 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         capabilities.add("compiler.collection_iteration.v1")
 
     varip = source.get("compiled_varip_reference_storage")
-    if varip == {
+    varip_contract = {
         "revision": 1,
         "policy": "per-object-transactional-persistence",
         "kinds": ["array", "matrix", "map"],
         "element_types": ["int", "float", "bool", "color", "string"],
         "min_pine_version": 5,
-    }:
+    }
+    if varip == varip_contract:
         capabilities.add("compiler.varip_reference_bindings.v1")
+
+    nominal_arrays = {
+        "revision": 1,
+        "registry_schema_id": "pinelib.nominal_registry.v1",
+        "element_type": "udt",
+        "field_profile": "fundamentals-and-ordinary-fundamental-array-matrix",
+        "persistence": "array-elements-and-declared-varip-fields",
+        "min_pine_version": 5,
+    }
+    if (
+        canonical_json_bytes(source.get("compiled_varip_nominal_arrays")) == canonical_json_bytes(nominal_arrays)
+        and canonical_json_bytes(varip) == canonical_json_bytes(varip_contract)
+        and {"compiler.nominal_registry.v1", "compiler.varip_reference_bindings.v1"} <= capabilities
+    ):
+        capabilities.add("compiler.varip_nominal_arrays.v1")
 
     compiler_operations = source.get("compiler_operations")
     if not isinstance(compiler_operations, list):

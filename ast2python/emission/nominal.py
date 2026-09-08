@@ -67,6 +67,24 @@ class NominalEmissionMixin:
                 "types": sorted(rows, key=lambda row: row["id"]),
             }
 
+    def _varip_nominal_array_supported(self, dtype):
+        """Match the target's bounded profile against checked declaration rows.
+
+        No runtime import or observed constructor values establish eligibility.
+        """
+        if (self.plan.pine_version < 5 or not dtype.startswith("array<udt:")
+                or not dtype.endswith(">") or self.nominal_registry is None):
+            return False
+        identity = dtype[6:-1]
+        definition = next((row for row in self.nominal_registry["types"] if row["id"] == identity), None)
+        if definition is None or definition["kind"] != "udt":
+            return False
+        fundamentals = {"int", "float", "bool", "color", "string"}
+        collection_fields = {kind + "<" + typ + ">" for kind in ("array", "matrix") for typ in fundamentals}
+        return all(field["type"] in fundamentals or
+                   (not field["varip"] and field["type"] in collection_fields)
+                   for field in definition["fields"])
+
     def _runtime_type(self, dtype):
         if dtype in self.nominal_types:
             return self.nominal_types[dtype]
