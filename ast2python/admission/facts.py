@@ -6,8 +6,11 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, cast
 
+from pine2ast.semantic.type_helpers import is_assignable_type
+
 from ast2python.admission.ast_view import StrictASTView
 from ast2python.admission.canonical import freeze_json, thaw_json
+from ast2python.admission.variadic import admitted_variadic_parameters
 from ast2python.errors import BundleInvariantError
 
 _FACT_FIELDS = frozenset(
@@ -617,6 +620,7 @@ class SemanticFactsIndex:
             seen_argument_nodes: set[str] = set()
             seen_parameter_indices: set[int] = set()
             seen_parameter_names: set[str] = set()
+            variadic_parameters = admitted_variadic_parameters(raw, version_context, ast_view)
             for argument_index, argument in enumerate(arguments):
                 argument_path = f"{path}.arguments[{argument_index}]"
                 if set(argument) != _ARGUMENT_FIELDS:
@@ -660,7 +664,10 @@ class SemanticFactsIndex:
                         path=f"{argument_path}.parameter_index",
                     )
                 parameter_index_value = parameter_index
-                if parameter_index_value in seen_parameter_indices:
+                is_variadic = argument.get("binding") == "vararg" and (
+                    parameter_index_value, argument.get("parameter_name")
+                ) in variadic_parameters
+                if parameter_index_value in seen_parameter_indices and not is_variadic:
                     raise BundleInvariantError(
                         "A2P_CALL_PARAMETER_INDEX_DUPLICATE",
                         "parameter_index must be unique within a call",
@@ -674,7 +681,7 @@ class SemanticFactsIndex:
                         "parameter_name must be a non-empty string",
                         path=f"{argument_path}.parameter_name",
                     )
-                if parameter_name in seen_parameter_names:
+                if parameter_name in seen_parameter_names and not is_variadic:
                     raise BundleInvariantError(
                         "A2P_CALL_PARAMETER_NAME_DUPLICATE",
                         "parameter_name must be unique within a call",
@@ -727,6 +734,18 @@ class SemanticFactsIndex:
                         "expected_type must be a non-empty string",
                         path=f"{argument_path}.expected_type",
                     )
+                if is_variadic:
+                    value_ids = argument_node.child_node_ids
+                    resolved = facts[value_ids[0]].resolved_type if len(value_ids) == 1 else None
+                    if (
+                        resolved is None or resolved.base != actual_type
+                        or resolved.qualifier != actual_qualifier
+                        or actual_type in {"any", "unknown"}
+                        or not is_assignable_type(expected_type, actual_type)
+                    ):
+                        raise BundleInvariantError(
+                            "A2P_CALL_VARIADIC_TYPE", "variadic operand differs from its admitted type"
+                        )
                 if argument.get("max_qualifier") not in {
                     "const",
                     "input",

@@ -44,16 +44,19 @@ def audit_pinelib_call_binding(
     if not isinstance(source_parameters, (list, tuple)):
         return tuple(sorted(reasons | {"A2P_PINELIB_SOURCE_SIGNATURE_UNVERIFIED"}))
     names: set[str] = set()
+    variadic_names: set[str] = set()
     for parameter in source_parameters:
         if (
             not isinstance(parameter, Mapping)
             or not isinstance(parameter.get("name"), str)
             or not parameter["name"]
             or parameter["name"] in names
-            or parameter.get("variadic")
+            or (parameter.get("variadic") is not None and type(parameter["variadic"]) is not bool)
         ):
             return tuple(sorted(reasons | {"A2P_PINELIB_SOURCE_SIGNATURE_UNVERIFIED"}))
         names.add(parameter["name"])
+        if parameter.get("variadic") is True:
+            variadic_names.add(parameter["name"])
     if not names and binding.parameters:
         # Some generic catalogue entries omit their context-derived arguments.
         reasons.add("A2P_PINELIB_SOURCE_SIGNATURE_UNVERIFIED")
@@ -67,7 +70,7 @@ def audit_pinelib_call_binding(
         abi = signature(function).parameters
     except (ImportError, AttributeError, TypeError, ValueError):
         return tuple(sorted(reasons | {"A2P_PINELIB_ABI_SIGNATURE_UNVERIFIED"}))
-    if any(p.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD) for p in abi.values()):
+    if any(p.kind == Parameter.VAR_KEYWORD for p in abi.values()):
         reasons.add("A2P_PINELIB_ABI_SIGNATURE_UNVERIFIED")
 
     supplied: set[str] = set()
@@ -85,11 +88,25 @@ def audit_pinelib_call_binding(
             continue
         mapped.add(name)
         if kind == "SOURCE_PARAMETER":
+            if (isinstance(source, str) and source in variadic_names) or abi[name].kind == Parameter.VAR_POSITIONAL:
+                reasons.add("A2P_PINELIB_VARIADIC_BINDING")
+                continue
             if isinstance(source, str) and source in names:
                 consumed.add(source)
                 supplied.add(name)
             # The emitter omits a source argument absent from this overload.
             # Required ABI parameters are checked below; optional defaults work.
+        elif kind == "SOURCE_VARIADIC":
+            if (
+                not isinstance(source, str) or source not in variadic_names
+                or abi[name].kind != Parameter.VAR_POSITIONAL
+                or any(p.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
+                       for p in abi.values())
+            ):
+                reasons.add("A2P_PINELIB_VARIADIC_BINDING")
+            else:
+                consumed.add(source)
+                supplied.add(name)
         elif kind == "ABI_DEFAULT":
             pass
         elif kind == "UNBOUND_FAIL_CLOSED":
@@ -130,6 +147,8 @@ def audit_pinelib_call_binding(
     if names - consumed:
         reasons.add("A2P_PINELIB_SOURCE_PARAMETER")
     for name, parameter in abi.items():
+        if parameter.kind == Parameter.VAR_POSITIONAL and name not in supplied:
+            reasons.add("A2P_PINELIB_ABI_SIGNATURE_UNVERIFIED")
         if parameter.kind == Parameter.POSITIONAL_ONLY and name in supplied:
             reasons.add("A2P_PINELIB_PARAMETER_BINDING")
         if (

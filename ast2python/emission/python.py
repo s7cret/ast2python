@@ -527,6 +527,7 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
         ordered = sorted(call.get("arguments", []), key=lambda row: row["parameter_index"])
         rendered: list[str] = []
         rendered_by_parameter: dict[str, str] = {}
+        variadic_by_parameter: dict[str, list[str]] = {}
         delegated_positional: list[str] = []
         delegated_named: list[tuple[str, str]] = []
         for argument in ordered:
@@ -545,7 +546,10 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 if ir_id in self.request_methods and argument["parameter_name"] == "expression"
                 else self._expr(value_ir[0])
             )
-            rendered_by_parameter[str(argument["parameter_name"])] = value
+            if argument["binding"] == "vararg":
+                variadic_by_parameter.setdefault(str(argument["parameter_name"]), []).append(value)
+            else:
+                rendered_by_parameter[str(argument["parameter_name"])] = value
             if argument["binding"] == "named":
                 rendered.append(f"{argument['parameter_name']}={value}")
                 delegated_named.append((str(argument["parameter_name"]), value))
@@ -657,11 +661,39 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                     "exact PineLib callable import is missing",
                 )
             keyword_arguments: list[str] = []
+            variadic_arguments: list[str] = []
+            if variadic_by_parameter or any(
+                row.get("binding") == "SOURCE_VARIADIC" for row in binding.parameter_bindings
+            ):
+                from ast2python.lowering.binding_audit import audit_pinelib_call_binding
+
+                source_parameters = [
+                    {"name": name, "variadic": name in variadic_by_parameter}
+                    for name in sorted(set(rendered_by_parameter) | set(variadic_by_parameter))
+                ]
+                findings = audit_pinelib_call_binding(
+                    binding, source_parameters, pine_version=self.plan.pine_version
+                )
+                if findings:
+                    raise BundleInvariantError(
+                        "A2P_PINELIB_VARIADIC_BINDING", "variadic ABI mapping is incomplete",
+                        details={"findings": list(findings)},
+                    )
             consumed: set[str] = set()
             for parameter_binding in binding.parameter_bindings:
                 abi_parameter = str(parameter_binding["abi_parameter"])
                 binding_kind = str(parameter_binding["binding"])
                 source = parameter_binding.get("source")
+                if binding_kind == "SOURCE_VARIADIC":
+                    source_name = str(source)
+                    values = variadic_by_parameter.get(source_name)
+                    if values is None or variadic_arguments:
+                        raise BundleInvariantError(
+                            "A2P_PINELIB_VARIADIC_BINDING", "exact positional variadic group is required"
+                        )
+                    variadic_arguments.append("*[" + ", ".join(values) + "]")
+                    consumed.add(source_name)
+                    continue
                 if binding_kind == "SOURCE_PARAMETER":
                     source_name = str(source)
                     bound_value = rendered_by_parameter.get(source_name)
@@ -750,14 +782,14 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                         details={"source": source, "abi_parameter": abi_parameter},
                     )
                 keyword_arguments.append(f"{abi_parameter}={injected}")
-            unsupported = set(rendered_by_parameter) - consumed
+            unsupported = (set(rendered_by_parameter) | set(variadic_by_parameter)) - consumed
             if unsupported:
                 raise BundleInvariantError(
                     "A2P_PINELIB_SOURCE_PARAMETER",
                     "source arguments are not bound to the PineLib ABI",
                     details={"parameters": sorted(unsupported)},
                 )
-            return f"{alias}({', '.join(keyword_arguments)})"
+            return f"{alias}({', '.join(variadic_arguments + keyword_arguments)})"
         return f"self.runtime.{binding.python_name}({', '.join(rendered)})"
 
     def _switch_expression(self, ir_id: str) -> str:
