@@ -29,18 +29,23 @@ def script(body, imports="import user/Lib/1 as lib", version=6):
 
 def compile_linked(source, libs):
     linked = link_libraries(source, LibraryStore.create(libs))
-    bundle = build_consumer_bundle(linked.code, producer_commit="a" * 40)
-    return compile_consumer_bundle(
-        bundle,
-        linked_source=linked,
-        target=load_pinelib_target_manifest(),
-        producer_commit="b" * 40,
-        expected_pine2ast_commit="a" * 40,
-    ), linked
+    bundle = build_consumer_bundle(linked.code, producer_commit="a" * 40, linked_source=linked)
+    return (
+        compile_consumer_bundle(
+            bundle,
+            linked_source=linked,
+            target=load_pinelib_target_manifest(),
+            producer_commit="b" * 40,
+            expected_pine2ast_commit="a" * 40,
+        ),
+        linked,
+    )
 
 
 def runtime_for(compiled, overrides=None):
-    verify_generated_artifact_v3(compiled.artifact.payload, emitted=compiled.emitted, plan=compiled.plan)
+    verify_generated_artifact_v3(
+        compiled.artifact.payload, emitted=compiled.emitted, plan=compiled.plan
+    )
     ns = {}
     exec(compile(compiled.emitted.code, "linked_library.py", "exec"), ns)
     metadata = ns["SCRIPT_METADATA"]
