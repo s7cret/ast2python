@@ -1,0 +1,2085 @@
+{
+  "bundle": {
+    "artifacts": {
+      "ast_artifact_hash": "sha256:1025c21b297770cccfa753d483fabd997916616b8fd16b810d8d37eec7381ec6",
+      "ast_hash": "sha256:a6c0992ee41fd5aa2a63e6ad8176039836bd36ee7d8d351557dc9b25f1761229",
+      "frontend_artifact_hash": "sha256:a4f4dc4baa5db38831a6730eda712e28832f1454eae87fcfd3ad5fe8fa366889",
+      "node_index_hash": "sha256:7ac9d35c77a21e909869c466ca4cd04f2ad0c5183c9f2c16f83aad3f3c967682",
+      "semantic_facts_hash": "sha256:76282fdaa349b485e0d83245bc88683740434e0872383efc6f689a173d2ee940",
+      "source_manifest_hash": "sha256:1c7db3db4429d0a5316cffb22198f1faacabeac0471bb8a9ecc18907178b47f0",
+      "support_profile_hash": "sha256:a68ba3e2d98e77496c4ee7c33ee745a4e046b23e5e6a44050c8dc119a8056405"
+    },
+    "ast": {
+      "annotations": [
+        {
+          "kind": "VERSION",
+          "name": "version",
+          "raw": "//@version=5",
+          "span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "value": "5"
+        }
+      ],
+      "declaration": {
+        "call": {
+          "arguments": [
+            {
+              "kind": "Argument",
+              "name": null,
+              "span": {
+                "end_col": 25,
+                "end_line": 2,
+                "end_offset": 37,
+                "start_col": 11,
+                "start_line": 2,
+                "start_offset": 23
+              },
+              "value": {
+                "kind": "Literal",
+                "literal_type": "string",
+                "span": {
+                  "end_col": 25,
+                  "end_line": 2,
+                  "end_offset": 37,
+                  "start_col": 11,
+                  "start_line": 2,
+                  "start_offset": 23
+                },
+                "value": "Legacy floor"
+              }
+            }
+          ],
+          "callee": {
+            "kind": "Identifier",
+            "name": "indicator",
+            "span": {
+              "end_col": 10,
+              "end_line": 2,
+              "end_offset": 22,
+              "start_col": 1,
+              "start_line": 2,
+              "start_offset": 13
+            }
+          },
+          "kind": "CallExpr",
+          "span": {
+            "end_col": 26,
+            "end_line": 2,
+            "end_offset": 38,
+            "start_col": 1,
+            "start_line": 2,
+            "start_offset": 13
+          }
+        },
+        "kind": "DeclarationStatement",
+        "script_type": "indicator",
+        "span": {
+          "end_col": 26,
+          "end_line": 2,
+          "end_offset": 38,
+          "start_col": 1,
+          "start_line": 2,
+          "start_offset": 13
+        }
+      },
+      "diagnostics": [],
+      "items": [
+        {
+          "body": {
+            "kind": "Literal",
+            "literal_type": "int",
+            "span": {
+              "end_col": 19,
+              "end_line": 3,
+              "end_offset": 57,
+              "start_col": 18,
+              "start_line": 3,
+              "start_offset": 56
+            },
+            "value": 2
+          },
+          "documentation": [],
+          "is_exported": false,
+          "kind": "FunctionDeclaration",
+          "name": "f",
+          "parameters": [
+            {
+              "default_value": null,
+              "documentation": [],
+              "explicit_qualifier": "simple",
+              "kind": "Parameter",
+              "name": "n",
+              "span": {
+                "end_col": 15,
+                "end_line": 3,
+                "end_offset": 53,
+                "start_col": 14,
+                "start_line": 3,
+                "start_offset": 52
+              },
+              "type_ref": {
+                "kind": "TypeRef",
+                "name": "int",
+                "span": {
+                  "end_col": 13,
+                  "end_line": 3,
+                  "end_offset": 51,
+                  "start_col": 10,
+                  "start_line": 3,
+                  "start_offset": 48
+                },
+                "template_args": []
+              }
+            }
+          ],
+          "span": {
+            "end_col": 19,
+            "end_line": 3,
+            "end_offset": 57,
+            "start_col": 1,
+            "start_line": 3,
+            "start_offset": 39
+          }
+        },
+        {
+          "expression": {
+            "arguments": [
+              {
+                "kind": "Argument",
+                "name": null,
+                "span": {
+                  "end_col": 10,
+                  "end_line": 4,
+                  "end_offset": 67,
+                  "start_col": 6,
+                  "start_line": 4,
+                  "start_offset": 63
+                },
+                "value": {
+                  "arguments": [
+                    {
+                      "kind": "Argument",
+                      "name": null,
+                      "span": {
+                        "end_col": 9,
+                        "end_line": 4,
+                        "end_offset": 66,
+                        "start_col": 8,
+                        "start_line": 4,
+                        "start_offset": 65
+                      },
+                      "value": {
+                        "kind": "Literal",
+                        "literal_type": "int",
+                        "span": {
+                          "end_col": 9,
+                          "end_line": 4,
+                          "end_offset": 66,
+                          "start_col": 8,
+                          "start_line": 4,
+                          "start_offset": 65
+                        },
+                        "value": 2
+                      }
+                    }
+                  ],
+                  "callee": {
+                    "kind": "Identifier",
+                    "name": "f",
+                    "span": {
+                      "end_col": 7,
+                      "end_line": 4,
+                      "end_offset": 64,
+                      "start_col": 6,
+                      "start_line": 4,
+                      "start_offset": 63
+                    }
+                  },
+                  "kind": "CallExpr",
+                  "span": {
+                    "end_col": 10,
+                    "end_line": 4,
+                    "end_offset": 67,
+                    "start_col": 6,
+                    "start_line": 4,
+                    "start_offset": 63
+                  }
+                }
+              }
+            ],
+            "callee": {
+              "kind": "Identifier",
+              "name": "plot",
+              "span": {
+                "end_col": 5,
+                "end_line": 4,
+                "end_offset": 62,
+                "start_col": 1,
+                "start_line": 4,
+                "start_offset": 58
+              }
+            },
+            "kind": "CallExpr",
+            "span": {
+              "end_col": 11,
+              "end_line": 4,
+              "end_offset": 68,
+              "start_col": 1,
+              "start_line": 4,
+              "start_offset": 58
+            }
+          },
+          "kind": "ExpressionStatement",
+          "span": {
+            "end_col": 11,
+            "end_line": 4,
+            "end_offset": 68,
+            "start_col": 1,
+            "start_line": 4,
+            "start_offset": 58
+          }
+        }
+      ],
+      "kind": "Program",
+      "language": "pine",
+      "producer_metadata": {
+        "contract": "pine.ast.v2",
+        "frontend_gate": "pass",
+        "parser_gate": "pass",
+        "producer": {
+          "name": "pine2ast",
+          "version": "5.0.0rc6"
+        },
+        "schema_version": "2.0",
+        "semantic_gate": "pass",
+        "version_context": {
+          "annotation_span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+          "origin": "compiler_annotation",
+          "pine_version": 5,
+          "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+        },
+        "version_semantic_gate": "pass",
+        "version_semantics": {
+          "applicable_rule_ids": [
+            "PINE.AST.NODE_SPANS",
+            "PINE.STATIC.DECLARATION_CARDINALITY",
+            "PINE.STATIC.OVERLOAD_IDENTITY",
+            "PINE.STATIC.QUALIFIER_FACTS",
+            "PINE.STATIC.SYMBOL_BINDING",
+            "PINE.STATIC.TYPE_FACTS",
+            "PINE.STATIC.UNAVAILABLE_FEATURE_FAILS",
+            "PINE.V5.BOOL_NA",
+            "PINE.V5.MODERN_DECLARATIONS",
+            "PINE.V5.NAMED_CONSTANT_ARGUMENTS",
+            "PINE.V5.NAMESPACED_BUILTINS",
+            "PINE.V5.NUMERIC_CONDITION",
+            "PINE.V5.RESOLUTION_PARAMETER_RENAME",
+            "PINE.V5.RSI_OVERLOAD_CHANGE",
+            "PINE.V5.STRATEGY_WHEN",
+            "PINE.V5.SWITCH_WHILE",
+            "PINE.V5.TYPED_INPUTS",
+            "PINE.V5.UDT_METHOD_ENUM_LIBRARY",
+            "PINE.VERSION.CATALOG_HASH_BOUND",
+            "PINE.VERSION.NO_NEAREST_FALLBACK",
+            "PINE.VERSION.SINGLE_SOURCE"
+          ],
+          "diagnostics_added": 0,
+          "gate": "pass",
+          "pine_version": 5,
+          "ruleset_hash": "sha256:7a7dda25ac5b0b09b80ceab9c63a510cfcddb9d1cf8b57c751d1158b5c3407c5",
+          "schema_id": "pine2ast.version_semantics.v1"
+        }
+      },
+      "schema_version": "2.0",
+      "span": {
+        "end_col": 1,
+        "end_line": 5,
+        "end_offset": 69,
+        "start_col": 1,
+        "start_line": 1,
+        "start_offset": 0
+      },
+      "version_context": {
+        "annotation_span": {
+          "end_col": 13,
+          "end_line": 1,
+          "end_offset": 12,
+          "start_col": 1,
+          "start_line": 1,
+          "start_offset": 0
+        },
+        "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+        "origin": "compiler_annotation",
+        "pine_version": 5,
+        "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+      }
+    },
+    "consumer_contract": {
+      "consumer": "ast2python",
+      "minimum_consumer_version": "5.0.0rc6",
+      "required_capabilities": [
+        "pine_version_context_v1",
+        "pine_ast_v2",
+        "pine_semantic_facts_v1",
+        "resolved_symbol_identity",
+        "resolved_overload_identity",
+        "source_span_identity"
+      ]
+    },
+    "content_hash": "sha256:7492daabdccd7a242487a45989627c1730cb7f73f0ef4775fa36750e61208b54",
+    "diagnostics": [],
+    "linked_artifacts": {
+      "ast_artifact": {
+        "content_hash": "sha256:9f32b7278b631a166d81630b1800534e8d4ab278c032a0aba70faad54b6f39ff",
+        "created_at_utc_ms": 0,
+        "diagnostics": [],
+        "nodes": [
+          {
+            "kind": "Program",
+            "node_id": "n00000000",
+            "span": {
+              "end_col": 1,
+              "end_line": 5,
+              "end_offset": 69,
+              "start_col": 1,
+              "start_line": 1,
+              "start_offset": 0
+            }
+          },
+          {
+            "kind": "DeclarationStatement",
+            "node_id": "n00000001",
+            "span": {
+              "end_col": 26,
+              "end_line": 2,
+              "end_offset": 38,
+              "start_col": 1,
+              "start_line": 2,
+              "start_offset": 13
+            }
+          },
+          {
+            "kind": "CallExpr",
+            "node_id": "n00000002",
+            "span": {
+              "end_col": 26,
+              "end_line": 2,
+              "end_offset": 38,
+              "start_col": 1,
+              "start_line": 2,
+              "start_offset": 13
+            }
+          },
+          {
+            "kind": "Identifier",
+            "node_id": "n00000003",
+            "span": {
+              "end_col": 10,
+              "end_line": 2,
+              "end_offset": 22,
+              "start_col": 1,
+              "start_line": 2,
+              "start_offset": 13
+            }
+          },
+          {
+            "kind": "Argument",
+            "node_id": "n00000004",
+            "span": {
+              "end_col": 25,
+              "end_line": 2,
+              "end_offset": 37,
+              "start_col": 11,
+              "start_line": 2,
+              "start_offset": 23
+            }
+          },
+          {
+            "kind": "Literal",
+            "node_id": "n00000005",
+            "span": {
+              "end_col": 25,
+              "end_line": 2,
+              "end_offset": 37,
+              "start_col": 11,
+              "start_line": 2,
+              "start_offset": 23
+            }
+          },
+          {
+            "kind": "FunctionDeclaration",
+            "node_id": "n00000006",
+            "span": {
+              "end_col": 19,
+              "end_line": 3,
+              "end_offset": 57,
+              "start_col": 1,
+              "start_line": 3,
+              "start_offset": 39
+            }
+          },
+          {
+            "kind": "Parameter",
+            "node_id": "n00000007",
+            "span": {
+              "end_col": 15,
+              "end_line": 3,
+              "end_offset": 53,
+              "start_col": 14,
+              "start_line": 3,
+              "start_offset": 52
+            }
+          },
+          {
+            "kind": "TypeRef",
+            "node_id": "n00000008",
+            "span": {
+              "end_col": 13,
+              "end_line": 3,
+              "end_offset": 51,
+              "start_col": 10,
+              "start_line": 3,
+              "start_offset": 48
+            }
+          },
+          {
+            "kind": "Literal",
+            "node_id": "n00000009",
+            "span": {
+              "end_col": 19,
+              "end_line": 3,
+              "end_offset": 57,
+              "start_col": 18,
+              "start_line": 3,
+              "start_offset": 56
+            }
+          },
+          {
+            "kind": "ExpressionStatement",
+            "node_id": "n00000010",
+            "span": {
+              "end_col": 11,
+              "end_line": 4,
+              "end_offset": 68,
+              "start_col": 1,
+              "start_line": 4,
+              "start_offset": 58
+            }
+          },
+          {
+            "kind": "CallExpr",
+            "node_id": "n00000011",
+            "span": {
+              "end_col": 11,
+              "end_line": 4,
+              "end_offset": 68,
+              "start_col": 1,
+              "start_line": 4,
+              "start_offset": 58
+            }
+          },
+          {
+            "kind": "Identifier",
+            "node_id": "n00000012",
+            "span": {
+              "end_col": 5,
+              "end_line": 4,
+              "end_offset": 62,
+              "start_col": 1,
+              "start_line": 4,
+              "start_offset": 58
+            }
+          },
+          {
+            "kind": "Argument",
+            "node_id": "n00000013",
+            "span": {
+              "end_col": 10,
+              "end_line": 4,
+              "end_offset": 67,
+              "start_col": 6,
+              "start_line": 4,
+              "start_offset": 63
+            }
+          },
+          {
+            "kind": "CallExpr",
+            "node_id": "n00000014",
+            "span": {
+              "end_col": 10,
+              "end_line": 4,
+              "end_offset": 67,
+              "start_col": 6,
+              "start_line": 4,
+              "start_offset": 63
+            }
+          },
+          {
+            "kind": "Identifier",
+            "node_id": "n00000015",
+            "span": {
+              "end_col": 7,
+              "end_line": 4,
+              "end_offset": 64,
+              "start_col": 6,
+              "start_line": 4,
+              "start_offset": 63
+            }
+          },
+          {
+            "kind": "Argument",
+            "node_id": "n00000016",
+            "span": {
+              "end_col": 9,
+              "end_line": 4,
+              "end_offset": 66,
+              "start_col": 8,
+              "start_line": 4,
+              "start_offset": 65
+            }
+          },
+          {
+            "kind": "Literal",
+            "node_id": "n00000017",
+            "span": {
+              "end_col": 9,
+              "end_line": 4,
+              "end_offset": 66,
+              "start_col": 8,
+              "start_line": 4,
+              "start_offset": 65
+            }
+          }
+        ],
+        "producer": {
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "pine2ast",
+          "source_state": "COMMIT_PINNED",
+          "version": "5.0.0rc6"
+        },
+        "schema_id": "pine.ast.v2",
+        "schema_version": "2.0.0",
+        "source_hash": "sha256:ce6f17ceafeb5fe034164b0df7687bc8ba9340ac26a6ab0ff61083d88d38e667",
+        "source_manifest_ref": "sha256:c470aefeb4a4994fccec1345eb2b9aab7c47a67a8e1ba73cfcb994417731a895",
+        "version_context": {
+          "annotation_span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+          "origin": "compiler_annotation",
+          "pine_version": 5,
+          "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+        },
+        "version_context_ref": "sha256:ca9412def3c913b3389984d346fc4c33e77d7bcc0ab79a6ea8605994176df1e8"
+      },
+      "frontend_artifact": {
+        "ast_ref": "sha256:9f32b7278b631a166d81630b1800534e8d4ab278c032a0aba70faad54b6f39ff",
+        "content_hash": "sha256:7a92ce01c392c9a8a82ffdd2170f9d0cbe208aaca4f4245b0f0119d1c6f94246",
+        "created_at_utc_ms": 0,
+        "frontend": {
+          "callables": {
+            "contract": "pine.callables.v2",
+            "function_calls": [
+              {
+                "arguments": [
+                  {
+                    "binding": "positional",
+                    "can_be_na": false,
+                    "expected_type": "int",
+                    "expr_kind": "Literal",
+                    "name": null,
+                    "parameter": "n",
+                    "parameter_index": 0,
+                    "position": 0,
+                    "qualifier": "const",
+                    "span": {
+                      "end_col": 9,
+                      "end_line": 4,
+                      "end_offset": 66,
+                      "start_col": 8,
+                      "start_line": 4,
+                      "start_offset": 65
+                    },
+                    "type": "int",
+                    "type_ok": true,
+                    "value": 2
+                  }
+                ],
+                "context": [],
+                "name": "f",
+                "return_type": "int",
+                "span": {
+                  "end_col": 10,
+                  "end_line": 4,
+                  "end_offset": 67,
+                  "start_col": 6,
+                  "start_line": 4,
+                  "start_offset": 63
+                }
+              }
+            ],
+            "functions": [
+              {
+                "exported": false,
+                "name": "f",
+                "parameters": [
+                  {
+                    "default": null,
+                    "has_default": false,
+                    "name": "n",
+                    "qualifier": "simple",
+                    "span": {
+                      "end_col": 15,
+                      "end_line": 3,
+                      "end_offset": 53,
+                      "start_col": 14,
+                      "start_line": 3,
+                      "start_offset": 52
+                    },
+                    "type": "int"
+                  }
+                ],
+                "return_type": "int",
+                "span": {
+                  "end_col": 19,
+                  "end_line": 3,
+                  "end_offset": 57,
+                  "start_col": 1,
+                  "start_line": 3,
+                  "start_offset": 39
+                }
+              }
+            ],
+            "method_calls": [],
+            "methods": [],
+            "profile": "pine_v5"
+          },
+          "collections": {
+            "accesses": [],
+            "constructors": [],
+            "contract": "pine.collections.v2",
+            "declarations": [],
+            "limits": {
+              "array_elements": 100000,
+              "array_max_elements": 100000,
+              "map_elements": 100000,
+              "map_max_elements": 100000,
+              "map_max_pairs": 50000,
+              "map_pairs": 50000,
+              "matrix_elements": 100000,
+              "matrix_max_elements": 100000
+            },
+            "mutations": [],
+            "profile": "pine_v5"
+          },
+          "contract": "pine.frontend.v3",
+          "contracts": {
+            "frontend": "pine.frontend.v3",
+            "sections": {
+              "callables": "pine.callables.v2",
+              "collections": "pine.collections.v2",
+              "control_flow": "pine.control_flow.v2",
+              "methods": "pine.methods.v2",
+              "requests": "pine.requests.v2",
+              "static_validation": "pine.static_validation.v2",
+              "strategy": "pine.strategy_static.v2",
+              "types": "pine.types.v2"
+            }
+          },
+          "control_flow": {
+            "conditions": [],
+            "contract": "pine.control_flow.v2",
+            "history_refs": [],
+            "loops": [],
+            "profile": "pine_v5"
+          },
+          "diagnostics": [],
+          "methods": {
+            "calls": [],
+            "contract": "pine.methods.v2",
+            "declarations": [],
+            "profile": "pine_v5"
+          },
+          "ok": true,
+          "producer": {
+            "name": "pine2ast",
+            "version": "5.0.0rc6"
+          },
+          "requests": {
+            "contract": "pine.requests.v2",
+            "dynamic_requests": {
+              "default": false,
+              "enabled": false,
+              "explicit": null
+            },
+            "profile": "pine_v5",
+            "requests": []
+          },
+          "schema_version": 1,
+          "source": {
+            "name": "<consumer-vector>",
+            "path": "<consumer-vector>"
+          },
+          "static_validation": {
+            "contract": "pine.static_validation.v2",
+            "issue_count": 0,
+            "issues": [],
+            "profile": "pine_v5"
+          },
+          "strategy": {
+            "contract": "pine.strategy_static.v2",
+            "exits": [],
+            "management": [],
+            "orders": [],
+            "other": [],
+            "profile": "pine_v5",
+            "risk_rules": [],
+            "script": {
+              "pine_version": 5,
+              "title": "Legacy floor",
+              "type": "indicator"
+            }
+          },
+          "types": {
+            "constructors": [],
+            "contract": "pine.types.v2",
+            "enum_member_uses": [],
+            "enum_references": [],
+            "enums": [],
+            "field_accesses": [],
+            "method_calls": [],
+            "profile": "pine_v5",
+            "udts": []
+          },
+          "version_context": {
+            "annotation_span": {
+              "end_col": 13,
+              "end_line": 1,
+              "end_offset": 12,
+              "start_col": 1,
+              "start_line": 1,
+              "start_offset": 0
+            },
+            "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+            "origin": "compiler_annotation",
+            "pine_version": 5,
+            "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+          }
+        },
+        "frontend_support_ref": "sha256:46eab505f9a83f22e5048f87592ba1d7d32b1ffa4b0681dffe93aba95b94b764",
+        "producer": {
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "pine2ast",
+          "source_state": "COMMIT_PINNED",
+          "version": "5.0.0rc6"
+        },
+        "schema_id": "pine.frontend.v3",
+        "schema_version": "3.0.0",
+        "semantic_facts_ref": "sha256:7b0ff37a5bfda5f40788e280d6ef7c711edfac1c338b242fa1024fbd95517656",
+        "source_hash": "sha256:ce6f17ceafeb5fe034164b0df7687bc8ba9340ac26a6ab0ff61083d88d38e667",
+        "source_manifest_ref": "sha256:c470aefeb4a4994fccec1345eb2b9aab7c47a67a8e1ba73cfcb994417731a895",
+        "version_context": {
+          "annotation_span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+          "origin": "compiler_annotation",
+          "pine_version": 5,
+          "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+        },
+        "version_context_ref": "sha256:ca9412def3c913b3389984d346fc4c33e77d7bcc0ab79a6ea8605994176df1e8"
+      },
+      "source_manifest": {
+        "content_hash": "sha256:c470aefeb4a4994fccec1345eb2b9aab7c47a67a8e1ba73cfcb994417731a895",
+        "created_at_utc_ms": 0,
+        "producer": {
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "pine2ast",
+          "source_state": "COMMIT_PINNED",
+          "version": "5.0.0rc6"
+        },
+        "schema_id": "pine.source_manifest.v1",
+        "schema_version": "1.0.0",
+        "source": {
+          "name": "<consumer-vector>",
+          "path": "<consumer-vector>"
+        },
+        "source_hash": "sha256:ce6f17ceafeb5fe034164b0df7687bc8ba9340ac26a6ab0ff61083d88d38e667",
+        "version_context": {
+          "annotation_span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+          "origin": "compiler_annotation",
+          "pine_version": 5,
+          "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+        },
+        "version_context_ref": "sha256:ca9412def3c913b3389984d346fc4c33e77d7bcc0ab79a6ea8605994176df1e8"
+      },
+      "support_profile": {
+        "ast_ref": "sha256:9f32b7278b631a166d81630b1800534e8d4ab278c032a0aba70faad54b6f39ff",
+        "axes": {
+          "bind": "SUPPORTED",
+          "diagnostic": "SUPPORTED",
+          "overload": "SUPPORTED",
+          "parse": "SUPPORTED",
+          "qualifier": "SUPPORTED",
+          "static_rule": "SUPPORTED",
+          "type": "SUPPORTED"
+        },
+        "blocking_diagnostics": [],
+        "content_hash": "sha256:46eab505f9a83f22e5048f87592ba1d7d32b1ffa4b0681dffe93aba95b94b764",
+        "created_at_utc_ms": 0,
+        "producer": {
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "pine2ast",
+          "source_state": "COMMIT_PINNED",
+          "version": "5.0.0rc6"
+        },
+        "schema_id": "pine.support_profile.v3",
+        "schema_version": "3.0.0",
+        "semantic_coverage": {
+          "call_nodes": 3,
+          "call_resolution_ratio": 1.0,
+          "expression_nodes": 9,
+          "expression_type_ratio": 1.0,
+          "fact_nodes": 18,
+          "facts_ratio": 1.0,
+          "missing_fact_nodes": [],
+          "ok": true,
+          "resolved_call_nodes": 3,
+          "total_nodes": 18,
+          "typed_expression_nodes": 9,
+          "unresolved_calls": []
+        },
+        "semantic_facts_ref": "sha256:7b0ff37a5bfda5f40788e280d6ef7c711edfac1c338b242fa1024fbd95517656",
+        "source_manifest_ref": "sha256:c470aefeb4a4994fccec1345eb2b9aab7c47a67a8e1ba73cfcb994417731a895",
+        "version_context": {
+          "annotation_span": {
+            "end_col": 13,
+            "end_line": 1,
+            "end_offset": 12,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+          "origin": "compiler_annotation",
+          "pine_version": 5,
+          "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+        }
+      }
+    },
+    "node_index": [
+      {
+        "kind": "Program",
+        "node_id": "n00000000",
+        "ordinal": 0,
+        "span": {
+          "end_col": 1,
+          "end_line": 5,
+          "end_offset": 69,
+          "start_col": 1,
+          "start_line": 1,
+          "start_offset": 0
+        }
+      },
+      {
+        "kind": "DeclarationStatement",
+        "node_id": "n00000001",
+        "ordinal": 1,
+        "span": {
+          "end_col": 26,
+          "end_line": 2,
+          "end_offset": 38,
+          "start_col": 1,
+          "start_line": 2,
+          "start_offset": 13
+        }
+      },
+      {
+        "kind": "CallExpr",
+        "node_id": "n00000002",
+        "ordinal": 2,
+        "span": {
+          "end_col": 26,
+          "end_line": 2,
+          "end_offset": 38,
+          "start_col": 1,
+          "start_line": 2,
+          "start_offset": 13
+        }
+      },
+      {
+        "kind": "Identifier",
+        "node_id": "n00000003",
+        "ordinal": 3,
+        "span": {
+          "end_col": 10,
+          "end_line": 2,
+          "end_offset": 22,
+          "start_col": 1,
+          "start_line": 2,
+          "start_offset": 13
+        }
+      },
+      {
+        "kind": "Argument",
+        "node_id": "n00000004",
+        "ordinal": 4,
+        "span": {
+          "end_col": 25,
+          "end_line": 2,
+          "end_offset": 37,
+          "start_col": 11,
+          "start_line": 2,
+          "start_offset": 23
+        }
+      },
+      {
+        "kind": "Literal",
+        "node_id": "n00000005",
+        "ordinal": 5,
+        "span": {
+          "end_col": 25,
+          "end_line": 2,
+          "end_offset": 37,
+          "start_col": 11,
+          "start_line": 2,
+          "start_offset": 23
+        }
+      },
+      {
+        "kind": "FunctionDeclaration",
+        "node_id": "n00000006",
+        "ordinal": 6,
+        "span": {
+          "end_col": 19,
+          "end_line": 3,
+          "end_offset": 57,
+          "start_col": 1,
+          "start_line": 3,
+          "start_offset": 39
+        }
+      },
+      {
+        "kind": "Parameter",
+        "node_id": "n00000007",
+        "ordinal": 7,
+        "span": {
+          "end_col": 15,
+          "end_line": 3,
+          "end_offset": 53,
+          "start_col": 14,
+          "start_line": 3,
+          "start_offset": 52
+        }
+      },
+      {
+        "kind": "TypeRef",
+        "node_id": "n00000008",
+        "ordinal": 8,
+        "span": {
+          "end_col": 13,
+          "end_line": 3,
+          "end_offset": 51,
+          "start_col": 10,
+          "start_line": 3,
+          "start_offset": 48
+        }
+      },
+      {
+        "kind": "Literal",
+        "node_id": "n00000009",
+        "ordinal": 9,
+        "span": {
+          "end_col": 19,
+          "end_line": 3,
+          "end_offset": 57,
+          "start_col": 18,
+          "start_line": 3,
+          "start_offset": 56
+        }
+      },
+      {
+        "kind": "ExpressionStatement",
+        "node_id": "n00000010",
+        "ordinal": 10,
+        "span": {
+          "end_col": 11,
+          "end_line": 4,
+          "end_offset": 68,
+          "start_col": 1,
+          "start_line": 4,
+          "start_offset": 58
+        }
+      },
+      {
+        "kind": "CallExpr",
+        "node_id": "n00000011",
+        "ordinal": 11,
+        "span": {
+          "end_col": 11,
+          "end_line": 4,
+          "end_offset": 68,
+          "start_col": 1,
+          "start_line": 4,
+          "start_offset": 58
+        }
+      },
+      {
+        "kind": "Identifier",
+        "node_id": "n00000012",
+        "ordinal": 12,
+        "span": {
+          "end_col": 5,
+          "end_line": 4,
+          "end_offset": 62,
+          "start_col": 1,
+          "start_line": 4,
+          "start_offset": 58
+        }
+      },
+      {
+        "kind": "Argument",
+        "node_id": "n00000013",
+        "ordinal": 13,
+        "span": {
+          "end_col": 10,
+          "end_line": 4,
+          "end_offset": 67,
+          "start_col": 6,
+          "start_line": 4,
+          "start_offset": 63
+        }
+      },
+      {
+        "kind": "CallExpr",
+        "node_id": "n00000014",
+        "ordinal": 14,
+        "span": {
+          "end_col": 10,
+          "end_line": 4,
+          "end_offset": 67,
+          "start_col": 6,
+          "start_line": 4,
+          "start_offset": 63
+        }
+      },
+      {
+        "kind": "Identifier",
+        "node_id": "n00000015",
+        "ordinal": 15,
+        "span": {
+          "end_col": 7,
+          "end_line": 4,
+          "end_offset": 64,
+          "start_col": 6,
+          "start_line": 4,
+          "start_offset": 63
+        }
+      },
+      {
+        "kind": "Argument",
+        "node_id": "n00000016",
+        "ordinal": 16,
+        "span": {
+          "end_col": 9,
+          "end_line": 4,
+          "end_offset": 66,
+          "start_col": 8,
+          "start_line": 4,
+          "start_offset": 65
+        }
+      },
+      {
+        "kind": "Literal",
+        "node_id": "n00000017",
+        "ordinal": 17,
+        "span": {
+          "end_col": 9,
+          "end_line": 4,
+          "end_offset": 66,
+          "start_col": 8,
+          "start_line": 4,
+          "start_offset": 65
+        }
+      }
+    ],
+    "producer": {
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "pine2ast",
+      "version": "5.0.0rc6"
+    },
+    "release_axes": {
+      "arguments_bound": {
+        "status": "PASS",
+        "total": 3,
+        "verified": 3
+      },
+      "bundle_fact_coverage_complete": {
+        "status": "PASS",
+        "total": 1,
+        "verified": 1
+      },
+      "method_receiver_typed": {
+        "status": "NOT_APPLICABLE",
+        "total": 0,
+        "verified": 0
+      },
+      "name_registered": {
+        "status": "PASS",
+        "total": 3,
+        "verified": 3
+      },
+      "overload_resolved": {
+        "status": "PASS",
+        "total": 3,
+        "verified": 3
+      },
+      "qualifier_enforced": {
+        "status": "PASS",
+        "total": 3,
+        "verified": 3
+      },
+      "tradingview_compile_oracle": {
+        "evidence_id": null,
+        "status": "NOT_RUN"
+      },
+      "version_availability_enforced": {
+        "status": "PASS",
+        "total": 1,
+        "verified": 1
+      }
+    },
+    "schema_id": "pine2ast.consumer_bundle.v1",
+    "schema_version": "1.0.0",
+    "semantic_facts": {
+      "calls": [
+        {
+          "arguments": [
+            {
+              "actual_qualifier": "const",
+              "actual_type": "string",
+              "argument_node_id": "n00000004",
+              "binding": "positional",
+              "expected_type": "string",
+              "max_qualifier": "const",
+              "parameter_index": 0,
+              "parameter_name": "title"
+            }
+          ],
+          "call_form": "FUNCTION",
+          "callee": "indicator",
+          "defaults_applied": [
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "const",
+              "parameter_index": 1,
+              "parameter_name": "shorttitle"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "const",
+              "parameter_index": 2,
+              "parameter_name": "overlay"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "const",
+              "parameter_index": 3,
+              "parameter_name": "format"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 4,
+              "parameter_name": "precision"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 5,
+              "parameter_name": "max_bars_back"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 6,
+              "parameter_name": "max_lines_count"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 7,
+              "parameter_name": "max_labels_count"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 8,
+              "parameter_name": "max_boxes_count"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "const",
+              "parameter_index": 9,
+              "parameter_name": "max_polylines_count"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "const",
+              "parameter_index": 10,
+              "parameter_name": "dynamic_requests"
+            }
+          ],
+          "node_id": "n00000002",
+          "overload_id": "pine:function:indicator#canonical",
+          "receiver_type": null,
+          "resolution_status": "RESOLVED",
+          "return_type": "void",
+          "stateful": false,
+          "symbol_id": "pine:function:indicator"
+        },
+        {
+          "arguments": [
+            {
+              "actual_qualifier": "series",
+              "actual_type": "int",
+              "argument_node_id": "n00000013",
+              "binding": "positional",
+              "expected_type": "any",
+              "max_qualifier": "series",
+              "parameter_index": 0,
+              "parameter_name": "series"
+            }
+          ],
+          "call_form": "FUNCTION",
+          "callee": "plot",
+          "defaults_applied": [
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "const",
+              "parameter_index": 1,
+              "parameter_name": "title"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "color",
+              "max_qualifier": "series",
+              "parameter_index": 2,
+              "parameter_name": "color"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "series",
+              "parameter_index": 3,
+              "parameter_name": "linewidth"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "input",
+              "parameter_index": 4,
+              "parameter_name": "style"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "input",
+              "parameter_index": 5,
+              "parameter_name": "trackprice"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "float",
+              "max_qualifier": "series",
+              "parameter_index": 6,
+              "parameter_name": "histbase"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "simple",
+              "parameter_index": 7,
+              "parameter_name": "offset"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "input",
+              "parameter_index": 8,
+              "parameter_name": "join"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "input",
+              "parameter_index": 9,
+              "parameter_name": "editable"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "input",
+              "parameter_index": 10,
+              "parameter_name": "show_last"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "display",
+              "max_qualifier": "input",
+              "parameter_index": 11,
+              "parameter_name": "display"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "input",
+              "parameter_index": 12,
+              "parameter_name": "format"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "input",
+              "parameter_index": 13,
+              "parameter_name": "precision"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "bool",
+              "max_qualifier": "const",
+              "parameter_index": 14,
+              "parameter_name": "force_overlay"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "string",
+              "max_qualifier": "input",
+              "parameter_index": 15,
+              "parameter_name": "linestyle"
+            },
+            {
+              "binding": "defaulted",
+              "default_known": false,
+              "default_value": null,
+              "expected_type": "int",
+              "max_qualifier": "series",
+              "parameter_index": 16,
+              "parameter_name": "transp"
+            }
+          ],
+          "node_id": "n00000011",
+          "overload_id": "pine:function:plot#canonical",
+          "receiver_type": null,
+          "resolution_status": "RESOLVED",
+          "return_type": "plot",
+          "stateful": false,
+          "symbol_id": "pine:function:plot"
+        },
+        {
+          "arguments": [
+            {
+              "actual_qualifier": "const",
+              "actual_type": "int",
+              "argument_node_id": "n00000016",
+              "binding": "positional",
+              "expected_type": "int",
+              "max_qualifier": "simple",
+              "parameter_index": 0,
+              "parameter_name": "n"
+            }
+          ],
+          "call_form": "USER_FUNCTION",
+          "callee": "f",
+          "defaults_applied": [],
+          "node_id": "n00000014",
+          "overload_id": "user:function:f:n00000006#signature",
+          "receiver_type": null,
+          "resolution_status": "RESOLVED",
+          "return_type": "int",
+          "stateful": false,
+          "symbol_id": "user:function:f:n00000006"
+        }
+      ],
+      "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+      "content_hash": "sha256:7b0ff37a5bfda5f40788e280d6ef7c711edfac1c338b242fa1024fbd95517656",
+      "coverage": {
+        "call_nodes": 3,
+        "call_resolution_ratio": 1.0,
+        "expression_nodes": 9,
+        "expression_type_ratio": 1.0,
+        "fact_nodes": 18,
+        "facts_ratio": 1.0,
+        "missing_fact_nodes": [],
+        "ok": true,
+        "resolved_call_nodes": 3,
+        "total_nodes": 18,
+        "typed_expression_nodes": 9,
+        "unresolved_calls": []
+      },
+      "diagnostics": [],
+      "facts": [
+        {
+          "call_form": null,
+          "classification": "PROGRAM",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Program",
+          "node_id": "n00000000",
+          "node_kind": "Program",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 1,
+            "end_line": 5,
+            "end_offset": 69,
+            "start_col": 1,
+            "start_line": 1,
+            "start_offset": 0
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "DECLARATION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "DeclarationStatement",
+          "node_id": "n00000001",
+          "node_kind": "DeclarationStatement",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 26,
+            "end_line": 2,
+            "end_offset": 38,
+            "start_col": 1,
+            "start_line": 2,
+            "start_offset": 13
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": "FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "CallExpr",
+          "node_id": "n00000002",
+          "node_kind": "CallExpr",
+          "overload_id": "pine:function:indicator#canonical",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "void",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 26,
+            "end_line": 2,
+            "end_offset": 38,
+            "start_col": 1,
+            "start_line": 2,
+            "start_offset": 13
+          },
+          "stateful_call": false,
+          "symbol_id": "pine:function:indicator"
+        },
+        {
+          "call_form": "FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Identifier",
+          "node_id": "n00000003",
+          "node_kind": "Identifier",
+          "overload_id": "pine:function:indicator#canonical",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "function",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 10,
+            "end_line": 2,
+            "end_offset": 22,
+            "start_col": 1,
+            "start_line": 2,
+            "start_offset": 13
+          },
+          "stateful_call": false,
+          "symbol_id": "pine:function:indicator"
+        },
+        {
+          "call_form": null,
+          "classification": "STRUCTURAL",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Argument",
+          "node_id": "n00000004",
+          "node_kind": "Argument",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 25,
+            "end_line": 2,
+            "end_offset": 37,
+            "start_col": 11,
+            "start_line": 2,
+            "start_offset": 23
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": "Legacy floor",
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Literal",
+          "node_id": "n00000005",
+          "node_kind": "Literal",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "string",
+            "nullable": false,
+            "qualifier": "const"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 25,
+            "end_line": 2,
+            "end_offset": 37,
+            "start_col": 11,
+            "start_line": 2,
+            "start_offset": 23
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "DECLARATION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": "f",
+          "diagnostic_refs": [],
+          "kind": "FunctionDeclaration",
+          "node_id": "n00000006",
+          "node_kind": "FunctionDeclaration",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 19,
+            "end_line": 3,
+            "end_offset": 57,
+            "start_col": 1,
+            "start_line": 3,
+            "start_offset": 39
+          },
+          "stateful_call": false,
+          "symbol_id": "user:function:f:n00000006"
+        },
+        {
+          "call_form": null,
+          "classification": "STRUCTURAL",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": "n",
+          "diagnostic_refs": [],
+          "kind": "Parameter",
+          "node_id": "n00000007",
+          "node_kind": "Parameter",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:function:n00000006",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 15,
+            "end_line": 3,
+            "end_offset": 53,
+            "start_col": 14,
+            "start_line": 3,
+            "start_offset": 52
+          },
+          "stateful_call": false,
+          "symbol_id": "user:parameter:n:n00000007"
+        },
+        {
+          "call_form": null,
+          "classification": "STRUCTURAL",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "TypeRef",
+          "node_id": "n00000008",
+          "node_kind": "TypeRef",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:function:n00000006",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 13,
+            "end_line": 3,
+            "end_offset": 51,
+            "start_col": 10,
+            "start_line": 3,
+            "start_offset": 48
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": 2,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Literal",
+          "node_id": "n00000009",
+          "node_kind": "Literal",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "int",
+            "nullable": false,
+            "qualifier": "const"
+          },
+          "scope_id": "scope:function:n00000006",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 19,
+            "end_line": 3,
+            "end_offset": 57,
+            "start_col": 18,
+            "start_line": 3,
+            "start_offset": 56
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "STATEMENT",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "ExpressionStatement",
+          "node_id": "n00000010",
+          "node_kind": "ExpressionStatement",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 11,
+            "end_line": 4,
+            "end_offset": 68,
+            "start_col": 1,
+            "start_line": 4,
+            "start_offset": 58
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": "FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "CallExpr",
+          "node_id": "n00000011",
+          "node_kind": "CallExpr",
+          "overload_id": "pine:function:plot#canonical",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "plot",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 11,
+            "end_line": 4,
+            "end_offset": 68,
+            "start_col": 1,
+            "start_line": 4,
+            "start_offset": 58
+          },
+          "stateful_call": false,
+          "symbol_id": "pine:function:plot"
+        },
+        {
+          "call_form": "FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Identifier",
+          "node_id": "n00000012",
+          "node_kind": "Identifier",
+          "overload_id": "pine:function:plot#canonical",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "function",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 5,
+            "end_line": 4,
+            "end_offset": 62,
+            "start_col": 1,
+            "start_line": 4,
+            "start_offset": 58
+          },
+          "stateful_call": false,
+          "symbol_id": "pine:function:plot"
+        },
+        {
+          "call_form": null,
+          "classification": "STRUCTURAL",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Argument",
+          "node_id": "n00000013",
+          "node_kind": "Argument",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 10,
+            "end_line": 4,
+            "end_offset": 67,
+            "start_col": 6,
+            "start_line": 4,
+            "start_offset": 63
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": "USER_FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [
+            {
+              "reason": "call_argument",
+              "source_type": "int",
+              "target_type": "any"
+            }
+          ],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "CallExpr",
+          "node_id": "n00000014",
+          "node_kind": "CallExpr",
+          "overload_id": "user:function:f:n00000006#signature",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "int",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 10,
+            "end_line": 4,
+            "end_offset": 67,
+            "start_col": 6,
+            "start_line": 4,
+            "start_offset": 63
+          },
+          "stateful_call": false,
+          "symbol_id": "user:function:f:n00000006"
+        },
+        {
+          "call_form": "USER_FUNCTION",
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Identifier",
+          "node_id": "n00000015",
+          "node_kind": "Identifier",
+          "overload_id": "user:function:f:n00000006#signature",
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "int",
+            "nullable": false,
+            "qualifier": "series"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [
+            "call.signature.v5"
+          ],
+          "span": {
+            "end_col": 7,
+            "end_line": 4,
+            "end_offset": 64,
+            "start_col": 6,
+            "start_line": 4,
+            "start_offset": 63
+          },
+          "stateful_call": false,
+          "symbol_id": "user:function:f:n00000006"
+        },
+        {
+          "call_form": null,
+          "classification": "STRUCTURAL",
+          "coercions": [],
+          "const_value": null,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Argument",
+          "node_id": "n00000016",
+          "node_kind": "Argument",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": null,
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 9,
+            "end_line": 4,
+            "end_offset": 66,
+            "start_col": 8,
+            "start_line": 4,
+            "start_offset": 65
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        },
+        {
+          "call_form": null,
+          "classification": "EXPRESSION",
+          "coercions": [],
+          "const_value": 2,
+          "declaration_target": null,
+          "diagnostic_refs": [],
+          "kind": "Literal",
+          "node_id": "n00000017",
+          "node_kind": "Literal",
+          "overload_id": null,
+          "receiver_type": null,
+          "resolved_type": {
+            "base": "int",
+            "nullable": false,
+            "qualifier": "const"
+          },
+          "scope_id": "scope:global",
+          "semantic_rule_ids": [],
+          "span": {
+            "end_col": 9,
+            "end_line": 4,
+            "end_offset": 66,
+            "start_col": 8,
+            "start_line": 4,
+            "start_offset": 65
+          },
+          "stateful_call": false,
+          "symbol_id": null
+        }
+      ],
+      "producer": {
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "pine2ast",
+        "source_state": "COMMIT_PINNED",
+        "version": "5.0.0rc6"
+      },
+      "schema_id": "pine.semantic_facts.v1",
+      "schema_version": "1.0.0",
+      "version_context": {
+        "annotation_span": {
+          "end_col": 13,
+          "end_line": 1,
+          "end_offset": 12,
+          "start_col": 1,
+          "start_line": 1,
+          "start_offset": 0
+        },
+        "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+        "origin": "compiler_annotation",
+        "pine_version": 5,
+        "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+      },
+      "version_context_ref": "sha256:ca9412def3c913b3389984d346fc4c33e77d7bcc0ab79a6ea8605994176df1e8"
+    },
+    "source": {
+      "byte_length": 69,
+      "encoding": "utf-8",
+      "name": "<consumer-vector>",
+      "source_hash": "sha256:ce6f17ceafeb5fe034164b0df7687bc8ba9340ac26a6ab0ff61083d88d38e667"
+    },
+    "version_context": {
+      "annotation_span": {
+        "end_col": 13,
+        "end_line": 1,
+        "end_offset": 12,
+        "start_col": 1,
+        "start_line": 1,
+        "start_offset": 0
+      },
+      "catalog_hash": "sha256:101b00fbbb6099a210a854ff92856c3881f95226e63409668e4e20742e1afdd4",
+      "context_hash": "sha256:ca9412def3c913b3389984d346fc4c33e77d7bcc0ab79a6ea8605994176df1e8",
+      "origin": "compiler_annotation",
+      "pine_version": 5,
+      "spec_snapshot_ref": "tradingview-pine-v5-reference-snapshot-2026-08-26"
+    }
+  },
+  "source": "//@version=5\nindicator(\"Legacy floor\")\nf(simple int n)=>2\nplot(f(2))\n"
+}

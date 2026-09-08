@@ -1007,7 +1007,9 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 if (self.plan.pine_version < 5
                     or len(parts) != (2 if dtype.startswith("map<") else 1)
                     or any(part.strip() not in {"int", "float", "bool", "color", "string"} for part in parts)):
-                    raise BundleInvariantError("A2P_VARIP_REFERENCE_TYPE", "varip collections require supported fundamental element types")
+                    if not self._varip_nominal_array_supported(dtype):
+                        raise BundleInvariantError("A2P_VARIP_REFERENCE_TYPE", "varip collection type is outside the admitted target profile")
+                    self._require_language_contract("compiler.varip_nominal_arrays.v1")
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(
                     "A2P_PERSISTENT_SCOPE_UNSUPPORTED",

@@ -65,6 +65,8 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
     records: list[tuple[Any, Any, Any, LoweringRecipe]] = []
     required_operations: set[str] = set()
     required_capabilities = set(bundle.required_capabilities)
+    udt_names = {bundle.ast.node(key).fields["name"] for key in bundle.ast.ordered_node_ids
+                 if bundle.ast.node(key).kind == "TypeDeclaration"}
     for node_id in bundle.ast.ordered_node_ids:
         node = bundle.ast.node(node_id)
         fact = bundle.semantic_facts.fact_by_node_id[node_id]
@@ -72,6 +74,22 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         if node.kind in {"TypeDeclaration", "EnumDeclaration"}:
             required_capabilities.add("compiler.nominal_types.v1")
             required_capabilities.add("compiler.nominal_registry.v1")
+        if node.kind == "VarDeclaration" and node.fields.get("mode") == "varip":
+            type_ref = node.fields.get("type_ref")
+            nominal_array = False
+            if type_ref is not None:
+                arguments = type_ref.get("template_args", ())
+                nominal_array = (type_ref.get("name") == "array" and len(arguments) == 1
+                                 and arguments[0].get("name") in udt_names)
+            else:
+                for initializer in node.child_roles.get("initializer", ()):
+                    resolved = bundle.semantic_facts.fact_by_node_id[initializer].resolved_type
+                    if resolved is not None:
+                        dtype = resolved.base
+                        nominal_array = dtype.startswith("array<") and dtype.endswith(">") and dtype[6:-1] in udt_names
+            if nominal_array:
+                required_capabilities.add("compiler.varip_nominal_arrays.v1")
+                required_capabilities.add("compiler.varip_reference_bindings.v1")
         recipe = select_recipe(
             version=bundle.version_context.pine_version,
             node=node,
