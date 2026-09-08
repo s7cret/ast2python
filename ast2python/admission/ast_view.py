@@ -117,6 +117,7 @@ class StrictASTView:
         node_index: Any,
         *,
         version_context: Mapping[str, Any],
+        method_receiver_qualifiers: bool = False,
     ) -> StrictASTView:
         if not isinstance(ast, dict) or ast.get("kind") != "Program":
             raise BundleInvariantError(
@@ -128,10 +129,11 @@ class StrictASTView:
             raise BundleInvariantError(
                 "A2P_AST_LANGUAGE", "AST language must be 'pine'", path="$.ast.language"
             )
-        if ast.get("schema_version") != "2.0":
+        expected_schema = "2.1" if method_receiver_qualifiers else "2.0"
+        if ast.get("schema_version") != expected_schema:
             raise BundleInvariantError(
                 "A2P_AST_SCHEMA",
-                "AST schema_version must be exactly '2.0'",
+                f"AST schema_version must be exactly {expected_schema!r}",
                 path="$.ast.schema_version",
             )
         ast_context = ast.get("version_context")
@@ -150,6 +152,22 @@ class StrictASTView:
             )
 
         raw_nodes = list(_iter_ast_nodes(ast))
+        receiver_nodes = [node for node in raw_nodes if "receiver_explicit_qualifier" in node]
+        if (
+            bool(receiver_nodes) != method_receiver_qualifiers
+            or (method_receiver_qualifiers and version_context.get("pine_version") not in {5, 6})
+            or any(
+                node.get("kind") != "MethodDeclaration"
+                or type(node["receiver_explicit_qualifier"]) is not str
+                or node["receiver_explicit_qualifier"] not in {"simple", "series"}
+                for node in receiver_nodes
+            )
+        ):
+            raise BundleInvariantError(
+                "A2P_METHOD_RECEIVER_FEATURE",
+                "method receiver fields, Pine version and admitted feature must match exactly",
+                path="$.ast",
+            )
         if len(raw_nodes) != len(node_index):
             raise BundleInvariantError(
                 "A2P_NODE_INDEX_CARDINALITY",

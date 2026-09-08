@@ -348,8 +348,15 @@ def validate_version_context(value: Any) -> PineVersionIdentity:
     )
 
 
+METHOD_RECEIVER_CAPABILITY = "method_receiver_qualifiers_v1"
+
+
 def validate_consumer_contract(
-    value: Any, limits: AdmissionLimits, *, library_context: bool = False
+    value: Any,
+    limits: AdmissionLimits,
+    *,
+    library_context: bool = False,
+    method_receiver_qualifiers: bool = False,
 ) -> frozenset[str]:
     if not isinstance(value, Mapping):
         raise BundleInvariantError(
@@ -400,6 +407,8 @@ def validate_consumer_contract(
     required = REQUIRED_CONSUMER_CAPABILITIES
     if library_context:
         required = required | {"library_qualifier_context_v1"}
+    if method_receiver_qualifiers:
+        required = required | {METHOD_RECEIVER_CAPABILITY}
     unknown = actual - required
     missing = required - actual
     if unknown or missing:

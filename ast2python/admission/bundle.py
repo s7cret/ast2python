@@ -124,10 +124,36 @@ class BundleAdmissionService:
                 },
             )
         try:
-            verify_consumer_bundle(
-                bundle,
-                expected_producer_commit=expected_producer_commit,
-            )
+            if bundle["ast"].get("schema_version") == "2.1":
+                try:
+                    from pine2ast.ast.decode import ASTReplayLimits
+                except ImportError as exc:
+                    raise BundleInvariantError(
+                        "A2P_RECEIVER_REPLAY_UNAVAILABLE",
+                        "AST2.1 requires the producer's closed AST replay API",
+                    ) from exc
+                defaults = ASTReplayLimits()
+                replay_limits = ASTReplayLimits(
+                    max_bytes=min(defaults.max_bytes, self.limits.max_bundle_bytes),
+                    max_depth=min(defaults.max_depth, self.limits.max_json_depth),
+                    max_values=min(defaults.max_values, self.limits.max_total_json_nodes),
+                    max_ast_nodes=min(defaults.max_ast_nodes, self.limits.max_ast_nodes),
+                    max_container_items=min(
+                        defaults.max_container_items, self.limits.max_container_items
+                    ),
+                    max_string_length=min(
+                        defaults.max_string_length, self.limits.max_string_length
+                    ),
+                )
+                verify_consumer_bundle(
+                    bundle,
+                    expected_producer_commit=expected_producer_commit,
+                    ast_replay_limits=replay_limits,
+                )
+            else:
+                # Preserve the actual old producer callable signature for 2.0.
+                # No TypeError retry can bypass new-feature verification.
+                verify_consumer_bundle(bundle, expected_producer_commit=expected_producer_commit)
         except (ValueError, KeyError, TypeError) as exc:
             raise BundleInvariantError(
                 "A2P_PRODUCER_VERIFICATION",
@@ -138,13 +164,17 @@ class BundleAdmissionService:
         version_context = validate_version_context(bundle["version_context"])
         source_descriptor = validate_source_descriptor(bundle["source"])
         required_capabilities = validate_consumer_contract(
-            bundle["consumer_contract"], self.limits, library_context="library_context" in bundle
+            bundle["consumer_contract"],
+            self.limits,
+            library_context="library_context" in bundle,
+            method_receiver_qualifiers=bundle["ast"].get("schema_version") == "2.1",
         )
         diagnostics = validate_diagnostics(bundle["diagnostics"], normalized_mode)
         ast_view = StrictASTView.build(
             bundle["ast"],
             bundle["node_index"],
             version_context=bundle["version_context"],
+            method_receiver_qualifiers=bundle["ast"].get("schema_version") == "2.1",
         )
         facts = SemanticFactsIndex.build(
             bundle["semantic_facts"],
