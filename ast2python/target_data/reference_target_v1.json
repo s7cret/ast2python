@@ -231,6 +231,7 @@
     "exact_operation_manifest",
     "execute_eager_operation",
     "execute_lazy_operation",
+    "library_qualifier_context_v1",
     "pine_ast_v2",
     "pine_semantic_facts_v1",
     "pine_version_context_v1",
@@ -239,7 +240,7 @@
     "source_span_identity",
     "version_context_v1"
   ],
-  "content_hash": "sha256:83e752e3bef779c2131bf18e5ae3d1668d20d4c3581bf6e6e049e2afbab5aa08",
+  "content_hash": "sha256:32f3b53c6118909fd490839c816d5e0e751873f35cf0093f921584e46c25b3f6",
   "operations": [
     {
       "effect": "pure",

@@ -61,6 +61,10 @@ def compile_consumer_bundle(
         expected_producer_commit=expected_pine2ast_commit,
     )
     dependency_hashes = None
+    library_context = session.bundle.library_context
+    if library_context is not None:
+        receipt = library_context["linkage_receipt"]
+        dependency_hashes = {**receipt["dependencies"], "@linkage": receipt["content_hash"]}
     if linked_source is not None:
         from pine2ast.libraries import LinkedSource
 
@@ -69,11 +73,23 @@ def compile_consumer_bundle(
         linked_source.verify()
         receipt = linked_source.receipt()
         if session.bundle.source["source_hash"] != receipt["linked_source_hash"]:
-            raise BundleInvariantError("A2P_LIBRARY_LINKAGE", "bundle source differs from library projection")
+            raise BundleInvariantError(
+                "A2P_LIBRARY_LINKAGE", "bundle source differs from library projection"
+            )
+        if (
+            library_context is None
+            or library_context["linkage_receipt_hash"] != receipt["content_hash"]
+        ):
+            raise BundleInvariantError(
+                "A2P_LIBRARY_CONTEXT",
+                "linked compilation requires matching verified consumer 1.1 context; recompile legacy source explicitly",
+            )
         dependency_hashes = {**linked_source.dependency_hashes, "@linkage": receipt["content_hash"]}
     plan = build_lowering_plan(session, selected_target)
     if "library.import" in plan.required_operations:
-        raise BundleInvariantError("A2P_LIBRARY_UNRESOLVED", "imports require an offline locked library projection")
+        raise BundleInvariantError(
+            "A2P_LIBRARY_UNRESOLVED", "imports require an offline locked library projection"
+        )
     validate_lowering_plan(plan, selected_target)
     emitted = emit_python_module(plan, selected_target, module_name=module_name)
     artifact = build_generated_artifact_v3(

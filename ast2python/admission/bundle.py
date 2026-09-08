@@ -62,6 +62,7 @@ class AdmittedConsumerBundle:
     required_capabilities: frozenset[str]
     linked_artifacts: Mapping[str, Any]
     artifacts: Mapping[str, Any]
+    library_context: Mapping[str, Any] | None = None
 
     @property
     def runnable_output_allowed(self) -> bool:
@@ -136,7 +137,9 @@ class BundleAdmissionService:
         producer = validate_producer_identity(bundle["producer"])
         version_context = validate_version_context(bundle["version_context"])
         source_descriptor = validate_source_descriptor(bundle["source"])
-        required_capabilities = validate_consumer_contract(bundle["consumer_contract"], self.limits)
+        required_capabilities = validate_consumer_contract(
+            bundle["consumer_contract"], self.limits, library_context="library_context" in bundle
+        )
         diagnostics = validate_diagnostics(bundle["diagnostics"], normalized_mode)
         ast_view = StrictASTView.build(
             bundle["ast"],
@@ -164,6 +167,9 @@ class BundleAdmissionService:
             required_capabilities=required_capabilities,
             linked_artifacts=freeze_json(bundle["linked_artifacts"]),
             artifacts=freeze_json(bundle["artifacts"]),
+            library_context=(
+                freeze_json(bundle["library_context"]) if "library_context" in bundle else None
+            ),
         )
 
     def validate(

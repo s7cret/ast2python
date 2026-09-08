@@ -9,7 +9,11 @@ from ast2python.admission.canonical import freeze_json
 from ast2python.admission.limits import AdmissionLimits
 from ast2python.errors import BundleInvariantError, BundleLimitError
 from ast2python.mode import CompilationMode
-from ast2python.version import CONSUMER_BUNDLE_SCHEMA_ID, CONSUMER_BUNDLE_SCHEMA_VERSION
+from ast2python.version import (
+    CONSUMER_BUNDLE_SCHEMA_ID,
+    CONSUMER_BUNDLE_SCHEMA_VERSION,
+    LIBRARY_CONSUMER_BUNDLE_SCHEMA_VERSION,
+)
 
 _HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -87,7 +91,9 @@ def _validate_release_axes(value: Any) -> None:
         verified = axis.get("verified")
         total = axis.get("total")
         valid_counts = type(verified) is int and type(total) is int
-        valid_pass = valid_counts and status == "PASS" and verified >= 0 and verified == total
+        valid_pass = (
+            valid_counts and status == "PASS" and cast(int, verified) >= 0 and verified == total
+        )
         valid_not_applicable = (
             valid_counts and status == "NOT_APPLICABLE" and verified == total == 0
         )
@@ -163,13 +169,16 @@ class PineVersionIdentity:
 
 def validate_bundle_envelope(bundle: Mapping[str, Any], limits: AdmissionLimits) -> None:
     fields = set(bundle)
-    if fields != ALLOWED_TOP_LEVEL_FIELDS:
+    expected_fields = ALLOWED_TOP_LEVEL_FIELDS
+    if bundle.get("schema_version") == LIBRARY_CONSUMER_BUNDLE_SCHEMA_VERSION:
+        expected_fields = expected_fields | {"library_context"}
+    if fields != expected_fields:
         raise BundleInvariantError(
             "A2P_BUNDLE_FIELDS",
             "consumer bundle top-level fields are not exact",
             details={
-                "missing": sorted(ALLOWED_TOP_LEVEL_FIELDS - fields),
-                "extra": sorted(fields - ALLOWED_TOP_LEVEL_FIELDS),
+                "missing": sorted(expected_fields - fields),
+                "extra": sorted(fields - expected_fields),
             },
         )
     if bundle.get("schema_id") != CONSUMER_BUNDLE_SCHEMA_ID:
@@ -178,7 +187,10 @@ def validate_bundle_envelope(bundle: Mapping[str, Any], limits: AdmissionLimits)
             f"schema_id must be {CONSUMER_BUNDLE_SCHEMA_ID}",
             path="$.schema_id",
         )
-    if bundle.get("schema_version") != CONSUMER_BUNDLE_SCHEMA_VERSION:
+    if bundle.get("schema_version") not in {
+        CONSUMER_BUNDLE_SCHEMA_VERSION,
+        LIBRARY_CONSUMER_BUNDLE_SCHEMA_VERSION,
+    }:
         raise BundleInvariantError(
             "A2P_BUNDLE_SCHEMA_VERSION",
             f"schema_version must be {CONSUMER_BUNDLE_SCHEMA_VERSION}",
@@ -336,7 +348,9 @@ def validate_version_context(value: Any) -> PineVersionIdentity:
     )
 
 
-def validate_consumer_contract(value: Any, limits: AdmissionLimits) -> frozenset[str]:
+def validate_consumer_contract(
+    value: Any, limits: AdmissionLimits, *, library_context: bool = False
+) -> frozenset[str]:
     if not isinstance(value, Mapping):
         raise BundleInvariantError(
             "A2P_CONSUMER_CONTRACT_TYPE",
@@ -383,8 +397,11 @@ def validate_consumer_contract(value: Any, limits: AdmissionLimits) -> frozenset
             path="$.consumer_contract.required_capabilities",
         )
     actual = frozenset(capabilities)
-    unknown = actual - REQUIRED_CONSUMER_CAPABILITIES
-    missing = REQUIRED_CONSUMER_CAPABILITIES - actual
+    required = REQUIRED_CONSUMER_CAPABILITIES
+    if library_context:
+        required = required | {"library_qualifier_context_v1"}
+    unknown = actual - required
+    missing = required - actual
     if unknown or missing:
         raise BundleInvariantError(
             "A2P_CAPABILITY_SET",
