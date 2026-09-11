@@ -12,6 +12,7 @@ from ast2python.lowering.model import (
     LoweringPlan,
 )
 from ast2python.lowering.pinelib_target import load_pinelib_target_manifest
+from ast2python.lowering.qualifiers import audit_pinelib_qualifier_binding
 from ast2python.lowering.recipes import supported_ast_kinds
 from ast2python.lowering.target import (
     TargetManifest,
@@ -30,6 +31,7 @@ __all__ = [
     "TargetManifest",
     "TargetOperation",
     "audit_pinelib_call_binding",
+    "audit_pinelib_qualifier_binding",
     "audit_pinelib_value_binding",
     "build_lowering_plan",
     "load_pinelib_target_manifest",

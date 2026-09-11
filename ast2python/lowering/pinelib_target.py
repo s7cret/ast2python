@@ -374,12 +374,11 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                 "A2P_PINELIB_TARGET_VERSIONS",
                 "PineLib call row lacks version availability",
             )
-        parameter_rows = row.get("parameters", [])
-        parameters = [
-            str(item["name"])
-            for item in parameter_rows
-            if isinstance(item, dict) and isinstance(item.get("name"), str)
-        ]
+        from ast2python.lowering.qualifiers import project_parameter_qualifiers
+
+        parameters, parameter_qualifiers = project_parameter_qualifiers(
+            row.get("parameters"), symbol_id=str(row.get("symbol_id"))
+        )
         parameter_bindings = row.get("parameter_bindings", [])
         if not isinstance(parameter_bindings, list):
             raise BundleInvariantError(
@@ -419,6 +418,7 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                             else python_name
                         ),
                         "parameters": parameters,
+                        "parameter_qualifiers": parameter_qualifiers,
                         "return_type": return_type,
                         "state_model": str(row.get("state_model") or "NONE"),
                         "supported_pine_versions": sorted(set(versions)),
@@ -448,8 +448,8 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                     bindings[key] = candidate
 
     body: dict[str, Any] = {
-        "schema_id": "ast2python.target_manifest.v1",
-        "schema_version": "1.0.0",
+        "schema_id": "ast2python.target_manifest.v2",
+        "schema_version": "2.0.0",
         "target_name": "pinelib",
         "target_version": str(source["content_hash"]),
         "operations": [operation_rows[name] for name in sorted(operation_rows)],

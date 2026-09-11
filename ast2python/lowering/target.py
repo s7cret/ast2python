@@ -51,6 +51,8 @@ class TargetCallBinding:
     delegation_owner: str | None = None
     delegation_schema_id: str | None = None
     delegation_capability_id: str | None = None
+    # None denotes the legacy reference format; never an unconstrained exact target.
+    parameter_qualifiers: Mapping[str, str] | None = None
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -70,6 +72,8 @@ class TargetCallBinding:
         if self.python_module is not None:
             body["python_module"] = self.python_module
             body["parameter_bindings"] = [dict(item) for item in self.parameter_bindings]
+        if self.parameter_qualifiers is not None:
+            body["parameter_qualifiers"] = dict(self.parameter_qualifiers)
         if self.disposition == "TARGET_DELEGATED":
             body.update(
                 {
@@ -224,11 +228,21 @@ class TargetManifest:
             raise BundleInvariantError("A2P_TARGET_CAPABILITIES", "capabilities must be an array")
         if not isinstance(allowed_imports, list):
             raise BundleInvariantError("A2P_TARGET_IMPORTS", "allowed imports must be an array")
-        if (
-            value["schema_id"] != "ast2python.target_manifest.v1"
-            or value["schema_version"] != "1.0.0"
-        ):
+        schema = (value["schema_id"], value["schema_version"])
+        if schema not in {
+            ("ast2python.target_manifest.v1", "1.0.0"),
+            ("ast2python.target_manifest.v2", "2.0.0"),
+        }:
             raise BundleInvariantError("A2P_TARGET_SCHEMA", "unsupported target manifest schema")
+        qualified_target = schema == ("ast2python.target_manifest.v2", "2.0.0")
+        if (
+            value["release_acceptance"] == "EXACT_PINELIB_TARGET_MANIFEST_V2"
+            and not qualified_target
+        ):
+            raise BundleInvariantError(
+                "A2P_TARGET_QUALIFIER_SCHEMA",
+                "exact targets require normalized v2 parameter qualifier contracts; regenerate the target",
+            )
         if value["release_acceptance"] not in {
             "REFERENCE_ONLY_PENDING_PINELIB_RC6",
             "EXACT_PINELIB_TARGET_MANIFEST_V2",
@@ -369,6 +383,8 @@ class TargetManifest:
             "state_model",
             "supported_pine_versions",
         }
+        if qualified_target:
+            call_fields = call_fields | {"parameter_qualifiers"}
         exact_call_fields = call_fields | {"python_module", "parameter_bindings"}
         delegated_call_fields = call_fields | {
             "disposition",
@@ -485,12 +501,21 @@ class TargetManifest:
                             "A2P_TARGET_PARAMETER_BINDINGS",
                             "parameter binding fields are not exact strings",
                         )
+            parameter_qualifiers = None
+            if qualified_target:
+                from ast2python.lowering.qualifiers import validate_parameter_qualifiers
+
+                parameter_qualifiers = MappingProxyType(validate_parameter_qualifiers(
+                    parameters, raw["parameter_qualifiers"],
+                    path=f"$.call_bindings[{index}].parameter_qualifiers",
+                ))
             binding = TargetCallBinding(
                 symbol_id=raw["symbol_id"],
                 overload_id=raw["overload_id"],
                 call_form=raw["call_form"],
                 python_name=python_name,
                 parameters=tuple(parameters),
+                parameter_qualifiers=parameter_qualifiers,
                 return_type=raw["return_type"],
                 state_model=raw["state_model"],
                 supported_pine_versions=tuple(versions),

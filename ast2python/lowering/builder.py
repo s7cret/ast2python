@@ -143,6 +143,13 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
                     "target lacks the exact symbol/overload/call-form binding",
                     details={"node_id": node_id, "binding_key": list(binding_key)},
                 )
+            if target.release_acceptance == "EXACT_PINELIB_TARGET_MANIFEST_V2":
+                from ast2python.lowering.qualifiers import validate_call_qualifiers
+
+                validate_call_qualifiers(
+                    call.raw, binding, node_id=node_id,
+                    pine_version=bundle.version_context.pine_version,
+                )
         records.append((node, fact, call, recipe))
         required_operations.add(recipe.opcode)
 

@@ -504,6 +504,13 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 raise BundleInvariantError(
                     "A2P_INPUT_BINDING", "input lacks exact admitted-input ABI"
                 )
+            if self.exact_pinelib:
+                from ast2python.lowering.qualifiers import validate_call_qualifiers
+
+                validate_call_qualifiers(
+                    call, binding, node_id=self._node(ir_id).source.node_id,
+                    pine_version=self.plan.pine_version,
+                )
             alias = self.direct_call_aliases.get(key)
             if alias is None:
                 raise BundleInvariantError("A2P_INPUT_BINDING", "input callable is not imported")
@@ -603,6 +610,13 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
         if binding is None or self.plan.pine_version not in binding.supported_pine_versions:
             raise BundleInvariantError(
                 "A2P_TARGET_CALL_BINDING", "exact target call binding is missing"
+            )
+        if self.exact_pinelib:
+            from ast2python.lowering.qualifiers import validate_call_qualifiers
+
+            validate_call_qualifiers(
+                call, binding, node_id=self._node(ir_id).source.node_id,
+                pine_version=self.plan.pine_version,
             )
         if binding.disposition == "TARGET_DELEGATED":
             if not all(
