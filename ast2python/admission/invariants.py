@@ -356,6 +356,7 @@ def validate_consumer_contract(
     limits: AdmissionLimits,
     *,
     library_context: bool = False,
+    library_methods: bool = False,
     method_receiver_qualifiers: bool = False,
 ) -> frozenset[str]:
     if not isinstance(value, Mapping):
@@ -407,6 +408,8 @@ def validate_consumer_contract(
     required = REQUIRED_CONSUMER_CAPABILITIES
     if library_context:
         required = required | {"library_qualifier_context_v1"}
+    if library_methods:
+        required = required | {"library_method_projection_v1"}
     if method_receiver_qualifiers:
         required = required | {METHOD_RECEIVER_CAPABILITY}
     unknown = actual - required

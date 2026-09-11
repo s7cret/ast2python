@@ -167,6 +167,7 @@ class BundleAdmissionService:
             bundle["consumer_contract"],
             self.limits,
             library_context="library_context" in bundle,
+            library_methods=(bundle.get("library_context", {}).get("schema_id") == "pine2ast.library_qualifier_context.v2"),
             method_receiver_qualifiers=bundle["ast"].get("schema_version") == "2.1",
         )
         diagnostics = validate_diagnostics(bundle["diagnostics"], normalized_mode)
