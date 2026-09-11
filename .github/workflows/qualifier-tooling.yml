@@ -1,0 +1,23 @@
+name: Provide pinned local qualifier verification tooling
+'on':
+  push:
+    branches: ['ops/qualifier-contracts-20260911']
+    paths: ['.github/workflows/qualifier-tooling.yml']
+permissions:
+  contents: read
+jobs:
+  tooling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download pinned formatter without touching source or release refs
+        run: python -m pip download --only-binary=:all: --no-deps ruff==0.12.0 --dest tooling
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualifier-tooling-${{ github.run_id }}
+          path: tooling/
+          if-no-files-found: error
+          retention-days: 7
