@@ -1,0 +1,89 @@
+name: Preserve and verify exact target qualifier candidate
+'on':
+  push:
+    branches: ['ops/target-qualifiers-20260911']
+permissions:
+  contents: read
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore exact reviewed code on a candidate branch, never on release
+        run: |
+          python - <<'PY'
+          import base64,gzip,hashlib,json,os,pathlib,subprocess
+          def git(*args,data=None):
+              return subprocess.check_output(['git',*args],input=data).decode().strip()
+          plan=json.loads(pathlib.Path('.github/qualifiers/plan.json').read_text())
+          assert os.environ['GITHUB_REPOSITORY']==plan['repo']=='s7cret/ast2python'
+          patch=gzip.decompress(base64.b64decode(pathlib.Path('.github/qualifiers/patch.gz.b64').read_text(),validate=True))
+          assert hashlib.sha256(patch).hexdigest()==plan['patch_sha256']
+          git('checkout','--detach',plan['base'])
+          git('apply','--check','--index','-',data=patch)
+          git('apply','--index','-',data=patch)
+          assert git('write-tree')==plan['tree']
+          assert git('hash-object','-t','commit','-w','--stdin',data=plan['raw'].encode())==plan['head']
+          ref='refs/heads/stage2/target-qualifiers-20260911'
+          remote=git('ls-remote','origin',ref)
+          assert not remote or remote.split()[0]==plan['head'], 'candidate changed concurrently'
+          git('push','origin',plan['head']+':'+ref)
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'evidence';out.mkdir()
+          (out/'plan.json').write_text(json.dumps(plan,indent=2)+'\n')
+          (out/'changes.patch').write_bytes(patch)
+          git('update-ref','refs/heads/verified-source',plan['head'])
+          git('bundle','create',str(out/'source.bundle'),'refs/heads/verified-source')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualifier-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/evidence/
+  verify:
+    needs: preserve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6cb59d6b52634ddcecb8e133adef35be2c8f4ccb
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install exact dependency sources
+        run: |
+          python -m pip install setuptools==84.0.0 wheel==0.48.0 hatchling==1.32.0 build==1.6.0
+          git clone -q https://github.com/s7cret/pine2ast.git "$RUNNER_TEMP/pine2ast"
+          git -C "$RUNNER_TEMP/pine2ast" checkout --detach 9820fe4f28d01d32d8a13f328517d9d7a5779497
+          git clone -q https://github.com/s7cret/pinelib.git "$RUNNER_TEMP/pinelib"
+          git -C "$RUNNER_TEMP/pinelib" checkout --detach 97902943bd8f1300c3bb3e3e314465ac92fa057a
+          python -m pip install "$RUNNER_TEMP/pine2ast" "$RUNNER_TEMP/pinelib" '.[dev]'
+      - name: Complete compiler suite, lint and distributions
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python -m pytest -q --junitxml="$RUNNER_TEMP/evidence/compiler.xml"
+          python - <<'PY'
+          import os,xml.etree.ElementTree as E
+          cases=list(E.parse(os.environ['RUNNER_TEMP']+'/evidence/compiler.xml').iter('testcase'))
+          assert len(cases)==1258
+          assert not any(c.find(k) is not None for c in cases for k in ('failure','error','skipped'))
+          PY
+          python -m ruff check ast2python/lowering/qualifiers.py tests/stage4/test_target_parameter_qualifiers.py
+          python -m compileall -q ast2python
+          python -m build --outdir "$RUNNER_TEMP/evidence/dist"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qualifiers-${{ matrix.python }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/evidence/
+          if-no-files-found: error
