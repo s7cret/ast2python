@@ -576,29 +576,48 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 )
             if not self.exact_pinelib:
                 return f"self.{function_name}({', '.join(rendered)})"
+            # A dict preserves evaluation order while invoke_function_v1 binds
+            # names. All explicit arguments execute in their written order,
+            # independently of declaration order (including a named receiver).
             arguments = []
+            parameter_names = {}
             if call.get("call_form") == "USER_METHOD":
                 callee_ir = self._role(ir_id, "callee")[0]
                 receiver = self._role(callee_ir, "object")
-                if len(receiver) != 1 or declaration not in self.method_receivers:
+                if declaration not in self.method_receivers:
                     raise BundleInvariantError("A2P_METHOD_RECEIVER", "method lacks checked receiver")
                 pyname, declared = self.method_receivers[declaration]
-                actual = self._node(receiver[0]).result_type
-                if actual is None or self._runtime_type(actual.base) != declared:
-                    raise BundleInvariantError("A2P_METHOD_RECEIVER", "method receiver type differs from declaration")
-                arguments.append(f"{pyname!r}: {self._expr(receiver[0])}")
+                if self._attrs(callee_ir).get("ast_kind") == "Identifier":
+                    receiver_name = self._fields(declaration)["receiver_name"]
+                    if (receiver_name not in rendered_by_parameter
+                            or self._runtime_type(str(call.get("receiver_type"))) != declared):
+                        raise BundleInvariantError(
+                            "A2P_METHOD_RECEIVER", "explicit method receiver lacks checked binding"
+                        )
+                    parameter_names[receiver_name] = pyname
+                else:
+                    if len(receiver) != 1:
+                        raise BundleInvariantError("A2P_METHOD_RECEIVER", "method lacks checked receiver")
+                    actual = self._node(receiver[0]).result_type
+                    if actual is None or self._runtime_type(actual.base) != declared:
+                        raise BundleInvariantError("A2P_METHOD_RECEIVER", "method receiver type differs from declaration")
+                    arguments.append(f"{pyname!r}: {self._expr(receiver[0])}")
+            defaults = []
             for parameter in self._role(declaration, "parameters"):
                 pname = self._fields(parameter)["name"]
-                value = rendered_by_parameter.get(pname)
-                if value is None:
+                pyname = self.names_by_source[self._node(parameter).source.node_id]
+                parameter_names[pname] = pyname
+                if pname not in rendered_by_parameter:
                     default = self._role(parameter, "default_value")
                     if not default:
-                        raise BundleInvariantError(
-                            "A2P_UDF_ARGUMENT", "missing required function argument"
-                        )
-                    value = self._expr(default[0])
-                pyname = self.names_by_source[self._node(parameter).source.node_id]
-                arguments.append(f"{pyname!r}: {value}")
+                        raise BundleInvariantError("A2P_UDF_ARGUMENT", "missing required function argument")
+                    defaults.append(f"{pyname!r}: {self._expr(default[0])}")
+            facts_by_source = {row["argument_node_id"]: row for row in call.get("arguments", [])}
+            for argument_ir in self._role(ir_id, "arguments"):
+                argument = facts_by_source[self._node(argument_ir).source.node_id]
+                pname = argument["parameter_name"]
+                arguments.append(f"{parameter_names[pname]!r}: {rendered_by_parameter[pname]}")
+            arguments.extend(defaults)
             return self._runtime_operation(
                 self._node(ir_id).opcode,
                 repr(self._node(ir_id).source.node_id),

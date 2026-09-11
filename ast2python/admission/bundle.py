@@ -124,7 +124,8 @@ class BundleAdmissionService:
                 },
             )
         try:
-            if bundle["ast"].get("schema_version") == "2.1":
+            if (bundle["ast"].get("schema_version") == "2.1"
+                    or "user_method_function_calls_v1" in bundle.get("consumer_contract", {}).get("required_capabilities", [])):
                 try:
                     from pine2ast.ast.decode import ASTReplayLimits
                 except ImportError as exc:
@@ -169,6 +170,7 @@ class BundleAdmissionService:
             library_context="library_context" in bundle,
             library_methods=(bundle.get("library_context", {}).get("schema_id") == "pine2ast.library_qualifier_context.v2"),
             method_receiver_qualifiers=bundle["ast"].get("schema_version") == "2.1",
+            method_function_calls="user_method_function_calls_v1" in bundle["consumer_contract"]["required_capabilities"],
         )
         diagnostics = validate_diagnostics(bundle["diagnostics"], normalized_mode)
         ast_view = StrictASTView.build(
