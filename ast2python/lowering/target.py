@@ -51,6 +51,7 @@ class TargetCallBinding:
     delegation_owner: str | None = None
     delegation_schema_id: str | None = None
     delegation_capability_id: str | None = None
+    parameter_qualifiers: Mapping[str, str] | None = None
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -67,6 +68,8 @@ class TargetCallBinding:
             "state_model": self.state_model,
             "supported_pine_versions": list(self.supported_pine_versions),
         }
+        if self.parameter_qualifiers is not None:
+            body["parameter_qualifiers"] = dict(self.parameter_qualifiers)
         if self.python_module is not None:
             body["python_module"] = self.python_module
             body["parameter_bindings"] = [dict(item) for item in self.parameter_bindings]
@@ -377,7 +380,7 @@ class TargetManifest:
             "delegation_capability_id",
         }
         for index, raw in enumerate(call_bindings_raw):
-            if not isinstance(raw, Mapping) or set(raw) not in {
+            if not isinstance(raw, Mapping) or set(raw) - {"parameter_qualifiers"} not in {
                 frozenset(call_fields),
                 frozenset(exact_call_fields),
                 frozenset(delegated_call_fields),
@@ -485,6 +488,13 @@ class TargetManifest:
                             "A2P_TARGET_PARAMETER_BINDINGS",
                             "parameter binding fields are not exact strings",
                         )
+            from ast2python.lowering.qualifiers import parse_parameter_qualifiers
+
+            parameter_qualifiers = parse_parameter_qualifiers(
+                raw.get("parameter_qualifiers"), tuple(parameters),
+                required=value["release_acceptance"] == "EXACT_PINELIB_TARGET_MANIFEST_V2"
+                or "parameter_qualifiers" in raw,
+            )
             binding = TargetCallBinding(
                 symbol_id=raw["symbol_id"],
                 overload_id=raw["overload_id"],
@@ -502,6 +512,7 @@ class TargetManifest:
                 delegation_owner=delegation_owner,
                 delegation_schema_id=delegation_schema_id,
                 delegation_capability_id=delegation_capability_id,
+                parameter_qualifiers=parameter_qualifiers,
             )
             if binding.key in call_bindings:
                 raise BundleInvariantError(

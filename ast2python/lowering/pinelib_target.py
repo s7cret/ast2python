@@ -374,7 +374,10 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                 "A2P_PINELIB_TARGET_VERSIONS",
                 "PineLib call row lacks version availability",
             )
+        from ast2python.lowering.qualifiers import project_parameter_qualifiers
+
         parameter_rows = row.get("parameters", [])
+        parameter_qualifiers = project_parameter_qualifiers(parameter_rows)
         parameters = [
             str(item["name"])
             for item in parameter_rows
@@ -419,6 +422,7 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                             else python_name
                         ),
                         "parameters": parameters,
+                        "parameter_qualifiers": dict(parameter_qualifiers),
                         "return_type": return_type,
                         "state_model": str(row.get("state_model") or "NONE"),
                         "supported_pine_versions": sorted(set(versions)),

@@ -269,3 +269,7 @@ def verify_lowering_plan_payload(value: Mapping[str, Any], *, target: TargetMani
             "target lacks required consumer capabilities",
             details={"missing": sorted(missing_capabilities)},
         )
+
+    from ast2python.lowering.qualifiers import validate_plan_argument_qualifiers
+
+    validate_plan_argument_qualifiers(nodes, target=target, pine_version=pine_version)
