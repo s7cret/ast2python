@@ -359,6 +359,8 @@ def validate_consumer_contract(
     library_methods: bool = False,
     method_receiver_qualifiers: bool = False,
     method_function_calls: bool = False,
+    function_overloads: bool = False,
+    library_overloads: bool = False,
 ) -> frozenset[str]:
     if not isinstance(value, Mapping):
         raise BundleInvariantError(
@@ -415,6 +417,10 @@ def validate_consumer_contract(
         required = required | {METHOD_RECEIVER_CAPABILITY}
     if method_function_calls:
         required = required | {"user_method_function_calls_v1"}
+    if function_overloads:
+        required = required | {"user_function_overloads_v1"}
+    if library_overloads:
+        required = required | {"library_function_overloads_v1"}
     unknown = actual - required
     missing = required - actual
     if unknown or missing:
