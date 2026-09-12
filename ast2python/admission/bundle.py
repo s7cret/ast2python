@@ -125,7 +125,7 @@ class BundleAdmissionService:
             )
         try:
             if (bundle["ast"].get("schema_version") == "2.1"
-                    or {"user_method_function_calls_v1", "user_function_overloads_v1"} & set(bundle.get("consumer_contract", {}).get("required_capabilities", []))):
+                    or {"user_method_function_calls_v1", "user_function_overloads_v1", "mixed_user_callable_families_v1"} & set(bundle.get("consumer_contract", {}).get("required_capabilities", []))):
                 try:
                     from pine2ast.ast.decode import ASTReplayLimits
                 except ImportError as exc:
@@ -171,6 +171,7 @@ class BundleAdmissionService:
             library_methods=(bundle.get("library_context", {}).get("schema_id") == "pine2ast.library_qualifier_context.v2"),
             method_receiver_qualifiers=bundle["ast"].get("schema_version") == "2.1",
             method_function_calls="user_method_function_calls_v1" in bundle["consumer_contract"]["required_capabilities"],
+            mixed_callables="mixed_user_callable_families_v1" in bundle["consumer_contract"]["required_capabilities"],
             function_overloads="user_function_overloads_v1" in bundle["consumer_contract"]["required_capabilities"],
             library_overloads="library_function_overloads_v1" in bundle["consumer_contract"]["required_capabilities"],
         )

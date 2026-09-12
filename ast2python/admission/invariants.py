@@ -360,6 +360,7 @@ def validate_consumer_contract(
     method_receiver_qualifiers: bool = False,
     method_function_calls: bool = False,
     function_overloads: bool = False,
+    mixed_callables: bool = False,
     library_overloads: bool = False,
 ) -> frozenset[str]:
     if not isinstance(value, Mapping):
@@ -417,6 +418,8 @@ def validate_consumer_contract(
         required = required | {METHOD_RECEIVER_CAPABILITY}
     if method_function_calls:
         required = required | {"user_method_function_calls_v1"}
+    if mixed_callables:
+        required = required | {"mixed_user_callable_families_v1"}
     if function_overloads:
         required = required | {"user_function_overloads_v1"}
     if library_overloads:

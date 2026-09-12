@@ -67,7 +67,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
     required_operations: set[str] = set()
     # This feature certifies producer/compiler admission only. It remains sealed
     # in the admitted bundle and must not become a runtime Session requirement.
-    required_capabilities = set(bundle.required_capabilities) - {METHOD_RECEIVER_CAPABILITY, "library_method_projection_v1", "user_method_function_calls_v1", "user_function_overloads_v1", "library_function_overloads_v1"}
+    required_capabilities = set(bundle.required_capabilities) - {METHOD_RECEIVER_CAPABILITY, "library_method_projection_v1", "user_method_function_calls_v1", "user_function_overloads_v1", "library_function_overloads_v1", "mixed_user_callable_families_v1"}
     udt_names = {
         bundle.ast.node(key).fields["name"]
         for key in bundle.ast.ordered_node_ids
