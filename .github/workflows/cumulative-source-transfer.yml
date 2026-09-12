@@ -1,0 +1,45 @@
+name: Preserve exact cumulative compiler source
+'on':
+  push:
+    branches: ['ops/cumulative-source-transfer-20260912']
+permissions:
+  contents: write
+jobs:
+  publish-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: s7cret/pinelib
+          ref: 174e34f12821ade3ca187cf8e358a188324aef5a
+          path: transfer-helper
+          sparse-checkout: .github/stage2-transfer/restore.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - run: cp transfer-helper/.github/stage2-transfer/restore.py "$RUNNER_TEMP/restore.py"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate transfer helper and repair one transcription byte
+        run: |
+          python - <<'PY'
+          import hashlib, os, pathlib
+          helper=pathlib.Path(os.environ['RUNNER_TEMP'])/'restore.py'
+          assert hashlib.sha256(helper.read_bytes()).hexdigest()=='ea805a8c86eb25230df7c07d4c1dff875bc32019a29daf12abf30b4eeba2c5c5'
+          p=pathlib.Path('.github/stage2-transfer/03.b64')
+          text=p.read_text()
+          assert text.count('Rnie91cqstccZc/kty')==1
+          raw=text.replace('Rnie91cqstccZc/kty','Rnie91cqstcZK/kty').encode()
+          assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()=='1a2ebcf28ae4491588470b510dea337127762d90'
+          p.write_bytes(raw)
+          PY
+      - name: Restore original commits without changing release refs
+        run: python "$RUNNER_TEMP/restore.py"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cumulative-source-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/publication/
+          if-no-files-found: warn
+          retention-days: 30
