@@ -1,0 +1,84 @@
+name: Ast2Python RC6 CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "release/**"
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONHASHSEED: "0"
+  SOURCE_DATE_EPOCH: "1704067200"
+
+jobs:
+  quality:
+    name: RC6 quality (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Check out pinned Pine2AST RC6 dependency
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: s7cret/pine2ast
+          ref: 8042f5769c1618fd033a065bcd181c337818b579
+          path: .ci-deps/pine2ast
+          persist-credentials: false
+      - name: Check out pinned PineLib runtime for execution tests
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: s7cret/pinelib
+          ref: 39e276301efeae7b313935f5ee8b8a042421e2b0
+          path: .ci-deps/pinelib
+          persist-credentials: false
+      - name: Install declared package and development dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install ./.ci-deps/pine2ast ./.ci-deps/pinelib
+          python -m pip install '.[dev]'
+          python -m pip check
+          python -c "import shutil; shutil.rmtree('.ci-deps')"
+      - name: Compile source and tests
+        run: python -m compileall -q ast2python tests
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Black
+        run: python -m black --check .
+      - name: MyPy
+        run: python -m mypy ast2python
+      - name: Tests and branch coverage
+        run: >-
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q -p pytest_cov
+          --cov=ast2python --cov-branch
+      - name: Distribution manifest
+        run: python -m ast2python.distribution manifest --root .
+      - name: Local package contract
+        run: python -m ast2python.release --root .
+      - name: RC6 hardening gates
+        if: matrix.python-version == '3.13'
+        run: >-
+          python tools/run_hardening_gates.py
+          --fuzz-cases 10000
+          --performance-samples 20
+          --output "$RUNNER_TEMP/hardening-gates.json"
