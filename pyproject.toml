@@ -20,7 +20,7 @@ Repository = "https://github.com/s7cret/ast2python"
 Issues = "https://github.com/s7cret/ast2python/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "black>=24", "mypy>=1.10"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "black>=24", "mypy>=1.10", "pinelib==5.0.0rc6"]
 
 [project.scripts]
 ast2python = "ast2python.cli.main:main"
@@ -68,4 +68,5 @@ omit = [
 
 [tool.coverage.report]
 fail_under = 95
+precision = 2
 show_missing = true

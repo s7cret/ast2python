@@ -1,17 +1,24 @@
 """Lower checked nominal types through the single PineLib heap/state owner."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from ast2python.emission.context import EmissionContext
+
 from ast2python.errors import BundleInvariantError
 
 
 class NominalEmissionMixin:
-    def _prepare_nominal_types(self):
+    def _prepare_nominal_types(self: EmissionContext) -> None:
         self.nominal_types = {}
         self.nominal_declarations = {}
-        self.nominal_registry = None
-        self.callable_declarations = {}
-        self.callable_names = {}
-        self.method_receivers = {}
-        self.assignment_results = {}
+        self.nominal_registry: dict[str, Any] | None = None
+        self.callable_declarations: dict[str, str] = {}
+        self.callable_names: dict[str, str] = {}
+        self.method_receivers: dict[str, tuple[str, str]] = {}
+        self.assignment_results: dict[str, str] = {}
         if not self.exact_pinelib:
             return
         for key in self.plan.ordered_ir_ids:
@@ -32,7 +39,7 @@ class NominalEmissionMixin:
             # Resolve fields only after collecting every declaration identity:
             # forward/cyclic fields and unused declarations are part of the
             # same closed source contract, independent of allocated values.
-            rows = []
+            rows: list[dict[str, Any]] = []
             for name, key in self.nominal_declarations.items():
                 identity = self.nominal_types[name]
                 if self._attrs(key)["ast_kind"] == "EnumDeclaration":
@@ -48,18 +55,18 @@ class NominalEmissionMixin:
                         )
                     rows.append({"id": identity, "kind": "enum", "members": members})
                 else:
-                    fields = []
+                    registry_fields = []
                     for field in self._role(key, "fields"):
                         attributes = self._fields(field)
                         dtype = self._type_ref_text(self._role(field, "type_ref")[0])
-                        fields.append(
+                        registry_fields.append(
                             {
                                 "name": attributes["name"],
                                 "type": self._runtime_type(dtype),
                                 "varip": attributes.get("mode") == "varip",
                             }
                         )
-                    rows.append({"id": identity, "kind": "udt", "fields": fields})
+                    rows.append({"id": identity, "kind": "udt", "fields": registry_fields})
             self.nominal_registry = {
                 "schema_id": "pinelib.nominal_registry.v1",
                 "pine_version": self.plan.pine_version,
@@ -67,25 +74,35 @@ class NominalEmissionMixin:
                 "types": sorted(rows, key=lambda row: row["id"]),
             }
 
-    def _varip_nominal_array_supported(self, dtype):
+    def _varip_nominal_array_supported(self: EmissionContext, dtype: str) -> bool:
         """Match the target's bounded profile against checked declaration rows.
 
         No runtime import or observed constructor values establish eligibility.
         """
-        if (self.plan.pine_version < 5 or not dtype.startswith("array<udt:")
-                or not dtype.endswith(">") or self.nominal_registry is None):
+        if (
+            self.plan.pine_version < 5
+            or not dtype.startswith("array<udt:")
+            or not dtype.endswith(">")
+            or self.nominal_registry is None
+        ):
             return False
         identity = dtype[6:-1]
-        definition = next((row for row in self.nominal_registry["types"] if row["id"] == identity), None)
+        definition = next(
+            (row for row in self.nominal_registry["types"] if row["id"] == identity), None
+        )
         if definition is None or definition["kind"] != "udt":
             return False
         fundamentals = {"int", "float", "bool", "color", "string"}
-        collection_fields = {kind + "<" + typ + ">" for kind in ("array", "matrix") for typ in fundamentals}
-        return all(field["type"] in fundamentals or
-                   (not field["varip"] and field["type"] in collection_fields)
-                   for field in definition["fields"])
+        collection_fields = {
+            kind + "<" + typ + ">" for kind in ("array", "matrix") for typ in fundamentals
+        }
+        return all(
+            field["type"] in fundamentals
+            or (not field["varip"] and field["type"] in collection_fields)
+            for field in definition["fields"]
+        )
 
-    def _runtime_type(self, dtype):
+    def _runtime_type(self: EmissionContext, dtype: str) -> str:
         if dtype in self.nominal_types:
             return self.nominal_types[dtype]
         if "<" not in dtype or not dtype.endswith(">"):
@@ -101,12 +118,12 @@ class NominalEmissionMixin:
         parts.append(self._runtime_type(inner[begin:].strip()))
         return base + "<" + ",".join(parts) + ">"
 
-    def _nominal_member(self, key):
+    def _nominal_member(self: EmissionContext, key: str) -> str | None:
         owner = self._role(key, "object")
         if len(owner) != 1:
             return None
         member = self._fields(key).get("member")
-        owner_name = self._fields(owner[0]).get("name")
+        owner_name = cast(str, self._fields(owner[0]).get("name"))
         declaration = self.nominal_declarations.get(owner_name)
         if declaration and self._attrs(declaration)["ast_kind"] == "EnumDeclaration":
             members = self._role(declaration, "members")
@@ -120,7 +137,9 @@ class NominalEmissionMixin:
             return f"self.runtime.get_udt_field_v1({self._expr(owner[0])}, {member!r})"
         return None
 
-    def _nominal_call(self, key, call, rendered):
+    def _nominal_call(
+        self: EmissionContext, key: str, call: dict[str, Any], rendered: dict[str, str]
+    ) -> str:
         symbol = str(call["symbol_id"])
         declarations = [
             declaration
@@ -173,7 +192,7 @@ class NominalEmissionMixin:
             f"field_types={field_types!r}, varip_fields={tuple(varip_fields)!r})"
         )
 
-    def _nominal_assignment(self, key, target, value):
+    def _nominal_assignment(self: EmissionContext, key: str, target: str, value: str) -> bool:
         if self._attrs(target).get("ast_kind") != "MemberAccessExpr":
             return False
         owner = self._role(target, "object")
@@ -204,7 +223,7 @@ class NominalEmissionMixin:
         self.assignment_results[key] = f"self.runtime.get_udt_field_v1({receiver}, {field!r})"
         return True
 
-    def _assignment_value(self, key):
+    def _assignment_value(self: EmissionContext, key: str) -> str:
         if key in self.assignment_results:
             return self.assignment_results[key]
         return self._expr(self._role(key, "target")[0])
