@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -35,16 +38,38 @@ def test_performance_gate_rejects_zero_samples() -> None:
 
 
 def test_enforced_hardening_tool_runs_real_vectors(tmp_path: Path) -> None:
-    from tools.run_hardening_gates import run_hardening_gates
-
+    # Measure real hardening in its CLI process, not inside pytest's coverage tracer.
+    # Retain every vector, sample, threshold and output-consistency assertion.
     output = tmp_path / "hardening.json"
-    report = run_hardening_gates(
-        manifest_path=MANIFEST,
-        output_path=output,
-        fuzz_cases=90,
-        performance_samples=2,
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("COV_CORE_", "COVERAGE_"))
+    }
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tools.run_hardening_gates",
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(output),
+            "--fuzz-cases",
+            "90",
+            "--performance-samples",
+            "2",
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
     )
-    assert report["ok"] is True
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    report = json.loads(completed.stdout)
+    assert report["ok"] is True, report
     assert report["fuzz"]["requested_cases"] == 90
     assert report["fuzz"]["executed_cases"] == 90
     assert report["fuzz"]["shape_counts"]
