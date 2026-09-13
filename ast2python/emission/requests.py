@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import hashlib
+from typing import TYPE_CHECKING, NoReturn, cast
+
+if TYPE_CHECKING:
+    from ast2python.emission.context import EmissionContext
+    from ast2python.emission.metadata import ScriptMetadata
 
 from ast2python.errors import BundleInvariantError
 
 
 class RequestEmissionMixin:
-    def _prepare_requests(self):
+    def _prepare_requests(self: EmissionContext) -> None:
         self.request_methods = {}
+        # Only called for the exact target after ScriptMetadata construction.
+        metadata = cast("ScriptMetadata", self.metadata)
         declarations = {}
         mutated = set()
         for key in self.plan.ordered_ir_ids:
@@ -31,20 +38,26 @@ class RequestEmissionMixin:
             )
             if binding is None or binding.state_model != "COMPILED_REQUEST_EXPRESSION":
                 continue
-            args = self.metadata.argument_nodes(key)
+            args = metadata.argument_nodes(key)
             expression = args.get("expression")
             if expression is None:
                 self._request_error(key, "request requires an expression")
-            enabled = self.metadata.declaration.get("arguments", {}).get(
+            enabled = metadata.declaration.get("arguments", {}).get(
                 "dynamic_requests", self.plan.pine_version >= 6
             )
             if type(enabled) is not bool:
                 self._request_error(key, "dynamic_requests must be a compile-time bool")
-            dependencies, visiting, visited = [], set(), set()
+            dependencies: list[str] = []
+            visiting: set[str] = set()
+            visited: set[str] = set()
 
             def visit(
-                node, dependencies=dependencies, visiting=visiting, visited=visited, enabled=enabled
-            ):
+                node: str,
+                dependencies: list[str] = dependencies,
+                visiting: set[str] = visiting,
+                visited: set[str] = visited,
+                enabled: bool = enabled,
+            ) -> None:
                 attrs, fields = self._attrs(node), self._fields(node)
                 symbol = str(attrs.get("symbol_id") or "")
                 if symbol.startswith(("pine:variable:strategy.", "pine:variable:barstate.")):
@@ -69,7 +82,7 @@ class RequestEmissionMixin:
                             node, "nested request expressions require dynamic_requests"
                         )
                 if attrs.get("ast_kind") == "Identifier":
-                    name = fields.get("name")
+                    name = cast(str, fields.get("name"))
                     local = self._lookup_local(
                         str(attrs.get("scope_id") or "scope:global"), str(name)
                     )
@@ -103,8 +116,8 @@ class RequestEmissionMixin:
             visit(expression)
             shape = self._request_shape(expression)
             dynamic = any(
-                self._node(args[name]).result_type is not None
-                and self._node(args[name]).result_type.qualifier == "series"
+                (context_type := self._node(args[name]).result_type) is not None
+                and context_type.qualifier == "series"
                 for name in ("symbol", "timeframe", "resolution")
                 if name in args
             )
@@ -128,14 +141,14 @@ class RequestEmissionMixin:
                 identity,
             )
 
-    def _request_error(self, key, message):
+    def _request_error(self: EmissionContext, key: str, message: str) -> NoReturn:
         raise BundleInvariantError(
             "A2P_REQUEST_EXPRESSION",
             message,
             details={"ir_id": key, "source_node_id": self._node(key).source.node_id},
         )
 
-    def _request_shape(self, key):
+    def _request_shape(self: EmissionContext, key: str) -> str:
         if self._attrs(key).get("ast_kind") == "TupleExpr":
             parts = [self._request_shape(child) for child in self._role(key, "elements")]
             if any("tuple_of" in item for item in parts):
@@ -146,11 +159,11 @@ class RequestEmissionMixin:
             self._request_error(key, "request result needs an exact scalar or scalar-tuple type")
         return f"_PineLibResultShape.scalar({typ.base!r})"
 
-    def _request_expression_argument(self, key):
+    def _request_expression_argument(self: EmissionContext, key: str) -> str:
         method, _, _, shape, dynamic, identity = self.request_methods[key]
         return f"_PineLibRequestExpression(self.runtime, type(self), {method!r}, {identity!r}, {shape}, {dynamic!r})"
 
-    def _emit_request_methods(self):
+    def _emit_request_methods(self: EmissionContext) -> None:
         for method, expression, dependencies, _, _, _ in self.request_methods.values():
             self.writer.line(f"def {method}(self):")
             self.writer.indent()

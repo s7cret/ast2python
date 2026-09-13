@@ -88,7 +88,9 @@ def audit_pinelib_call_binding(
             continue
         mapped.add(name)
         if kind == "SOURCE_PARAMETER":
-            if (isinstance(source, str) and source in variadic_names) or abi[name].kind == Parameter.VAR_POSITIONAL:
+            if (isinstance(source, str) and source in variadic_names) or abi[
+                name
+            ].kind == Parameter.VAR_POSITIONAL:
                 reasons.add("A2P_PINELIB_VARIADIC_BINDING")
                 continue
             if isinstance(source, str) and source in names:
@@ -98,10 +100,13 @@ def audit_pinelib_call_binding(
             # Required ABI parameters are checked below; optional defaults work.
         elif kind == "SOURCE_VARIADIC":
             if (
-                not isinstance(source, str) or source not in variadic_names
+                not isinstance(source, str)
+                or source not in variadic_names
                 or abi[name].kind != Parameter.VAR_POSITIONAL
-                or any(p.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
-                       for p in abi.values())
+                or any(
+                    p.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
+                    for p in abi.values()
+                )
             ):
                 reasons.add("A2P_PINELIB_VARIADIC_BINDING")
             else:
