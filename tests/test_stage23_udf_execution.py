@@ -4,6 +4,7 @@ import json
 
 import pytest
 from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
+from pinelib.errors import PineRuntimeError
 from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
 
@@ -94,7 +95,7 @@ def test_udf_failure_unwinds_call_path_and_abort_rolls_back_local_state():
 
     frame, bars = _frame(0, 1)
     tx = runtime.begin(frame, values=bars)
-    with pytest.raises(ZeroDivisionError):
+    with pytest.raises(PineRuntimeError, match="division by zero"):
         cls(tx).run()
     assert tx._function_path == ()
     tx.abort()
