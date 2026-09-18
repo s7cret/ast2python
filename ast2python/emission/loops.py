@@ -76,18 +76,28 @@ class LoopEmissionMixin:
             elif dtype.startswith(("map<", "matrix<")):
                 self._require_language_contract("compiler.collection_iteration.v1")
                 if self.plan.pine_version < 5:
-                    raise BundleInvariantError("A2P_FOR_IN_VERSION", "map/matrix iteration requires v5/v6")
+                    raise BundleInvariantError(
+                        "A2P_FOR_IN_VERSION", "map/matrix iteration requires v5/v6"
+                    )
                 if dtype.startswith("map<"):
                     if len(names) != 2:
-                        raise BundleInvariantError("A2P_FOR_IN_ARITY", "map iteration requires key/value targets")
+                        raise BundleInvariantError(
+                            "A2P_FOR_IN_ARITY", "map iteration requires key/value targets"
+                        )
                     iterator = self._safe("iterator", "map_pairs", key)
-                    self.writer.line(f"with self.runtime.iter_map_v1({iterable}) as {iterator}:", ir_ids=(key,), origin="PINE")
+                    self.writer.line(
+                        f"with self.runtime.iter_map_v1({iterable}) as {iterator}:",
+                        ir_ids=(key,),
+                        origin="PINE",
+                    )
                     self.writer.indent()
                     guarded = True
                 else:
                     iterator = f"self.runtime.iter_matrix_v1({iterable}, {key!r}, indexed={len(names) == 2!r})"
             else:
-                raise BundleInvariantError("A2P_FOR_IN_TYPE", "compiled iteration requires an exact collection type")
+                raise BundleInvariantError(
+                    "A2P_FOR_IN_TYPE", "compiled iteration requires an exact collection type"
+                )
             self.writer.line(f"for {', '.join(py)} in {iterator}:", ir_ids=(key,), origin="PINE")
         elif kind == "WhileStructure":
             # Evaluate the condition at each iteration, including a condition that

@@ -115,7 +115,8 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         "min_pine_version": 5,
     }
     if (
-        canonical_json_bytes(source.get("compiled_varip_nominal_arrays")) == canonical_json_bytes(nominal_arrays)
+        canonical_json_bytes(source.get("compiled_varip_nominal_arrays"))
+        == canonical_json_bytes(nominal_arrays)
         and canonical_json_bytes(varip) == canonical_json_bytes(varip_contract)
         and {"compiler.nominal_registry.v1", "compiler.varip_reference_bindings.v1"} <= capabilities
     ):

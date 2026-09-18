@@ -664,9 +664,11 @@ class SemanticFactsIndex:
                         path=f"{argument_path}.parameter_index",
                     )
                 parameter_index_value = parameter_index
-                is_variadic = argument.get("binding") == "vararg" and (
-                    parameter_index_value, argument.get("parameter_name")
-                ) in variadic_parameters
+                is_variadic = (
+                    argument.get("binding") == "vararg"
+                    and (parameter_index_value, argument.get("parameter_name"))
+                    in variadic_parameters
+                )
                 if parameter_index_value in seen_parameter_indices and not is_variadic:
                     raise BundleInvariantError(
                         "A2P_CALL_PARAMETER_INDEX_DUPLICATE",
@@ -738,13 +740,15 @@ class SemanticFactsIndex:
                     value_ids = argument_node.child_node_ids
                     resolved = facts[value_ids[0]].resolved_type if len(value_ids) == 1 else None
                     if (
-                        resolved is None or resolved.base != actual_type
+                        resolved is None
+                        or resolved.base != actual_type
                         or resolved.qualifier != actual_qualifier
                         or actual_type in {"any", "unknown"}
                         or not is_assignable_type(expected_type, actual_type)
                     ):
                         raise BundleInvariantError(
-                            "A2P_CALL_VARIADIC_TYPE", "variadic operand differs from its admitted type"
+                            "A2P_CALL_VARIADIC_TYPE",
+                            "variadic operand differs from its admitted type",
                         )
                 if argument.get("max_qualifier") not in {
                     "const",

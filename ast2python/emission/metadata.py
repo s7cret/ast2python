@@ -64,7 +64,9 @@ _LEGACY_TYPES = {
 
 
 class ScriptMetadata:
-    def __init__(self, plan: LoweringPlan, declaration_lookup: Callable[[str], str | None] | None = None) -> None:
+    def __init__(
+        self, plan: LoweringPlan, declaration_lookup: Callable[[str], str | None] | None = None
+    ) -> None:
         self.plan = plan
         self.declaration_lookup = declaration_lookup
         self.attrs = {key: thaw_json(node.attributes) for key, node in plan.nodes.items()}
@@ -84,9 +86,7 @@ class ScriptMetadata:
             for ordinal, member in enumerate(self.roles(key).get("members", ())):
                 member_name = self.attrs[member]["fields"]["name"]
                 self.enum_members[(name, member_name)] = {
-                    "$pinelib_enum": {
-                        "enum_id": enum_id, "member": member_name, "ordinal": ordinal
-                    }
+                    "$pinelib_enum": {"enum_id": enum_id, "member": member_name, "ordinal": ordinal}
                 }
         self.aliases = {}
         for key, row in self.attrs.items():
@@ -195,8 +195,11 @@ class ScriptMetadata:
 
     def arguments(self, key: str, *, allow_source: bool = False) -> dict[str, Any]:
         return {
-            name: self.active_value(child) if name == "active" and allow_source
-            else self.constant(child, allow_source=allow_source and name == "defval")
+            name: (
+                self.active_value(child)
+                if name == "active" and allow_source
+                else self.constant(child, allow_source=allow_source and name == "defval")
+            )
             for name, child in self.argument_nodes(key).items()
         }
 
@@ -221,9 +224,7 @@ class ScriptMetadata:
             return {"input_id": f"input:{self.plan.nodes[target].source.node_id}"}
         return None
 
-    def active_value(
-        self, key: str, *, visiting: frozenset[str] = frozenset()
-    ) -> Any:
+    def active_value(self, key: str, *, visiting: frozenset[str] = frozenset()) -> Any:
         if key in visiting:
             self.fail("cyclic active metadata", key)
         reference = self._input_reference(key)
@@ -262,12 +263,25 @@ class ScriptMetadata:
             operator = {"not": "not", "+": "pos", "-": "neg"}.get(fields.get("op"))
             children = roles.get("operand", ())
             if operator is not None and len(children) == 1:
-                return {"op": operator, "arg": self.active_value(children[0], visiting=visiting | {key})}
+                return {
+                    "op": operator,
+                    "arg": self.active_value(children[0], visiting=visiting | {key}),
+                }
         if kind == "BinaryExpr":
             operator = {
-                "and": "and", "or": "or", "==": "eq", "!=": "ne",
-                "<": "lt", "<=": "le", ">": "gt", ">=": "ge",
-                "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
+                "and": "and",
+                "or": "or",
+                "==": "eq",
+                "!=": "ne",
+                "<": "lt",
+                "<=": "le",
+                ">": "gt",
+                ">=": "ge",
+                "+": "add",
+                "-": "sub",
+                "*": "mul",
+                "/": "div",
+                "%": "mod",
             }.get(fields.get("op"))
             left, right = roles.get("left", ()), roles.get("right", ())
             if operator is not None and len(left) == len(right) == 1:

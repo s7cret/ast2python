@@ -119,7 +119,9 @@ class _Writer:
         return "\n".join(self.lines) + "\n"
 
 
-class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMixin, RequestEmissionMixin):
+class _DirectEmitter(
+    LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMixin, RequestEmissionMixin
+):
     def __init__(self, plan: LoweringPlan, target: TargetManifest) -> None:
         self.plan = plan
         self.target = target
@@ -143,7 +145,9 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
         self._prepare_direct_imports()
         from ast2python.emission.metadata import ScriptMetadata
 
-        self.metadata = ScriptMetadata(plan, self._metadata_declaration) if self.exact_pinelib else None
+        self.metadata = (
+            ScriptMetadata(plan, self._metadata_declaration) if self.exact_pinelib else None
+        )
         self._prepare_requests() if self.exact_pinelib else setattr(self, "request_methods", {})
 
     def _metadata_declaration(self, key: str) -> str | None:
@@ -517,7 +521,9 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 from ast2python.lowering.qualifiers import validate_call_qualifiers
 
                 validate_call_qualifiers(
-                    call, binding, node_id=self._node(ir_id).source.node_id,
+                    call,
+                    binding,
+                    node_id=self._node(ir_id).source.node_id,
                     pine_version=self.plan.pine_version,
                 )
             alias = self.direct_call_aliases.get(key)
@@ -578,7 +584,11 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
         if symbol_id.startswith(("user:function:", "user:method:")):
             callee = str(call["callee"])
             declaration = self.callable_declarations.get(symbol_id) if self.exact_pinelib else None
-            function_name = self.callable_names.get(declaration) if self.exact_pinelib else self.functions_by_name.get(callee)
+            function_name = (
+                self.callable_names.get(declaration)
+                if self.exact_pinelib
+                else self.functions_by_name.get(callee)
+            )
             if function_name is None:
                 raise BundleInvariantError(
                     "A2P_EMIT_UDF_BINDING", "user function declaration is missing"
@@ -594,22 +604,30 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                 callee_ir = self._role(ir_id, "callee")[0]
                 receiver = self._role(callee_ir, "object")
                 if declaration not in self.method_receivers:
-                    raise BundleInvariantError("A2P_METHOD_RECEIVER", "method lacks checked receiver")
+                    raise BundleInvariantError(
+                        "A2P_METHOD_RECEIVER", "method lacks checked receiver"
+                    )
                 pyname, declared = self.method_receivers[declaration]
                 if self._attrs(callee_ir).get("ast_kind") == "Identifier":
                     receiver_name = self._fields(declaration)["receiver_name"]
-                    if (receiver_name not in rendered_by_parameter
-                            or self._runtime_type(str(call.get("receiver_type"))) != declared):
+                    if (
+                        receiver_name not in rendered_by_parameter
+                        or self._runtime_type(str(call.get("receiver_type"))) != declared
+                    ):
                         raise BundleInvariantError(
                             "A2P_METHOD_RECEIVER", "explicit method receiver lacks checked binding"
                         )
                     parameter_names[receiver_name] = pyname
                 else:
                     if len(receiver) != 1:
-                        raise BundleInvariantError("A2P_METHOD_RECEIVER", "method lacks checked receiver")
+                        raise BundleInvariantError(
+                            "A2P_METHOD_RECEIVER", "method lacks checked receiver"
+                        )
                     actual = self._node(receiver[0]).result_type
                     if actual is None or self._runtime_type(actual.base) != declared:
-                        raise BundleInvariantError("A2P_METHOD_RECEIVER", "method receiver type differs from declaration")
+                        raise BundleInvariantError(
+                            "A2P_METHOD_RECEIVER", "method receiver type differs from declaration"
+                        )
                     arguments.append(f"{pyname!r}: {self._expr(receiver[0])}")
             for parameter in self._role(declaration, "parameters"):
                 pname = self._fields(parameter)["name"]
@@ -640,7 +658,9 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
             from ast2python.lowering.qualifiers import validate_call_qualifiers
 
             validate_call_qualifiers(
-                call, binding, node_id=self._node(ir_id).source.node_id,
+                call,
+                binding,
+                node_id=self._node(ir_id).source.node_id,
                 pine_version=self.plan.pine_version,
             )
         if binding.disposition == "TARGET_DELEGATED":
@@ -711,12 +731,19 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                     for name in sorted(set(rendered_by_parameter) | set(variadic_by_parameter))
                 ]
                 findings = audit_pinelib_call_binding(
-                    binding, source_parameters, pine_version=self.plan.pine_version,
-                    expression_type=self._node(ir_id).result_type.base if self._node(ir_id).result_type else None,
+                    binding,
+                    source_parameters,
+                    pine_version=self.plan.pine_version,
+                    expression_type=(
+                        self._node(ir_id).result_type.base
+                        if self._node(ir_id).result_type
+                        else None
+                    ),
                 )
                 if findings:
                     raise BundleInvariantError(
-                        "A2P_PINELIB_VARIADIC_BINDING", "variadic ABI mapping is incomplete",
+                        "A2P_PINELIB_VARIADIC_BINDING",
+                        "variadic ABI mapping is incomplete",
                         details={"findings": list(findings)},
                     )
             consumed: set[str] = set()
@@ -729,7 +756,8 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                     values = variadic_by_parameter.get(source_name)
                     if values is None or variadic_arguments:
                         raise BundleInvariantError(
-                            "A2P_PINELIB_VARIADIC_BINDING", "exact positional variadic group is required"
+                            "A2P_PINELIB_VARIADIC_BINDING",
+                            "exact positional variadic group is required",
                         )
                     variadic_arguments.append("*[" + ", ".join(values) + "]")
                     consumed.add(source_name)
@@ -807,12 +835,24 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
                     injected = repr(binding.return_type)
                 elif source == "SEMANTIC_EXPRESSION_TYPE":
                     result_type = self._node(ir_id).result_type
-                    if result_type is None or result_type.base not in {"int", "float", "color", "bool"}:
-                        raise BundleInvariantError("A2P_PINELIB_EXPRESSION_TYPE", "typed scalar builtin lacks admitted result type")
+                    if result_type is None or result_type.base not in {
+                        "int",
+                        "float",
+                        "color",
+                        "bool",
+                    }:
+                        raise BundleInvariantError(
+                            "A2P_PINELIB_EXPRESSION_TYPE",
+                            "typed scalar builtin lacks admitted result type",
+                        )
                     injected = repr(result_type.base)
                 elif source == "SEMANTIC_TYPE_DESCRIPTOR":
                     result_type = self._node(ir_id).result_type
-                    pine_type = self._runtime_type(result_type.base) if result_type is not None else "unknown"
+                    pine_type = (
+                        self._runtime_type(result_type.base)
+                        if result_type is not None
+                        else "unknown"
+                    )
                     if "<" not in pine_type or not pine_type.endswith(">"):
                         raise BundleInvariantError(
                             "A2P_PINELIB_TYPE_DESCRIPTOR",
@@ -1081,11 +1121,19 @@ class _DirectEmitter(LoopEmissionMixin, LanguageEmissionMixin, NominalEmissionMi
             ):
                 self._require_language_contract("compiler.varip_reference_bindings.v1")
                 parts = dtype.split("<", 1)[1][:-1].split(",")
-                if (self.plan.pine_version < 5
+                if (
+                    self.plan.pine_version < 5
                     or len(parts) != (2 if dtype.startswith("map<") else 1)
-                    or any(part.strip() not in {"int", "float", "bool", "color", "string"} for part in parts)):
+                    or any(
+                        part.strip() not in {"int", "float", "bool", "color", "string"}
+                        for part in parts
+                    )
+                ):
                     if not self._varip_nominal_array_supported(dtype):
-                        raise BundleInvariantError("A2P_VARIP_REFERENCE_TYPE", "varip collection type is outside the admitted target profile")
+                        raise BundleInvariantError(
+                            "A2P_VARIP_REFERENCE_TYPE",
+                            "varip collection type is outside the admitted target profile",
+                        )
                     self._require_language_contract("compiler.varip_nominal_arrays.v1")
             if self.exact_pinelib and mode in {"var", "varip"} and series_id is None:
                 raise BundleInvariantError(

@@ -63,9 +63,7 @@ class LanguageEmissionMixin:
                             ("scope:loop:" + self._node(key).source.node_id, variable)
                         ] = self._safe(variable, "loop", key)
             elif kind in {"FunctionDeclaration", "MethodDeclaration"} and isinstance(name, str):
-                pyname = self._safe(
-                    name, "udf", self._node(key).source.node_id
-                )
+                pyname = self._safe(name, "udf", self._node(key).source.node_id)
                 self.functions_by_name[name] = pyname
                 self.function_ir_ids.add(key)
                 self.function_declarations[name] = key
@@ -73,9 +71,13 @@ class LanguageEmissionMixin:
                 self.callable_declarations[attrs.get("symbol_id")] = key
                 if kind == "MethodDeclaration":
                     receiver_name = fields["receiver_name"]
-                    receiver_type = self._runtime_type(self._type_ref_text(self._role(key, "receiver_type")[0]))
+                    receiver_type = self._runtime_type(
+                        self._type_ref_text(self._role(key, "receiver_type")[0])
+                    )
                     receiver_scope = "scope:method:" + self._node(key).source.node_id
-                    receiver_py = self._safe(receiver_name, "receiver", self._node(key).source.node_id)
+                    receiver_py = self._safe(
+                        receiver_name, "receiver", self._node(key).source.node_id
+                    )
                     self.local_names[(receiver_scope, receiver_name)] = receiver_py
                     self.declarations_by_py[receiver_py] = (receiver_scope, key)
                     sid = "local-series:" + self._node(key).source.node_id + ":receiver"
@@ -102,11 +104,14 @@ class LanguageEmissionMixin:
     @staticmethod
     def _stored_type(dtype):
         return dtype in SCALARS or (
-            isinstance(dtype, str) and dtype.startswith(("array<", "map<", "matrix<", "udt:", "enum:"))
+            isinstance(dtype, str)
+            and dtype.startswith(("array<", "map<", "matrix<", "udt:", "enum:"))
         )
 
     def _binding_helper(self, dtype, operation):
-        kind = "enum" if dtype.startswith("enum:") else "scalar" if dtype in SCALARS else "reference"
+        kind = (
+            "enum" if dtype.startswith("enum:") else "scalar" if dtype in SCALARS else "reference"
+        )
         if kind == "enum" or dtype.startswith("udt:"):
             self._require_language_contract("compiler.nominal_types.v1")
         if kind == "reference":
@@ -216,9 +221,7 @@ class LanguageEmissionMixin:
         return (
             "False"
             if self.plan.pine_version >= 6 and is_bool
-            else "_PineLibNA"
-            if self.exact_pinelib
-            else "None"
+            else "_PineLibNA" if self.exact_pinelib else "None"
         )
 
     def _value_block(self, key):
