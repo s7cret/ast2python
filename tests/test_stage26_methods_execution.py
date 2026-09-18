@@ -90,7 +90,7 @@ def test_stage26_exported_library_methods_do_not_mix_receivers(version):
     [
         "f(int x)=>x\nplot(1.f())",
         "method choose(int self, int n)=>n\nmethod choose(int self, int other)=>other\nplot(1.choose(2))",
-        "method read(array<int> self)=>array.get(self,0)\nplot(array.new<string>(1,\"x\").read())",
+        'method read(array<int> self)=>array.get(self,0)\nplot(array.new<string>(1,"x").read())',
         "method score(A self)=>1\nplot(score())",
     ],
 )

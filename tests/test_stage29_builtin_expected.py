@@ -42,7 +42,7 @@ def test_stage29_abs_sqrt_pow_are_elementary(version):
     out = _trace(body, version, closes=(1, 2, 4))
     expected = []
     for close in (1, 2, 4):
-        expected.extend([abs(-close), math.sqrt(close * close), 2 ** close])
+        expected.extend([abs(-close), math.sqrt(close * close), 2**close])
     assert out == expected
 
 
@@ -63,11 +63,7 @@ def test_stage29_history_missing_is_na(version):
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_stage29_int_float_string_conversions(version):
-    body = (
-        "plot(int(3.9))\nplot(int(-3.9))\n"
-        "plot(float(2)==2.0)\n"
-        'plot(str.length("ab"))'
-    )
+    body = 'plot(int(3.9))\nplot(int(-3.9))\nplot(float(2)==2.0)\nplot(str.length("ab"))'
     out = _trace(body, version, closes=(1,))
     # int() truncates toward zero; str.length is the documented character count.
     assert out == [3, -3, True, 2]
@@ -90,14 +86,17 @@ def test_stage29_array_and_map_sizes(version):
     assert out == [3, 7, 9, 2]
 
 
-@pytest.mark.parametrize("body,expected", [
-    ("plot(nz(close[1], -1))", [-1.0,1.0,2.0]),
-    ("plot(color.r(color.red))", [242.0,242.0,242.0]),
-    ('plot(str.contains("abc","b"))', [True,True,True]),
-])
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ("plot(nz(close[1], -1))", [-1.0, 1.0, 2.0]),
+        ("plot(color.r(color.red))", [242.0, 242.0, 242.0]),
+        ('plot(str.contains("abc","b"))', [True, True, True]),
+    ],
+)
 def test_stage29_repaired_builtins_have_independent_expected(body, expected):
     # Replaces the old unsupported assumption, not the numerical oracle.
-    assert _trace(body,6)==expected
+    assert _trace(body, 6) == expected
 
 
 @pytest.mark.parametrize("version", [5, 6])

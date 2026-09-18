@@ -88,15 +88,14 @@ def test_exact_normalization_retains_all_declared_qualifiers(target):
     for binding in target.call_bindings.values():
         candidates = []
         for raw_row in supported:
-            if (
-                binding.symbol_id
-                not in set(raw_row.get("source_symbol_ids", [])) | {raw_row["symbol_id"]}
-                or set(binding.supported_pine_versions)
-                != set(raw_row["version_availability"])
-            ):
+            if binding.symbol_id not in set(raw_row.get("source_symbol_ids", [])) | {
+                raw_row["symbol_id"]
+            } or set(binding.supported_pine_versions) != set(raw_row["version_availability"]):
                 continue
             signature = raw_row.get("producer_signatures", {}).get(binding.overload_id)
-            parameters = signature.get("parameters", []) if signature is not None else raw_row["parameters"]
+            parameters = (
+                signature.get("parameters", []) if signature is not None else raw_row["parameters"]
+            )
             if binding.parameters == tuple(parameter["name"] for parameter in parameters):
                 candidates.append(parameters)
         assert candidates, binding.key

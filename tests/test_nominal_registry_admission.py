@@ -264,7 +264,7 @@ def test_present_malformed_literal_cannot_be_treated_as_missing_legacy_metadata(
 
 def test_undeclared_field_type_is_rejected_by_runtime_owner(compiled):
     payload = payload_for(compiled)
-    payload["types"][1]["fields"][0]["type"] = f'enum:{payload["source_hash"]}:Missing:unused'
+    payload["types"][1]["fields"][0]["type"] = f"enum:{payload['source_hash']}:Missing:unused"
     namespace, envelope, _ = sealed_fixture(compiled, payload=payload, capabilities=(REGISTRY,))
     with pytest.raises(PineRuntimeError, match="undeclared type"):
         admitted_nominal_registry(namespace, envelope, admit_registry=NominalTypeRegistry.from_json)

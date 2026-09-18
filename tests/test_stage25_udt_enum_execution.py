@@ -69,7 +69,10 @@ def test_stage25_enum_switch_udt_field_and_versioned_missing_history(version):
     )
     out = trace(body, version)
     assert out[::2] == [1, 2, 2]
-    assert out[1] is False if version == 6 else out[1] != True
+    if version == 6:
+        assert out[1] is False
+    else:
+        assert out[1] is not True
 
 
 @pytest.mark.parametrize("version", [5, 6])

@@ -6,9 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
-import ast2python
-from ast2python.lowering import load_pinelib_target_manifest
 from pine2ast.hardening.language_publication import (
     LanguagePublicationError,
     load_language_publication,
@@ -16,7 +13,12 @@ from pine2ast.hardening.language_publication import (
     verify_language_publication,
 )
 
-LOCAL_LOCK = Path(__file__).resolve().parents[1] / "ast2python/admission/stage2_10_language_publication.json"
+import ast2python
+from ast2python.lowering import load_pinelib_target_manifest
+
+LOCAL_LOCK = (
+    Path(__file__).resolve().parents[1] / "ast2python/admission/stage2_10_language_publication.json"
+)
 
 
 def test_stage210_compiler_lock_files_are_identical():

@@ -3,7 +3,6 @@
 import json
 
 import pytest
-
 from pinelib import CallbackFrame, RuntimeLanguageContext, RuntimeSession, is_na
 from pinelib.runtime.metadata import BarValues
 from pinelib.state.checkpoint import from_portable
@@ -29,14 +28,7 @@ def test_defaults_are_evaluated_inside_callee_lexical_scope(version):
 
 @pytest.mark.parametrize("version", [4, 5, 6])
 def test_default_uses_definition_global_not_caller_shadow(version):
-    body = (
-        "int BASE=2\n"
-        "inner(int x=BASE)=>x\n"
-        "outer()=>\n"
-        "    int BASE=9\n"
-        "    inner()\n"
-        "plot(outer())"
-    )
+    body = "int BASE=2\ninner(int x=BASE)=>x\nouter()=>\n    int BASE=9\n    inner()\nplot(outer())"
     runtime, _, _ = run_source(source(body, version), closes=[1, 2])
     assert values(runtime) == [2, 2]
 
@@ -93,14 +85,7 @@ def _frame(seq: int, close: float):
 
 def test_udf_failure_unwinds_call_path_and_abort_rolls_back_local_state():
     compiled = compile_source(
-        source(
-            "f(float x)=>\n"
-            "    var int n=0\n"
-            "    n+=1\n"
-            "    z=1/x\n"
-            "    n\n"
-            "plot(f(close-1))"
-        )
+        source("f(float x)=>\n    var int n=0\n    n+=1\n    z=1/x\n    n\nplot(f(close-1))")
     )
     ns = {}
     exec(compiled.emitted.code, ns)
@@ -109,7 +94,7 @@ def test_udf_failure_unwinds_call_path_and_abort_rolls_back_local_state():
 
     frame, bars = _frame(0, 1)
     tx = runtime.begin(frame, values=bars)
-    with pytest.raises(Exception):
+    with pytest.raises(ZeroDivisionError):
         cls(tx).run()
     assert tx._function_path == ()
     tx.abort()
@@ -131,6 +116,7 @@ def test_udf_failure_unwinds_call_path_and_abort_rolls_back_local_state():
     assert runtime.checkpoint().to_dict() == restored.checkpoint().to_dict()
     assert values(runtime)[-1] == 2
 
+
 @pytest.mark.parametrize(
     "mode,expected_ticks",
     [
@@ -140,10 +126,7 @@ def test_udf_failure_unwinds_call_path_and_abort_rolls_back_local_state():
 )
 def test_udf_local_var_and_varip_have_distinct_realtime_lifetimes(mode, expected_ticks):
     compiled = compile_source(
-        source(
-            f"f(int step)=>\n    {mode} int n=0\n    n+=step\n    n\n"
-            "plot(f(1))\nplot(f(10))"
-        )
+        source(f"f(int step)=>\n    {mode} int n=0\n    n+=step\n    n\nplot(f(1))\nplot(f(10))")
     )
     ns = {}
     exec(compiled.emitted.code, ns)

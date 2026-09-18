@@ -42,7 +42,11 @@ def test_stage28_imported_function_udt_enum_and_method_execute(version):
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_stage28_transitive_source_change_invalidates_artifact(version):
-    base = {"u/Types/1": library("export type Box\n    int n=0\nexport make()=>Box.new()", name="Types", version=version)}
+    base = {
+        "u/Types/1": library(
+            "export type Box\n    int n=0\nexport make()=>Box.new()", name="Types", version=version
+        )
+    }
     forwarding = library("import u/Types/1 as types\nexport get()=>types.make()", version=version)
     src = script("p=lib.get()\nplot(p.n)", version=version)
     first, first_link = compile_linked(src, {**base, "user/Lib/1": forwarding})
@@ -55,7 +59,10 @@ def test_stage28_transitive_source_change_invalidates_artifact(version):
     runtime, cls = runtime_for(changed)
     assert advance(runtime, cls, [1]) == [7]
     assert first.emitted.code_hash != changed.emitted.code_hash
-    assert first.artifact.payload["build_determinism_identity"] != changed.artifact.payload["build_determinism_identity"]
+    assert (
+        first.artifact.payload["build_determinism_identity"]
+        != changed.artifact.payload["build_determinism_identity"]
+    )
     assert first_link.dependency_hashes != changed_link.dependency_hashes
 
 

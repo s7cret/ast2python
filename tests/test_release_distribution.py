@@ -137,8 +137,7 @@ def test_release_report_rejects_rc5_compatibility_module(tmp_path: Path) -> None
     report = build_release_report(root)
 
     assert any(
-        item.code == "legacy_module_present"
-        and item.path == "ast2python/openpine_compat.py"
+        item.code == "legacy_module_present" and item.path == "ast2python/openpine_compat.py"
         for item in report.findings
     )
 
@@ -152,14 +151,12 @@ def test_release_report_rejects_rc5_environment_and_export_surfaces(tmp_path: Pa
     init_path.write_text(
         init_path.read_text(encoding="utf-8")
         + '\nOPENPINE_RC5_COMPILER_COMPAT = "1"\n'
-        + 'translate_ast = object()\n',
+        + "translate_ast = object()\n",
         encoding="utf-8",
     )
 
     report = build_release_report(root)
-    surfaces = {
-        item.message for item in report.findings if item.code == "legacy_surface_present"
-    }
+    surfaces = {item.message for item in report.findings if item.code == "legacy_surface_present"}
 
     assert "OPENPINE_RC5_COMPILER_COMPAT" in surfaces
     assert "translate_ast" in surfaces

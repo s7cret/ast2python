@@ -9,7 +9,7 @@ from .test_rc6_input_metadata import compile_source, run_source
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_enum_and_text_area_compile_and_execute(version):
-    source = f'''//@version={version}
+    source = f"""//@version={version}
 indicator("enum/text")
 enum Mode
     fast
@@ -17,11 +17,25 @@ enum Mode
 mode=input.enum(Mode.fast,"Mode",options=[Mode.fast,Mode.slow])
 text=input.text_area("a\\nb","Text")
 plot(mode==Mode.slow ? str.length(text) : 0)
-'''
-    runtime, metadata, _ = run_source(source, {"mode": {"$pinelib_enum": {
-        "enum_id": next(row["enum_type"] for row in metadata_placeholder(source).values() if row["kind"] == "enum"),
-        "member": "slow", "ordinal": 1,
-    }}, "text": "abc\ndef"}, [1])
+"""
+    runtime, metadata, _ = run_source(
+        source,
+        {
+            "mode": {
+                "$pinelib_enum": {
+                    "enum_id": next(
+                        row["enum_type"]
+                        for row in metadata_placeholder(source).values()
+                        if row["kind"] == "enum"
+                    ),
+                    "member": "slow",
+                    "ordinal": 1,
+                }
+            },
+            "text": "abc\ndef",
+        },
+        [1],
+    )
     mode = next(spec for spec in runtime.inputs.specs if spec.kind == "enum")
     text = next(spec for spec in runtime.inputs.specs if spec.kind == "text_area")
     assert isinstance(mode.value, PineEnumValue) and mode.value.member == "slow"
@@ -38,7 +52,7 @@ def metadata_placeholder(source):
 
 
 def test_compound_active_expression_is_emitted_from_checked_ir_and_uses_overrides():
-    source = '''//@version=6
+    source = """//@version=6
 indicator("active")
 enum Mode
     fast
@@ -48,7 +62,7 @@ length=input.int(2,"Length")
 mode=input.enum(Mode.fast,"Mode")
 value=input.float(1.5,"Value",active=(enabled and length+1>=5) or mode==Mode.slow)
 plot(value)
-'''
+"""
     metadata = metadata_placeholder(source)
     mode_row = next(row for row in metadata.values() if row["kind"] == "enum")
     slow = {"$pinelib_enum": {"enum_id": mode_row["enum_type"], "member": "slow", "ordinal": 1}}
@@ -65,12 +79,12 @@ plot(value)
 
 
 def test_direct_active_dependency_keeps_compact_legacy_descriptor():
-    source = '''//@version=6
+    source = """//@version=6
 indicator("active")
 enabled=input.bool(true)
 value=input.int(2,active=enabled)
 plot(value)
-'''
+"""
     runtime, metadata, _ = run_source(source, {"enabled": False, "value": 0}, [1])
     rows = list(metadata["inputs"].values())
     assert rows[1]["active"] == {"input_id": rows[0]["input_id"]}
@@ -82,9 +96,9 @@ plot(value)
 @pytest.mark.parametrize(
     "source",
     [
-        '''//@version=6\nindicator("bad")\nenum A\n    x\nenum B\n    x\nm=input.enum(A.x,options=[A.x,B.x])\n''',
-        '''//@version=6\nindicator("bad")\non=input.int(1)\nx=input.int(2,active=on)\n''',
-        '''//@version=6\nindicator("bad")\nx=input.text_area(1)\n''',
+        """//@version=6\nindicator("bad")\nenum A\n    x\nenum B\n    x\nm=input.enum(A.x,options=[A.x,B.x])\n""",
+        """//@version=6\nindicator("bad")\non=input.int(1)\nx=input.int(2,active=on)\n""",
+        """//@version=6\nindicator("bad")\nx=input.text_area(1)\n""",
     ],
 )
 def test_invalid_nominal_or_active_contracts_fail_before_generated_execution(source):

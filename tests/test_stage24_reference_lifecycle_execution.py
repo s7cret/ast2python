@@ -1,7 +1,8 @@
 """Stage 2.4 reference identity through the exact generated execution path."""
-import pytest
 
+import pytest
 from pinelib.state.checkpoint import from_portable
+
 from tests.test_rc6_input_metadata import compile_source, run_source
 
 
@@ -71,8 +72,7 @@ def test_generated_copy_has_independent_outer_identity(version, body, expected):
         "a=array.new<int>(1,int(close))\np=a[1]\nplot(na(p) ? 0 : array.get(p,0))",
         'm=map.new<string,int>()\nmap.put(m,"x",int(close))\np=m[1]\n'
         'plot(na(p) ? 0 : map.get(p,"x"))',
-        "m=matrix.new<int>(1,1,int(close))\np=m[1]\n"
-        "plot(na(p) ? 0 : matrix.get(p,0,0))",
+        "m=matrix.new<int>(1,1,int(close))\np=m[1]\nplot(na(p) ? 0 : matrix.get(p,0,0))",
     ],
 )
 def test_generated_collection_history_is_previous_reference_instance(version, body):
@@ -81,9 +81,8 @@ def test_generated_collection_history_is_previous_reference_instance(version, bo
 
 def test_v4_array_reference_history_stays_fail_closed():
     with pytest.raises(ValueError, match="production-blocking diagnostics"):
-        compile_source(
-            '//@version=4\nstudy("stage24")\na=array.new_int(1,1)\np=a[1]\n'
-        )
+        compile_source('//@version=4\nstudy("stage24")\na=array.new_int(1,1)\np=a[1]\n')
+
 
 @pytest.mark.parametrize(
     "body",

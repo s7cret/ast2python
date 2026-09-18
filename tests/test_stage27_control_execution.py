@@ -51,7 +51,7 @@ def test_stage27_for_in_array_map_and_udt_enum_loop_results(version):
         "type Box\n    int n=0\n"
         "xs=array.new<int>(3, 0)\narray.set(xs,0,1)\narray.set(xs,1,2)\narray.set(xs,2,3)\n"
         "a=for x in xs\n    x\n"
-        "m=map.new<string,int>()\nmap.put(m,\"a\",10)\nmap.put(m,\"b\",20)\n"
+        'm=map.new<string,int>()\nmap.put(m,"a",10)\nmap.put(m,"b",20)\n'
         "k=for [key, val] in m\n    val\n"
         "box=for i=1 to 2\n    Box.new(i)\n"
         "side=for i=1 to 2\n    i==1 ? Side.buy : Side.sell\n"
@@ -66,27 +66,28 @@ def test_stage27_for_in_array_map_and_udt_enum_loop_results(version):
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_stage27_while_scalar_assignments(version):
-    body = (
-        "i=0\n"
-        "a=0\nb=0\n"
-        "while i<2\n    i+=1\n    a:=i\n    b:=i*10\n"
-        "plot(a)\nplot(b)"
-    )
+    body = "i=0\na=0\nb=0\nwhile i<2\n    i+=1\n    a:=i\n    b:=i*10\nplot(a)\nplot(b)"
     out = traces(body, version=version, closes=(1,))
     assert out == [2, 20]
 
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_stage27_while_and_tuple_loop_value(version):
-    assert traces("i=0\n[a,b]=while i<2\n    i+=1\n    [i,i*10]\nplot(a)\nplot(b)",
-                  version=version, closes=(1,)) == [2, 20]
+    assert traces(
+        "i=0\n[a,b]=while i<2\n    i+=1\n    [i,i*10]\nplot(a)\nplot(b)",
+        version=version,
+        closes=(1,),
+    ) == [2, 20]
+
 
 @pytest.mark.parametrize("version", [5, 6])
 def test_stage27_tuple_loop_break_continue_and_empty(version):
-    body = ("i=0\n[a,b]=while i<5\n    i+=1\n    if i==2\n        continue\n"
-            "    if i==4\n        break\n    [i,i*10]\n"
-            "[x,y]=while false\n    [1,2]\nplot(a)\nplot(b)\nplot(na(x))\nplot(na(y))")
-    assert traces(body, version=version, closes=(1,)) == [3,30,True,True]
+    body = (
+        "i=0\n[a,b]=while i<5\n    i+=1\n    if i==2\n        continue\n"
+        "    if i==4\n        break\n    [i,i*10]\n"
+        "[x,y]=while false\n    [1,2]\nplot(a)\nplot(b)\nplot(na(x))\nplot(na(y))"
+    )
+    assert traces(body, version=version, closes=(1,)) == [3, 30, True, True]
 
 
 def test_stage27_once_completes_once_and_survives_later_bars():
@@ -97,17 +98,21 @@ def test_stage27_once_completes_once_and_survives_later_bars():
 def test_stage27_once_unfinal_tick_rolls_back_completion():
     # No historical execution pre-completes the once slot. varip is a witness:
     # a re-execution increments ticks, while ordinary state rolls back.
-    compiled = compile_source(source("varip int ticks=0\nvar int ordinary=0\nonce\n    ticks+=1\n    ordinary+=1\nplot(ticks)\nplot(ordinary)"))
+    compiled = compile_source(
+        source(
+            "varip int ticks=0\nvar int ordinary=0\nonce\n    ticks+=1\n    ordinary+=1\nplot(ticks)\nplot(ordinary)"
+        )
+    )
     runtime, cls = runtime_for(compiled)
-    assert callback(runtime, cls, 0, 0, realtime=True, final=False) == [1,1]
-    assert callback(runtime, cls, 1, 0, realtime=True, final=False) == [2,1]
-    assert callback(runtime, cls, 2, 0, realtime=True, final=True) == [3,1]
+    assert callback(runtime, cls, 0, 0, realtime=True, final=False) == [1, 1]
+    assert callback(runtime, cls, 1, 0, realtime=True, final=False) == [2, 1]
+    assert callback(runtime, cls, 2, 0, realtime=True, final=True) == [3, 1]
     portable = json.loads(json.dumps(runtime.checkpoint().to_dict()))
     restored, _ = runtime_for(compiled)
     restored.restore(portable)
     for session in (runtime, restored):
-        assert callback(session, cls, 3, 1, realtime=True, final=False) == [3,1]
-        assert callback(session, cls, 4, 1, realtime=True, final=True) == [3,1]
+        assert callback(session, cls, 3, 1, realtime=True, final=False) == [3, 1]
+        assert callback(session, cls, 4, 1, realtime=True, final=True) == [3, 1]
     assert runtime.checkpoint().to_dict() == restored.checkpoint().to_dict()
 
 

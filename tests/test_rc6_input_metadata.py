@@ -25,7 +25,9 @@ def compile_source(source):
     )
 
 
-def run_source(source, overrides=None, closes=range(1, 9)):
+def run_source(source, overrides=None, closes=None):
+    if closes is None:
+        closes = range(1, 9)
     result = compile_source(source)
     verify_generated_artifact_v3(result.artifact.payload, emitted=result.emitted, plan=result.plan)
     namespace = {}
@@ -119,14 +121,14 @@ def test_strategy_declaration_is_preserved_and_code_hash_binds_metadata():
 
 
 def test_active_accepts_immutable_condition_derived_from_inputs():
-    src = '''//@version=6
+    src = """//@version=6
 indicator("derived active")
 enabled=input.bool(true)
 period=input.int(2)
 condition=enabled and period%2==0
 length=input.int(10,active=condition)
 plot(length)
-'''
+"""
     result = compile_source(src)
     descriptors = result.emitted.script_metadata["inputs"]
     length = next(row for row in descriptors.values() if row.get("alias") == "length")
