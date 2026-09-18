@@ -4,3 +4,5 @@ recursive-include tests *.py *.json
 recursive-include tools *.py
 recursive-include ast2python/target_data *.json
 include ast2python/py.typed
+
+recursive-include ast2python/admission *.json

@@ -8,8 +8,8 @@ from the producer's checked IR bindings.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, NoReturn, cast
+from collections.abc import Callable, Mapping
+from typing import Any, NoReturn
 
 from ast2python.admission.canonical import thaw_json
 from ast2python.errors import BundleInvariantError
@@ -31,6 +31,8 @@ _INPUT_KINDS = frozenset(
         "session",
         "color",
         "source",
+        "enum",
+        "text_area",
     }
 )
 _INPUT_FIELDS = {
@@ -62,14 +64,30 @@ _LEGACY_TYPES = {
 
 
 class ScriptMetadata:
-    def __init__(self, plan: LoweringPlan) -> None:
+    def __init__(self, plan: LoweringPlan, declaration_lookup: Callable[[str], str | None] | None = None) -> None:
         self.plan = plan
+        self.declaration_lookup = declaration_lookup
         self.attrs = {key: thaw_json(node.attributes) for key, node in plan.nodes.items()}
         self.declarations = {
             row["symbol_id"]: key
             for key, row in self.attrs.items()
             if row["ast_kind"] == "VarDeclaration" and row.get("symbol_id")
         }
+        self.enum_types: dict[str, str] = {}
+        self.enum_members: dict[tuple[str, str], dict[str, object]] = {}
+        for key, row in self.attrs.items():
+            if row["ast_kind"] != "EnumDeclaration":
+                continue
+            name = row["fields"]["name"]
+            enum_id = f"enum:{plan.source_hash}:{name}:{plan.nodes[key].source.node_id}"
+            self.enum_types[name] = enum_id
+            for ordinal, member in enumerate(self.roles(key).get("members", ())):
+                member_name = self.attrs[member]["fields"]["name"]
+                self.enum_members[(name, member_name)] = {
+                    "$pinelib_enum": {
+                        "enum_id": enum_id, "member": member_name, "ordinal": ordinal
+                    }
+                }
         self.aliases = {}
         for key, row in self.attrs.items():
             children = self.roles(key).get("initializer", ())
@@ -124,6 +142,12 @@ class ScriptMetadata:
                 self.fail("input kind is not supported by the admitted input contract", key)
             input_id = f"input:{plan.nodes[key].source.node_id}"
             descriptor: dict[str, Any] = {"input_id": input_id, "kind": kind}
+            if kind == "enum":
+                result_type = self.plan.nodes[key].result_type
+                enum_name = None if result_type is None else result_type.base
+                if enum_name not in self.enum_types:
+                    self.fail("enum input lacks an exact source enum identity", key)
+                descriptor["enum_type"] = self.enum_types[enum_name]
             descriptor.update(
                 {
                     _INPUT_FIELDS[name]: value
@@ -138,7 +162,7 @@ class ScriptMetadata:
             self.input_ids[key] = input_id
 
     def roles(self, key: str) -> Mapping[str, list[str]]:
-        return cast(Mapping[str, list[str]], self.attrs[key].get("child_roles", {}))
+        return self.attrs[key].get("child_roles", {})
 
     def fail(self, message: str, key: str) -> NoReturn:
         raise BundleInvariantError(
@@ -171,9 +195,106 @@ class ScriptMetadata:
 
     def arguments(self, key: str, *, allow_source: bool = False) -> dict[str, Any]:
         return {
-            name: self.constant(child, allow_source=allow_source and name == "defval")
+            name: self.active_value(child) if name == "active" and allow_source
+            else self.constant(child, allow_source=allow_source and name == "defval")
             for name, child in self.argument_nodes(key).items()
         }
+
+    def _input_reference(self, key: str) -> dict[str, str] | None:
+        row = self.attrs[key]
+        declaration = (
+            self.declaration_lookup(key)
+            if self.declaration_lookup is not None
+            else self.declarations.get(row.get("symbol_id"))
+        )
+        if declaration is None:
+            return None
+        children = self.roles(declaration).get("initializer", ())
+        if len(children) != 1:
+            return None
+        target = children[0]
+        symbol = self.attrs[target].get("call", {}).get("symbol_id", "")
+        if symbol == "pine:function:input" or symbol.startswith("pine:function:input."):
+            # Preserve the compact v1 presentation identity for a direct
+            # dependency. Compound expressions embed this same leaf shape and
+            # runtime admission normalizes both legacy and expression forms.
+            return {"input_id": f"input:{self.plan.nodes[target].source.node_id}"}
+        return None
+
+    def active_value(
+        self, key: str, *, visiting: frozenset[str] = frozenset()
+    ) -> Any:
+        if key in visiting:
+            self.fail("cyclic active metadata", key)
+        reference = self._input_reference(key)
+        if reference is not None:
+            return reference
+        row = self.attrs[key]
+        # An input-qualified local can be an immutable expression derived from
+        # other inputs.  Preserve that dependency graph instead of requiring
+        # `active=` to reference only a direct input declaration.
+        if row.get("ast_kind") == "Identifier":
+            declaration = (
+                self.declaration_lookup(key)
+                if self.declaration_lookup is not None
+                else self.declarations.get(row.get("symbol_id"))
+            )
+            if declaration is not None:
+                children = self.roles(declaration).get("initializer", ())
+                if len(children) == 1:
+                    return self.active_value(children[0], visiting=visiting | {key})
+        kind = row["ast_kind"]
+        fields = row.get("fields", {})
+        if kind == "Literal":
+            value = fields["value"]
+            if type(value) not in (bool, int, float, str):
+                self.fail("active literal is not an admitted scalar", key)
+            return {"op": "literal", "value": value}
+        if kind == "MemberAccessExpr":
+            owners = self.roles(key).get("object", ())
+            if len(owners) == 1:
+                owner_name = self.attrs[owners[0]].get("fields", {}).get("name")
+                marker = self.enum_members.get((owner_name, fields.get("member")))
+                if marker is not None:
+                    return {"op": "literal", "value": marker}
+        roles = self.roles(key)
+        if kind == "UnaryExpr":
+            operator = {"not": "not", "+": "pos", "-": "neg"}.get(fields.get("op"))
+            children = roles.get("operand", ())
+            if operator is not None and len(children) == 1:
+                return {"op": operator, "arg": self.active_value(children[0], visiting=visiting | {key})}
+        if kind == "BinaryExpr":
+            operator = {
+                "and": "and", "or": "or", "==": "eq", "!=": "ne",
+                "<": "lt", "<=": "le", ">": "gt", ">=": "ge",
+                "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
+            }.get(fields.get("op"))
+            left, right = roles.get("left", ()), roles.get("right", ())
+            if operator is not None and len(left) == len(right) == 1:
+                return {
+                    "op": operator,
+                    "left": self.active_value(left[0], visiting=visiting | {key}),
+                    "right": self.active_value(right[0], visiting=visiting | {key}),
+                }
+        if kind == "ConditionalExpr":
+            condition = roles.get("condition", ())
+            yes = roles.get("if_true", ())
+            no = roles.get("if_false", ())
+            if len(condition) == len(yes) == len(no) == 1:
+                return {
+                    "op": "if",
+                    "condition": self.active_value(condition[0], visiting=visiting | {key}),
+                    "then": self.active_value(yes[0], visiting=visiting | {key}),
+                    "else": self.active_value(no[0], visiting=visiting | {key}),
+                }
+        # Preserve a compact literal descriptor when the producer proved the
+        # whole expression constant. Other dynamic expressions fail closed.
+        value = row.get("const_value")
+        if type(value) is bool:
+            return bool(value)
+        if type(value) in (int, float, str):
+            return {"op": "literal", "value": value}
+        self.fail("active expression is outside the admitted input-scalar subset", key)
 
     def constant(
         self, key: str, *, allow_source: bool = False, visiting: frozenset[str] = frozenset()
@@ -192,6 +313,13 @@ class ScriptMetadata:
                 self.constant(child, visiting=visiting | {key})
                 for child in self.roles(key).get("elements", ())
             ]
+        if kind == "MemberAccessExpr":
+            owners = self.roles(key).get("object", ())
+            if len(owners) == 1:
+                owner_name = self.attrs[owners[0]].get("fields", {}).get("name")
+                marker = self.enum_members.get((owner_name, fields.get("member")))
+                if marker is not None:
+                    return marker
         symbol = row.get("symbol_id")
         if (
             kind in {"Identifier", "MemberAccessExpr"}

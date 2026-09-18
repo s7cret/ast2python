@@ -462,22 +462,10 @@ def _validate_library_dependencies(value: object) -> None:
     if not value:
         return
     if "@linkage" not in value or not 2 <= len(value) <= 65:
-        raise BundleInvariantError(
-            "A2P_ARTIFACT_EXTERNAL_LIBS", "linked dependencies need a projection hash"
-        )
+        raise BundleInvariantError("A2P_ARTIFACT_EXTERNAL_LIBS", "linked dependencies need a projection hash")
     for ref, sha in value.items():
-        if (
-            not isinstance(ref, str)
-            or len(ref) > 240
-            or (
-                ref != "@linkage"
-                and not re.fullmatch(
-                    r"[A-Za-z_][A-Za-z0-9_]*/[A-Za-z_][A-Za-z0-9_]*/[1-9][0-9]*", ref
-                )
-            )
-            or not isinstance(sha, str)
-            or not re.fullmatch(r"sha256:[0-9a-f]{64}", sha)
-        ):
-            raise BundleInvariantError(
-                "A2P_ARTIFACT_EXTERNAL_LIBS", "malformed pinned dependency identity"
-            )
+        if (not isinstance(ref, str) or len(ref) > 240 or (
+            ref != "@linkage" and not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_]*/[A-Za-z_][A-Za-z0-9_]*/[1-9][0-9]*", ref
+            )) or not isinstance(sha, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", sha)):
+            raise BundleInvariantError("A2P_ARTIFACT_EXTERNAL_LIBS", "malformed pinned dependency identity")

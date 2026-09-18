@@ -505,13 +505,10 @@ class TargetManifest:
             if qualified_target:
                 from ast2python.lowering.qualifiers import validate_parameter_qualifiers
 
-                parameter_qualifiers = MappingProxyType(
-                    validate_parameter_qualifiers(
-                        parameters,
-                        raw["parameter_qualifiers"],
-                        path=f"$.call_bindings[{index}].parameter_qualifiers",
-                    )
-                )
+                parameter_qualifiers = MappingProxyType(validate_parameter_qualifiers(
+                    parameters, raw["parameter_qualifiers"],
+                    path=f"$.call_bindings[{index}].parameter_qualifiers",
+                ))
             binding = TargetCallBinding(
                 symbol_id=raw["symbol_id"],
                 overload_id=raw["overload_id"],

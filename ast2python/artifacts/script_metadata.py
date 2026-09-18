@@ -26,7 +26,6 @@ def admitted_script_metadata(
     version = envelope.get("version_context", {}).get("pine_version")
     if (
         metadata["schema_id"] != "ast2python.script_metadata.v1"
-        or type(metadata["pine_version"]) is not int
         or metadata["pine_version"] != version
         or metadata["source_hash"] != envelope["source_hash"]
     ):

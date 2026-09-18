@@ -245,7 +245,6 @@ class SemanticFactsIndex:
     symbol_references: Mapping[str, tuple[str, ...]]
     overload_references: Mapping[str, tuple[str, ...]]
     semantic_rule_references: Mapping[str, tuple[str, ...]]
-    lexical_binding_ids: bool = False
 
     @classmethod
     def build(
@@ -260,12 +259,7 @@ class SemanticFactsIndex:
             raise BundleInvariantError(
                 "A2P_FACTS_TYPE", "semantic_facts must be an object", path="$.semantic_facts"
             )
-        from ast2python.admission.lexical import admit_lexical_contract
-
-        lexical_binding_ids = admit_lexical_contract(payload)
-        present = set(payload) - (
-            {"capabilities", "symbol_id_contract"} if lexical_binding_ids else set()
-        )
+        present = set(payload)
         extra = present - _FACTS_ENVELOPE_FIELDS
         missing = _FACTS_ENVELOPE_FIELDS - present
         if missing or extra - {"producer"}:
@@ -514,14 +508,14 @@ class SemanticFactsIndex:
             for rule_id in raw_rules:
                 rules[rule_id].append(node_id)
 
-        missing_facts = set(ast_view.nodes) - set(facts)
+        missing = set(ast_view.nodes) - set(facts)
         extra = set(facts) - set(ast_view.nodes)
-        if missing_facts or extra:
+        if missing or extra:
             raise BundleInvariantError(
                 "A2P_FACT_COVERAGE",
                 "semantic facts must have a one-to-one relationship with AST nodes",
                 path="$.semantic_facts.facts",
-                details={"missing": sorted(missing_facts), "extra": sorted(extra)},
+                details={"missing": sorted(missing), "extra": sorted(extra)},
             )
 
         calls: dict[str, ResolvedCallView] = {}
@@ -670,11 +664,9 @@ class SemanticFactsIndex:
                         path=f"{argument_path}.parameter_index",
                     )
                 parameter_index_value = parameter_index
-                is_variadic = (
-                    argument.get("binding") == "vararg"
-                    and (parameter_index_value, argument.get("parameter_name"))
-                    in variadic_parameters
-                )
+                is_variadic = argument.get("binding") == "vararg" and (
+                    parameter_index_value, argument.get("parameter_name")
+                ) in variadic_parameters
                 if parameter_index_value in seen_parameter_indices and not is_variadic:
                     raise BundleInvariantError(
                         "A2P_CALL_PARAMETER_INDEX_DUPLICATE",
@@ -746,15 +738,13 @@ class SemanticFactsIndex:
                     value_ids = argument_node.child_node_ids
                     resolved = facts[value_ids[0]].resolved_type if len(value_ids) == 1 else None
                     if (
-                        resolved is None
-                        or resolved.base != actual_type
+                        resolved is None or resolved.base != actual_type
                         or resolved.qualifier != actual_qualifier
                         or actual_type in {"any", "unknown"}
                         or not is_assignable_type(expected_type, actual_type)
                     ):
                         raise BundleInvariantError(
-                            "A2P_CALL_VARIADIC_TYPE",
-                            "variadic operand differs from its admitted type",
+                            "A2P_CALL_VARIADIC_TYPE", "variadic operand differs from its admitted type"
                         )
                 if argument.get("max_qualifier") not in {
                     "const",
@@ -823,7 +813,6 @@ class SemanticFactsIndex:
             symbol_references=frozen_index(symbols),
             overload_references=frozen_index(overloads),
             semantic_rule_references=frozen_index(rules),
-            lexical_binding_ids=lexical_binding_ids,
         )
 
     def to_summary(self) -> dict[str, Any]:

@@ -116,3 +116,23 @@ def test_strategy_declaration_is_preserved_and_code_hash_binds_metadata():
     assert args["commission_type"] == "strategy.commission.percent"
     other = compile_source(src.replace("value=7", "value=8"))
     assert result.emitted.code_hash != other.emitted.code_hash
+
+
+def test_active_accepts_immutable_condition_derived_from_inputs():
+    src = '''//@version=6
+indicator("derived active")
+enabled=input.bool(true)
+period=input.int(2)
+condition=enabled and period%2==0
+length=input.int(10,active=condition)
+plot(length)
+'''
+    result = compile_source(src)
+    descriptors = result.emitted.script_metadata["inputs"]
+    length = next(row for row in descriptors.values() if row.get("alias") == "length")
+    assert isinstance(length["active"], dict)
+    runtime, _, _ = run_source(src, {"period": 3}, [1])
+    length_id = next(
+        input_id for input_id, row in descriptors.items() if row.get("alias") == "length"
+    )
+    assert runtime.inputs.spec(length_id).active is False

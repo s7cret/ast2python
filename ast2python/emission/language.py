@@ -6,22 +6,17 @@ Language state remains in PineLib's transaction/series/slot machinery.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
-
-if TYPE_CHECKING:
-    from ast2python.emission.context import EmissionContext
-
 from ast2python.errors import BundleInvariantError
 
 SCALARS = {"bool", "color", "float", "int", "string"}
 
 
 class LanguageEmissionMixin:
-    def _prepare_names(self: EmissionContext) -> None:
-        self.current_function: str | None = None
-        self.scope_parents: dict[str, str | None] = {"scope:global": None}
-        self.declarations_by_py: dict[str, tuple[str, str]] = {}
-        self.function_declarations: dict[str, str] = {}
+    def _prepare_names(self):
+        self.current_function = None
+        self.scope_parents = {"scope:global": None}
+        self.declarations_by_py = {}
+        self.function_declarations = {}
         self._prepare_nominal_types()
         if not self.exact_pinelib:
             self._prepare_legacy_names()
@@ -68,31 +63,29 @@ class LanguageEmissionMixin:
                             ("scope:loop:" + self._node(key).source.node_id, variable)
                         ] = self._safe(variable, "loop", key)
             elif kind in {"FunctionDeclaration", "MethodDeclaration"} and isinstance(name, str):
-                pyname = self._safe(name, "udf", self._node(key).source.node_id)
+                pyname = self._safe(
+                    name, "udf", self._node(key).source.node_id
+                )
                 self.functions_by_name[name] = pyname
                 self.function_ir_ids.add(key)
                 self.function_declarations[name] = key
                 self.callable_names[key] = pyname
-                self.callable_declarations[cast(str, attrs.get("symbol_id"))] = key
+                self.callable_declarations[attrs.get("symbol_id")] = key
                 if kind == "MethodDeclaration":
                     receiver_name = fields["receiver_name"]
-                    receiver_type = self._runtime_type(
-                        self._type_ref_text(self._role(key, "receiver_type")[0])
-                    )
+                    receiver_type = self._runtime_type(self._type_ref_text(self._role(key, "receiver_type")[0]))
                     receiver_scope = "scope:method:" + self._node(key).source.node_id
-                    receiver_py = self._safe(
-                        receiver_name, "receiver", self._node(key).source.node_id
-                    )
+                    receiver_py = self._safe(receiver_name, "receiver", self._node(key).source.node_id)
                     self.local_names[(receiver_scope, receiver_name)] = receiver_py
                     self.declarations_by_py[receiver_py] = (receiver_scope, key)
                     sid = "local-series:" + self._node(key).source.node_id + ":receiver"
                     self.scalar_declarations[receiver_py] = (sid, "default", receiver_type)
                     self.method_receivers[key] = (receiver_py, receiver_type)
 
-    def _scope(self: EmissionContext, key: str) -> str:
+    def _scope(self, key):
         return str(self._attrs(key).get("scope_id") or "scope:global")
 
-    def _lookup_local(self: EmissionContext, scope: str | None, name: str) -> str | None:
+    def _lookup_local(self, scope, name):
         if not self.exact_pinelib:
             return self._legacy_lookup(scope, name)
         visited = set()
@@ -107,23 +100,20 @@ class LanguageEmissionMixin:
         return None
 
     @staticmethod
-    def _stored_type(dtype: str) -> bool:
+    def _stored_type(dtype):
         return dtype in SCALARS or (
-            isinstance(dtype, str)
-            and dtype.startswith(("array<", "map<", "matrix<", "udt:", "enum:"))
+            isinstance(dtype, str) and dtype.startswith(("array<", "map<", "matrix<", "udt:", "enum:"))
         )
 
-    def _binding_helper(self: EmissionContext, dtype: str, operation: str) -> str:
-        kind = (
-            "enum" if dtype.startswith("enum:") else "scalar" if dtype in SCALARS else "reference"
-        )
+    def _binding_helper(self, dtype, operation):
+        kind = "enum" if dtype.startswith("enum:") else "scalar" if dtype in SCALARS else "reference"
         if kind == "enum" or dtype.startswith("udt:"):
             self._require_language_contract("compiler.nominal_types.v1")
         if kind == "reference":
             self._require_language_contract("compiler.reference_bindings.v1")
         return f"{operation}_{kind}_v1"
 
-    def _require_language_contract(self: EmissionContext, capability: str) -> None:
+    def _require_language_contract(self, capability):
         if capability not in self.target.capabilities:
             raise BundleInvariantError(
                 "A2P_LANGUAGE_CONTRACT",
@@ -131,14 +121,14 @@ class LanguageEmissionMixin:
                 details={"capability": capability},
             )
 
-    def _type_ref_text(self: EmissionContext, key: str) -> str:
+    def _type_ref_text(self, key):
         name = str(self._fields(key).get("name", "unknown"))
         arguments = self._role(key, "template_args")
         return name + (
             "<" + ",".join(self._type_ref_text(arg) for arg in arguments) + ">" if arguments else ""
         )
 
-    def _declaration_type(self: EmissionContext, key: str) -> str:
+    def _declaration_type(self, key):
         declared = self._role(key, "type_ref")
         if declared:
             return self._runtime_type(self._type_ref_text(declared[0]))
@@ -146,27 +136,25 @@ class LanguageEmissionMixin:
         typ = self._node(initializer[0]).result_type if initializer else None
         return self._runtime_type(typ.base) if typ is not None else "object"
 
-    def _series_argument(self: EmissionContext, sid: str) -> str:
+    def _series_argument(self, sid):
         return (
             f"self.runtime.scoped_id_v1({sid!r}, local=True)"
             if sid.startswith("local-series:")
             else repr(sid)
         )
 
-    def _history_policy(self: EmissionContext, sid: str) -> str:
+    def _history_policy(self, sid):
         return "on_evaluation" if sid.startswith("local-series:") else "each_bar"
 
-    def _series_identity(self: EmissionContext, key: str) -> str | None:
+    def _series_identity(self, key):
         if not self.exact_pinelib:
             return self._legacy_series_identity(key)
         attrs, fields = self._attrs(key), self._fields(key)
         if attrs.get("ast_kind") != "Identifier":
             return None
         name = str(fields.get("name") or "")
-        from ast2python.emission.lexical import identifier_local
-
-        local = identifier_local(self, key)
-        if local is not None and local in self.scalar_declarations:
+        local = self._lookup_local(self._scope(key), name)
+        if local in self.scalar_declarations:
             return self.scalar_declarations[local][0]
         if attrs.get("symbol_id") == "pine:variable:" + name and name in {
             "open",
@@ -182,11 +170,11 @@ class LanguageEmissionMixin:
             return name
         return None
 
-    def _condition(self: EmissionContext, key: str) -> str:
+    def _condition(self, key):
         value = self._expr(key)
         return f"self.runtime.condition_v1({value})" if self.exact_pinelib else f"bool({value})"
 
-    def _default_block_value(self: EmissionContext, key: str) -> str:
+    def _default_block_value(self, key):
         typ = self._node(key).result_type
         if typ is not None:
             if typ.base.startswith("tuple<"):
@@ -199,7 +187,7 @@ class LanguageEmissionMixin:
             # facts. Consult the typed return expressions, not a Python guess.
             ends = []
 
-            def inspect(node: str) -> None:
+            def inspect(node):
                 kind = self._attrs(node).get("ast_kind")
                 if kind == "Block":
                     items = self._role(node, "statements")
@@ -228,16 +216,18 @@ class LanguageEmissionMixin:
         return (
             "False"
             if self.plan.pine_version >= 6 and is_bool
-            else "_PineLibNA" if self.exact_pinelib else "None"
+            else "_PineLibNA"
+            if self.exact_pinelib
+            else "None"
         )
 
-    def _value_block(self: EmissionContext, key: str) -> None:
+    def _value_block(self, key):
         if self._attrs(key).get("ast_kind") == "Block":
             self._emit_block(key, return_last=True)
         else:
             self.writer.line(f"return {self._expr(key)}", ir_ids=self._subtree(key), origin="PINE")
 
-    def _block_expression(self: EmissionContext, key: str) -> str:
+    def _block_expression(self, key):
         name = self._safe("value", "block_value", key)
         self.writer.line(f"def {name}():")
         self.writer.indent()
@@ -276,14 +266,7 @@ class LanguageEmissionMixin:
         self.writer.dedent()
         return f"{name}()"
 
-    def _emit_if_chain(
-        self: EmissionContext,
-        arms: list[tuple[str, str]],
-        otherwise: str | None,
-        *,
-        value: bool,
-        selector: str | None = None,
-    ) -> None:
+    def _emit_if_chain(self, arms, otherwise, *, value, selector=None):
         # Nested else/if preserves lazy condition evaluation even when an
         # expression requires a checked block-value helper declaration.
         if not arms:

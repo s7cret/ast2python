@@ -67,14 +67,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
     required_operations: set[str] = set()
     # This feature certifies producer/compiler admission only. It remains sealed
     # in the admitted bundle and must not become a runtime Session requirement.
-    required_capabilities = set(bundle.required_capabilities) - {
-        METHOD_RECEIVER_CAPABILITY,
-        "library_method_projection_v1",
-        "user_method_function_calls_v1",
-        "user_function_overloads_v1",
-        "library_function_overloads_v1",
-        "mixed_user_callable_families_v1",
-    }
+    required_capabilities = set(bundle.required_capabilities) - {METHOD_RECEIVER_CAPABILITY, "library_method_projection_v1", "user_method_function_calls_v1", "user_function_overloads_v1", "library_function_overloads_v1", "mixed_user_callable_families_v1"}
     udt_names = {
         bundle.ast.node(key).fields["name"]
         for key in bundle.ast.ordered_node_ids
@@ -154,9 +147,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
                 from ast2python.lowering.qualifiers import validate_call_qualifiers
 
                 validate_call_qualifiers(
-                    call.raw,
-                    binding,
-                    node_id=node_id,
+                    call.raw, binding, node_id=node_id,
                     pine_version=bundle.version_context.pine_version,
                 )
         records.append((node, fact, call, recipe))
@@ -194,8 +185,6 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         }
         if call is not None:
             attributes["call"] = thaw_json(call.raw)
-        if node.node_id == bundle.ast.root_node_id and bundle.semantic_facts.lexical_binding_ids:
-            attributes["lexical_binding_ids"] = True
         ir_id = ir_id_by_source[node.node_id]
         child_ids = tuple(ir_id_by_source[child] for child in node.child_node_ids)
         nodes[ir_id] = IRNode(
@@ -219,7 +208,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
                 reason=None,
             )
         )
-    plan = LoweringPlan.create(
+    return LoweringPlan.create(
         bundle_hash=bundle.content_hash,
         source_hash=str(bundle.source["source_hash"]),
         pine_version=bundle.version_context.pine_version,
@@ -233,6 +222,3 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         required_operations=frozenset(required_operations),
         required_capabilities=frozenset(required_capabilities),
     )
-    from ast2python.lowering.history_plan import expand_history_reservations
-
-    return expand_history_reservations(plan, target)
