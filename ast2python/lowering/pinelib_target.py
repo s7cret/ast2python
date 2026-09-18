@@ -8,7 +8,6 @@ from typing import Any
 
 from ast2python.admission.canonical import canonical_json_bytes
 from ast2python.errors import BundleInvariantError
-from ast2python.lowering.history_reservation import CAPABILITY, OPERATION, reservation_policy
 from ast2python.lowering.target import TargetManifest, load_reference_target_manifest
 
 
@@ -132,11 +131,6 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
     # Only these three opcodes call runtime primitives. Other reference rows
     # describe compiler-owned structural lowering, not fallback implementations.
     required_primitives = {"operator.binary", "operator.unary", "series.history"}
-    history_policy = reservation_policy(source)
-    if history_policy is not None:
-        operation_rows[OPERATION] = history_policy
-        capabilities.add(CAPABILITY)
-        required_primitives.add(OPERATION)
     names = [row.get("name") for row in compiler_operations if isinstance(row, dict)]
     if len(names) != len(compiler_operations) or any(type(name) is not str for name in names):
         raise BundleInvariantError("A2P_PINELIB_COMPILER_OPERATION", "malformed operation names")
@@ -386,6 +380,12 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
         parameters, parameter_qualifiers = project_parameter_qualifiers(
             row.get("parameters"), symbol_id=str(row.get("symbol_id"))
         )
+        producer_signatures = row.get("producer_signatures", {})
+        if not isinstance(producer_signatures, dict):
+            raise BundleInvariantError(
+                "A2P_PINELIB_TARGET_SIGNATURES",
+                "producer_signatures must be an object",
+            )
         parameter_bindings = row.get("parameter_bindings", [])
         if not isinstance(parameter_bindings, list):
             raise BundleInvariantError(
@@ -413,6 +413,22 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
             if not overloads and id(row) not in historical_row_ids:
                 overloads = [source_symbol + "#canonical"]
             for overload_id in overloads:
+                signature = producer_signatures.get(overload_id)
+                binding_parameters = parameters
+                binding_qualifiers = parameter_qualifiers
+                binding_return_type = return_type
+                if signature is not None:
+                    if not isinstance(signature, dict):
+                        raise BundleInvariantError(
+                            "A2P_PINELIB_TARGET_SIGNATURES",
+                            "producer signature must be an object",
+                        )
+                    binding_parameters, binding_qualifiers = project_parameter_qualifiers(
+                        signature.get("parameters"), symbol_id=source_symbol
+                    )
+                    signature_return = signature.get("returns")
+                    if isinstance(signature_return, str) and signature_return:
+                        binding_return_type = signature_return
                 for call_form in call_forms:
                     key = (source_symbol, overload_id, call_form)
                     candidate = {
@@ -424,9 +440,9 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
                             if disposition == "TARGET_DELEGATED"
                             else python_name
                         ),
-                        "parameters": parameters,
-                        "parameter_qualifiers": parameter_qualifiers,
-                        "return_type": return_type,
+                        "parameters": binding_parameters,
+                        "parameter_qualifiers": binding_qualifiers,
+                        "return_type": binding_return_type,
                         "state_model": str(row.get("state_model") or "NONE"),
                         "supported_pine_versions": sorted(set(versions)),
                     }

@@ -245,7 +245,6 @@ class SemanticFactsIndex:
     symbol_references: Mapping[str, tuple[str, ...]]
     overload_references: Mapping[str, tuple[str, ...]]
     semantic_rule_references: Mapping[str, tuple[str, ...]]
-    lexical_binding_ids: bool = False
 
     @classmethod
     def build(
@@ -260,12 +259,7 @@ class SemanticFactsIndex:
             raise BundleInvariantError(
                 "A2P_FACTS_TYPE", "semantic_facts must be an object", path="$.semantic_facts"
             )
-        from ast2python.admission.lexical import admit_lexical_contract
-
-        lexical_binding_ids = admit_lexical_contract(payload)
-        present = set(payload) - (
-            {"capabilities", "symbol_id_contract"} if lexical_binding_ids else set()
-        )
+        present = set(payload)
         extra = present - _FACTS_ENVELOPE_FIELDS
         missing = _FACTS_ENVELOPE_FIELDS - present
         if missing or extra - {"producer"}:
@@ -514,14 +508,14 @@ class SemanticFactsIndex:
             for rule_id in raw_rules:
                 rules[rule_id].append(node_id)
 
-        missing_facts = set(ast_view.nodes) - set(facts)
+        missing = set(ast_view.nodes) - set(facts)
         extra = set(facts) - set(ast_view.nodes)
-        if missing_facts or extra:
+        if missing or extra:
             raise BundleInvariantError(
                 "A2P_FACT_COVERAGE",
                 "semantic facts must have a one-to-one relationship with AST nodes",
                 path="$.semantic_facts.facts",
-                details={"missing": sorted(missing_facts), "extra": sorted(extra)},
+                details={"missing": sorted(missing), "extra": sorted(extra)},
             )
 
         calls: dict[str, ResolvedCallView] = {}
@@ -823,7 +817,6 @@ class SemanticFactsIndex:
             symbol_references=frozen_index(symbols),
             overload_references=frozen_index(overloads),
             semantic_rule_references=frozen_index(rules),
-            lexical_binding_ids=lexical_binding_ids,
         )
 
     def to_summary(self) -> dict[str, Any]:

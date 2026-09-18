@@ -86,18 +86,23 @@ def test_exact_normalization_retains_all_declared_qualifiers(target):
     # Every projected binding is backed by the exact raw qualifier map, not a
     # global const/series default and not a source-catalogue reconstruction.
     for binding in target.call_bindings.values():
-        candidates = [
-            r
-            for r in supported
-            if binding.symbol_id in set(r.get("source_symbol_ids", [])) | {r["symbol_id"]}
-            and set(binding.supported_pine_versions) == set(r["version_availability"])
-            and binding.parameters == tuple(p["name"] for p in r["parameters"])
-        ]
+        candidates = []
+        for raw_row in supported:
+            if binding.symbol_id not in set(raw_row.get("source_symbol_ids", [])) | {
+                raw_row["symbol_id"]
+            } or set(binding.supported_pine_versions) != set(raw_row["version_availability"]):
+                continue
+            signature = raw_row.get("producer_signatures", {}).get(binding.overload_id)
+            parameters = (
+                signature.get("parameters", []) if signature is not None else raw_row["parameters"]
+            )
+            if binding.parameters == tuple(parameter["name"] for parameter in parameters):
+                candidates.append(parameters)
         assert candidates, binding.key
         assert any(
             dict(binding.parameter_qualifiers)
-            == {p["name"]: p["qualifier_max"] for p in r["parameters"]}
-            for r in candidates
+            == {parameter["name"]: parameter["qualifier_max"] for parameter in parameters}
+            for parameters in candidates
         ), binding.key
 
 

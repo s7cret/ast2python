@@ -7,7 +7,7 @@ not infer types again, coerce series to simple, or certify numerical semantics.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any
 
 from ast2python.errors import BundleInvariantError
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _QUALIFIER_RANK = {"const": 0, "input": 1, "simple": 2, "series": 3}
 
 
-def _known(value: object) -> TypeGuard[str]:
+def _known(value: object) -> bool:
     return type(value) is str and value in _QUALIFIER_RANK
 
 

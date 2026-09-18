@@ -14,6 +14,7 @@ def audit_pinelib_call_binding(
     source_parameters: object,
     *,
     pine_version: int,
+    expression_type: str | None = None,
 ) -> tuple[str, ...]:
     """Check producer argument coverage and the ABI keywords emitted by `_call`.
 
@@ -146,7 +147,17 @@ def audit_pinelib_call_binding(
             supplied.add(name)
         elif source == "SEMANTIC_TYPE_DESCRIPTOR":
             supplied.add(name)
-            reasons.add("A2P_PINELIB_TYPE_DESCRIPTOR_UNVERIFIED")
+            if (
+                not isinstance(expression_type, str)
+                or "<" not in expression_type
+                or not expression_type.endswith(">")
+                or any(x in expression_type for x in ("unknown", "mixed", "any"))
+            ):
+                reasons.add("A2P_PINELIB_TYPE_DESCRIPTOR_UNVERIFIED")
+        elif source == "SEMANTIC_EXPRESSION_TYPE":
+            supplied.add(name)
+            if expression_type not in {"int", "float", "bool", "color"}:
+                reasons.add("A2P_PINELIB_EXPRESSION_TYPE_UNVERIFIED")
         else:
             reasons.add("A2P_PINELIB_INJECTION")
     if names - consumed:

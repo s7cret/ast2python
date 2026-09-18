@@ -50,7 +50,7 @@ def test_exp_exact_named_parameter_and_udf_path(version):
         f"plot({exp}({parameter}=close))\nplot(f(close))\nplot(f(-close))"
     )
     if version == 1:
-        body = f"plot({exp}({parameter}=close))\nplot({exp}(close))\n" f"plot({exp}(-close))"
+        body = f"plot({exp}({parameter}=close))\nplot({exp}(close))\nplot({exp}(-close))"
     runtime, _, _ = run_source(source(body, version), closes=[0, 1, -1])
     assert_numbers(
         values(runtime), [1, 1, 1, math.e, math.e, 1 / math.e, 1 / math.e, 1 / math.e, math.e]

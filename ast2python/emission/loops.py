@@ -6,18 +6,13 @@ control stays in its lexical loop; nested loops own independent accumulators.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
-
-if TYPE_CHECKING:
-    from ast2python.emission.context import EmissionContext
-
 from ast2python.errors import BundleInvariantError
 
 LOOPS = {"ForRangeStructure", "ForInStructure", "WhileStructure"}
 
 
 class LoopEmissionMixin:
-    def _capture_nonlocals(self: EmissionContext, key: str) -> None:
+    def _capture_nonlocals(self, key):
         subtree = set(self._subtree(key))
         nonlocals = set()
         for child in subtree:
@@ -26,16 +21,14 @@ class LoopEmissionMixin:
             targets = self._role(child, "target")
             if targets and self._attrs(targets[0]).get("ast_kind") == "Identifier":
                 target = targets[0]
-                name = self._lookup_local(
-                    self._scope(target), cast(str, self._fields(target).get("name"))
-                )
-                declaration = self.declarations_by_py.get(name) if name is not None else None
-                if name is not None and declaration and declaration[1] not in subtree:
+                name = self._lookup_local(self._scope(target), self._fields(target).get("name"))
+                declaration = self.declarations_by_py.get(name)
+                if declaration and declaration[1] not in subtree:
                     nonlocals.add(name)
         if nonlocals:
             self.writer.line("nonlocal " + ", ".join(sorted(nonlocals)))
 
-    def _loop_expression(self: EmissionContext, key: str) -> str:
+    def _loop_expression(self, key):
         name = self._safe("value", "loop_value", key)
         value = self._safe("result", "loop_result", key)
         self.writer.line(f"def {name}():")
@@ -47,7 +40,7 @@ class LoopEmissionMixin:
         self.writer.dedent()
         return f"{name}()"
 
-    def _emit_loop(self: EmissionContext, key: str, *, result: str | None = None) -> None:
+    def _emit_loop(self, key, *, result=None):
         self._require_language_contract("compiler.loop_values.v1")
         kind = self._attrs(key)["ast_kind"]
         body = self._role(key, "body")[0]
@@ -128,7 +121,7 @@ class LoopEmissionMixin:
         if guarded:
             self.writer.dedent()
 
-    def _emit_result_block(self: EmissionContext, key: str, result: str) -> None:
+    def _emit_result_block(self, key, result):
         if self._attrs(key).get("ast_kind") != "Block":
             self.writer.line(
                 f"{result} = {self._expr(key)}", ir_ids=self._subtree(key), origin="PINE"
@@ -162,8 +155,8 @@ class LoopEmissionMixin:
                 (self._role(br, "condition")[0], self._role(br, "block")[0])
                 for br in self._role(last, "else_if_branches")
             ]
-            else_blocks = self._role(last, "else_block")
-            self._emit_result_arms(arms, else_blocks[0] if else_blocks else None, result, last)
+            other = self._role(last, "else_block")
+            self._emit_result_arms(arms, other[0] if other else None, result, last)
         elif kind == "SwitchStructure":
             selectors = self._role(last, "expression")
             selector = self._safe("selector", "loop_switch", last) if selectors else None
@@ -186,14 +179,7 @@ class LoopEmissionMixin:
             # previous completed iteration's value (or initial NA).
             self._emit_statement(last)
 
-    def _emit_result_arms(
-        self: EmissionContext,
-        arms: list[tuple[str, str]],
-        other: str | None,
-        result: str,
-        key: str,
-        selector: str | None = None,
-    ) -> None:
+    def _emit_result_arms(self, arms, other, result, key, selector=None):
         if not arms:
             if other is not None:
                 self._emit_result_block(other, result)
