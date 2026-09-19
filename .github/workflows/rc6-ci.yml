@@ -41,14 +41,14 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pine2ast
-          ref: 8042f5769c1618fd033a065bcd181c337818b579
+          ref: ce0a58ccca1fd6b2384f728d9aed0067fbc32719
           path: .ci-deps/pine2ast
           persist-credentials: false
       - name: Check out pinned PineLib runtime for execution tests
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pinelib
-          ref: 39e276301efeae7b313935f5ee8b8a042421e2b0
+          ref: 02d3a615a043b34bfd5737f0500dead2cd5d295f
           path: .ci-deps/pinelib
           persist-credentials: false
       - name: Install declared package and development dependencies

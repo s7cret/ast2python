@@ -293,12 +293,20 @@ class _DirectEmitter(
             if operation.python_module is None:
                 continue
             import_key = (operation.python_module, operation.python_name)
+            if opcode == "operator.div.legacy":
+                import_key = ("pinelib.abi.primitives", "operator_div_legacy_v1")
+            elif opcode == "operator.div.fractional":
+                import_key = ("pinelib.abi.primitives", "operator_div_fractional_v1")
+            elif opcode == "control.for_range.fixed_end":
+                import_key = ("pinelib.abi.primitives", "range_fixed_end_v1")
+            elif opcode == "control.for_range.dynamic_end":
+                import_key = ("pinelib.abi.primitives", "range_dynamic_end_v1")
             alias = self.direct_imports.get(import_key)
             if alias is None:
                 alias = self._safe(
-                    operation.python_name,
+                    import_key[1],
                     "pl",
-                    f"{operation.python_module}.{operation.python_name}",
+                    f"{import_key[0]}.{import_key[1]}",
                 )
                 self.direct_imports[import_key] = alias
             self.direct_operation_aliases[opcode] = alias
