@@ -65,9 +65,10 @@ def _origin_version(version: int, fact: SemanticFactView, *markers: str) -> int:
 
 def _binary_recipe(version: int, op: str, fact: SemanticFactView) -> LoweringRecipe:
     if op in {"and", "or"}:
+        origin = _origin_version(version, fact, "logical_and", "logical_or", "logical")
         return LoweringRecipe(
-            "operator.logical.lazy" if version >= 6 else "operator.logical.eager",
-            "lazy" if version >= 6 else "eager",
+            "operator.logical.lazy" if origin >= 6 else "operator.logical.eager",
+            "lazy" if origin >= 6 else "eager",
             "pure",
         )
     if op == "/":
