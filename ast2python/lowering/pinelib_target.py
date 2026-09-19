@@ -8,6 +8,7 @@ from typing import Any
 
 from ast2python.admission.canonical import canonical_json_bytes
 from ast2python.errors import BundleInvariantError
+from ast2python.lowering.history_reservation import CAPABILITY, OPERATION, reservation_policy
 from ast2python.lowering.target import TargetManifest, load_reference_target_manifest
 
 
@@ -131,6 +132,11 @@ def load_pinelib_target_manifest(path: str | Path | None = None) -> TargetManife
     # Only these three opcodes call runtime primitives. Other reference rows
     # describe compiler-owned structural lowering, not fallback implementations.
     required_primitives = {"operator.binary", "operator.unary", "series.history"}
+    history_policy = reservation_policy(source)
+    if history_policy is not None:
+        operation_rows[OPERATION] = history_policy
+        capabilities.add(CAPABILITY)
+        required_primitives.add(OPERATION)
     names = [row.get("name") for row in compiler_operations if isinstance(row, dict)]
     if len(names) != len(compiler_operations) or any(type(name) is not str for name in names):
         raise BundleInvariantError("A2P_PINELIB_COMPILER_OPERATION", "malformed operation names")

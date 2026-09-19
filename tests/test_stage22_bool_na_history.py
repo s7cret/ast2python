@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
 from pine2ast.hardening.consumer_bundle import build_consumer_bundle
@@ -8,9 +9,7 @@ from pine2ast.hardening.consumer_bundle import build_consumer_bundle
 from ast2python import compile_consumer_bundle
 from ast2python.lowering import load_pinelib_target_manifest
 
-PINELIB_MANIFEST = (
-    Path(__file__).parents[2] / "pinelib" / "pinelib" / "abi" / "target_manifest.json"
-)
+PINELIB_MANIFEST = Path(str(files("pinelib.abi").joinpath("target_manifest.json")))
 
 
 def target():

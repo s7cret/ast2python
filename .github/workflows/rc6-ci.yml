@@ -41,24 +41,26 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pine2ast
-          ref: 8042f5769c1618fd033a065bcd181c337818b579
-          path: .ci-deps/pine2ast
+          ref: 30c9fbeaf851d8fda0eacc76c623508f4222efca
+          path: pine2ast
           persist-credentials: false
       - name: Check out pinned PineLib runtime for execution tests
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pinelib
-          ref: 39e276301efeae7b313935f5ee8b8a042421e2b0
-          path: .ci-deps/pinelib
+          ref: 43b297787ed06ec2d83027d25f4fb17100ae76f5
+          path: pinelib
           persist-credentials: false
       - name: Install declared package and development dependencies
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install ./.ci-deps/pine2ast ./.ci-deps/pinelib
+          python -m pip install ./pine2ast ./pinelib
           python -m pip install '.[dev]'
           python -m pip check
-          python -c "import shutil; shutil.rmtree('.ci-deps')"
+          # Installed non-editably; keep dependency sources outside project discovery.
+          mv pine2ast "$RUNNER_TEMP/pine2ast-source"
+          mv pinelib "$RUNNER_TEMP/pinelib-source"
       - name: Compile source and tests
         run: python -m compileall -q ast2python tests
       - name: Ruff

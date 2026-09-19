@@ -53,16 +53,28 @@ _STRUCTURAL_RECIPES: dict[str, LoweringRecipe] = {
 }
 
 
-def _binary_recipe(version: int, op: str) -> LoweringRecipe:
+def _origin_version(version: int, fact: SemanticFactView, *markers: str) -> int:
+    for item in fact.semantic_rule_ids:
+        if not any(marker in item for marker in markers):
+            continue
+        for candidate in range(6, 0, -1):
+            if item.endswith(f".v{candidate}"):
+                return candidate
+    return version
+
+
+def _binary_recipe(version: int, op: str, fact: SemanticFactView) -> LoweringRecipe:
     if op in {"and", "or"}:
+        origin = _origin_version(version, fact, "logical_and", "logical_or", "logical")
         return LoweringRecipe(
-            "operator.logical.lazy" if version >= 6 else "operator.logical.eager",
-            "lazy" if version >= 6 else "eager",
+            "operator.logical.lazy" if origin >= 6 else "operator.logical.eager",
+            "lazy" if origin >= 6 else "eager",
             "pure",
         )
     if op == "/":
+        origin = _origin_version(version, fact, "division")
         return LoweringRecipe(
-            "operator.div.fractional" if version >= 6 else "operator.div.legacy",
+            "operator.div.fractional" if origin >= 6 else "operator.div.legacy",
             "eager",
             "pure",
         )
@@ -77,9 +89,10 @@ def _conditional_recipe(version: int) -> LoweringRecipe:
     )
 
 
-def _for_range_recipe(version: int) -> LoweringRecipe:
+def _for_range_recipe(version: int, fact: SemanticFactView) -> LoweringRecipe:
+    origin = _origin_version(version, fact, "for_range")
     return LoweringRecipe(
-        "control.for_range.dynamic_end" if version >= 6 else "control.for_range.fixed_end",
+        "control.for_range.dynamic_end" if origin >= 6 else "control.for_range.fixed_end",
         "lazy",
         "control",
     )
@@ -143,11 +156,11 @@ def select_recipe(
             raise BundleInvariantError(
                 "A2P_RECIPE_OPERATOR", "BinaryExpr is missing exact operator"
             )
-        return _binary_recipe(version, op)
+        return _binary_recipe(version, op, fact)
     if node.kind == "ConditionalExpr":
         return _conditional_recipe(version)
     if node.kind == "ForRangeStructure":
-        return _for_range_recipe(version)
+        return _for_range_recipe(version, fact)
     recipe = _STRUCTURAL_RECIPES.get(node.kind)
     if recipe is None:
         raise BundleInvariantError(
