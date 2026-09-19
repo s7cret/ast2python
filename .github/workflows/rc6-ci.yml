@@ -58,6 +58,9 @@ jobs:
           python -m pip install ./pine2ast ./pinelib
           python -m pip install '.[dev]'
           python -m pip check
+          # Installed non-editably; keep dependency sources outside project discovery.
+          mv pine2ast "$RUNNER_TEMP/pine2ast-source"
+          mv pinelib "$RUNNER_TEMP/pinelib-source"
       - name: Compile source and tests
         run: python -m compileall -q ast2python tests
       - name: Ruff
