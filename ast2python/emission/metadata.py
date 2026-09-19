@@ -9,7 +9,7 @@ from the producer's checked IR bindings.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import Any, NoReturn
+from typing import Any, NoReturn, cast
 
 from ast2python.admission.canonical import thaw_json
 from ast2python.errors import BundleInvariantError
@@ -162,7 +162,7 @@ class ScriptMetadata:
             self.input_ids[key] = input_id
 
     def roles(self, key: str) -> Mapping[str, list[str]]:
-        return self.attrs[key].get("child_roles", {})
+        return cast(Mapping[str, list[str]], self.attrs[key].get("child_roles", {}))
 
     def fail(self, message: str, key: str) -> NoReturn:
         raise BundleInvariantError(

@@ -131,10 +131,10 @@
       "consumer_bundle": "tests/corpus/v2/v2-forward-bool.bundle.json",
       "consumer_bundle_hash": "sha256:69e69d68d9e57ff4b9f45f7f8b1fcc1c530afaef7fdd6f719e3ac7621d5fc58d",
       "diagnostics": [],
-      "expected_artifact_hash": "sha256:703cd699dfbc861379113bcc3b79b784f39ab063e62b151f731cd2845bfd67e8",
-      "expected_emitted_module_hash": "sha256:a88ad6c958229107de82cdebf18ba5ba53d5a435c8fa4c6d1bc4c1ce425512ba",
+      "expected_artifact_hash": "sha256:0e249957d34ad479bd87231cddf93c65e402f969d96b61c0896aceb57da6e0e8",
+      "expected_emitted_module_hash": "sha256:f8bd8cc448eab99ab8607e0de2e62532f76064911df8c46621097ef75d45bee5",
       "expected_ir_hash": "sha256:a2415b5b17c9596e8106b3fdefdddfe24ef496afaf6fbc1289768976ac3ce49d",
-      "expected_source_map_hash": "sha256:6cf538d2ca874f73701a33a784b479d443792888f503c547bdc81cbe733ab397",
+      "expected_source_map_hash": "sha256:1432d7884c50aa0ef215a66ec1cbeabb791ce515aeb106b6ad7c5b83b1e99b64",
       "module_name": "generated_v2_forward_bool",
       "pine_version": 2,
       "provenance": {
@@ -868,7 +868,7 @@
     "lowering_corpus_complete_for_listed_cases": true,
     "tradingview_runtime_parity": false
   },
-  "content_hash": "sha256:a3ac1b271ca377d9b0a444f05aced7ed3a829b2f95652b2c9db4488522fb3e30",
+  "content_hash": "sha256:3aecfa18c5cf88d64600d867b4ed6cc62b5eb76f59ed229635c55ca8524b1024",
   "schema_id": "ast2python.stage4.normative_corpus.v1",
   "schema_version": "1.0.0",
   "scope": "admitted_consumer_bundles_and_exact_lowering_outputs"

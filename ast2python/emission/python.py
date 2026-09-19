@@ -10,13 +10,14 @@ from typing import Any, cast
 
 from ast2python.admission.canonical import thaw_json
 from ast2python.emission.language import LanguageEmissionMixin
+from ast2python.emission.lexical import prepare_lexical_names
 from ast2python.emission.loops import LOOPS, LoopEmissionMixin
 from ast2python.emission.nominal import NominalEmissionMixin
 from ast2python.emission.requests import RequestEmissionMixin
 from ast2python.emission.source_map import PythonPosition, SourceMapEntry, SourceMapV2
 from ast2python.errors import BundleInvariantError
 from ast2python.lowering.model import IRNode, LoweringPlan
-from ast2python.lowering.target import TargetCallBinding, TargetManifest, TargetValueBinding
+from ast2python.lowering.target import TargetManifest, TargetValueBinding
 
 _MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _NON_IDENTIFIER = re.compile(r"[^A-Za-z0-9_]+")
@@ -138,6 +139,7 @@ class _DirectEmitter(
             if disposition.ir_ids:
                 self.source_to_ir[disposition.source_node_id] = disposition.ir_ids[0]
         self._prepare_names()
+        self.lexical_names = prepare_lexical_names(self)
         self.direct_imports: dict[tuple[str, str], str] = {}
         self.direct_call_aliases: dict[tuple[str, str, str], str] = {}
         self.direct_value_aliases: dict[str, str] = {}
@@ -156,7 +158,7 @@ class _DirectEmitter(
         if not isinstance(name, str):
             return None
         pyname = self._lookup_local(self._scope(key), name)
-        declaration = self.declarations_by_py.get(pyname)
+        declaration = self.declarations_by_py.get(pyname) if pyname is not None else None
         return declaration[1] if declaration is not None else None
 
     def _node(self, ir_id: str) -> IRNode:
@@ -251,8 +253,8 @@ class _DirectEmitter(
                 self.functions_by_name[name] = py_name
                 self.function_ir_ids.add(ir_id)
 
-    def _legacy_lookup(self, scope: str, name: str) -> str | None:
-        exact = self.local_names.get((scope, name))
+    def _legacy_lookup(self, scope: str | None, name: str) -> str | None:
+        exact = self.local_names.get((scope, name)) if scope is not None else None
         if exact is not None:
             return exact
         matches = [
@@ -478,8 +480,9 @@ class _DirectEmitter(
         attrs = self._attrs(ir_id)
         fields = self._fields(ir_id)
         name = str(fields.get("name") or "")
-        scope = str(attrs.get("scope_id") or "scope:global")
-        local = self._lookup_local(scope, name)
+        from ast2python.emission.lexical import identifier_local
+
+        local = identifier_local(self, ir_id)
         if local is not None:
             declaration = self.declarations_by_py.get(local) if self.exact_pinelib else None
             if (
@@ -494,9 +497,19 @@ class _DirectEmitter(
                     )
                 return f"self.runtime.read_series({scalar[0]!r})"
             return local
-        if name in self.functions_by_name:
-            return f"self.{self.functions_by_name[name]}"
         symbol_id = attrs.get("symbol_id")
+        if self._attrs(self.plan.root_ir_id).get("lexical_binding_ids") is True:
+            callable_ir = (
+                self.callable_declarations.get(symbol_id) if isinstance(symbol_id, str) else None
+            )
+            if callable_ir is not None and callable_ir in self.callable_names:
+                if self._fields(callable_ir).get("name") != name:
+                    raise BundleInvariantError(
+                        "A2P_LEXICAL_BINDING_IDENTITY", "callable identity differs from occurrence"
+                    )
+                return f"self.{self.callable_names[callable_ir]}"
+        elif name in self.functions_by_name:
+            return f"self.{self.functions_by_name[name]}"
         if isinstance(symbol_id, str):
             binding = self.target.value_bindings.get(symbol_id)
             if binding is not None:
@@ -593,7 +606,7 @@ class _DirectEmitter(
             callee = str(call["callee"])
             declaration = self.callable_declarations.get(symbol_id) if self.exact_pinelib else None
             function_name = (
-                self.callable_names.get(declaration)
+                (self.callable_names.get(declaration) if declaration is not None else None)
                 if self.exact_pinelib
                 else self.functions_by_name.get(callee)
             )
@@ -637,7 +650,7 @@ class _DirectEmitter(
                             "A2P_METHOD_RECEIVER", "method receiver type differs from declaration"
                         )
                     arguments.append(f"{pyname!r}: {self._expr(receiver[0])}")
-            for parameter in self._role(declaration, "parameters"):
+            for parameter in self._role(cast(str, declaration), "parameters"):
                 pname = self._fields(parameter)["name"]
                 pyname = self.names_by_source[self._node(parameter).source.node_id]
                 parameter_names[pname] = pyname
@@ -657,7 +670,7 @@ class _DirectEmitter(
                 "{" + ", ".join(arguments) + "}",
             )
         key = (symbol_id, str(call["overload_id"]), str(call["call_form"]))
-        binding: TargetCallBinding | None = self.target.call_bindings.get(key)
+        binding = self.target.call_bindings.get(key)
         if binding is None or self.plan.pine_version not in binding.supported_pine_versions:
             raise BundleInvariantError(
                 "A2P_TARGET_CALL_BINDING", "exact target call binding is missing"
@@ -685,7 +698,6 @@ class _DirectEmitter(
                     "delegated PineLib call identity is incomplete",
                 )
             span = thaw_json(self._node(ir_id).source.span)
-            positional = "[" + ", ".join(delegated_positional) + "]"
             named = "{" + ", ".join(f"{name!r}: {value}" for name, value in delegated_named) + "}"
             source_span = (
                 "_PineLibSourceSpan("
@@ -709,6 +721,7 @@ class _DirectEmitter(
             receiver = self._role(ir_id, "receiver")
             if receiver:
                 delegated_positional.insert(0, self._expr(receiver[0]))
+            positional = "[" + ", ".join(delegated_positional) + "]"
             return (
                 "self.runtime.dispatch_delegated("
                 f"owner={binding.delegation_owner!r}, "
@@ -743,8 +756,8 @@ class _DirectEmitter(
                     source_parameters,
                     pine_version=self.plan.pine_version,
                     expression_type=(
-                        self._node(ir_id).result_type.base
-                        if self._node(ir_id).result_type
+                        result_type.base
+                        if (result_type := self._node(ir_id).result_type) is not None
                         else None
                     ),
                 )
@@ -943,6 +956,10 @@ class _DirectEmitter(
         if kind == "MemberAccessExpr":
             symbol_id = attrs.get("symbol_id")
             if isinstance(symbol_id, str) and symbol_id in self.target.value_bindings:
+                if self._attrs(self.plan.root_ir_id).get("lexical_binding_ids") is True:
+                    from ast2python.emission.lexical import validate_catalog_occurrence
+
+                    validate_catalog_occurrence(self, ir_id)
                 return self._value(ir_id, self.target.value_bindings[symbol_id])
             if self.exact_pinelib:
                 value = self._nominal_member(ir_id)
@@ -968,11 +985,13 @@ class _DirectEmitter(
                 return self._runtime_operation(
                     self._node(ir_id).opcode, repr(operator), self._expr(left[0]), right_expr
                 )
+            from ast2python.emission.coercions import binary_operand
+
             return self._runtime_operation(
                 self._node(ir_id).opcode,
                 repr(operator),
-                self._expr(left[0]),
-                self._expr(right[0]),
+                binary_operand(self, ir_id, left[0]),
+                binary_operand(self, ir_id, right[0]),
             )
         if kind == "UnaryExpr":
             operands = self._role(ir_id, "operand")
@@ -1276,11 +1295,11 @@ class _DirectEmitter(
             self.writer.dedent()
             return
         if kind == "WhileStructure":
-            condition = self._role(ir_id, "condition")
+            while_conditions = self._role(ir_id, "condition")
             body = self._role(ir_id, "body")
             self.writer.line(
-                f"while {self._condition(condition[0])}:",
-                ir_ids=(ir_id, *self._subtree(condition[0])),
+                f"while {self._condition(while_conditions[0])}:",
+                ir_ids=(ir_id, *self._subtree(while_conditions[0])),
                 origin="PINE",
             )
             self.writer.indent()
@@ -1456,7 +1475,11 @@ class _DirectEmitter(
         declaration = root_roles.get("declaration", ())
         for ir_id in declaration:
             self._emit_statement(ir_id)
-        for ir_id in root_roles.get("items", ()):
+        from ast2python.emission.ordering import ordered_global_items, prepare_historical_series
+
+        items = ordered_global_items(self, root_roles.get("items", ()))
+        prepare_historical_series(self, items)
+        for ir_id in items:
             if ir_id not in self.function_ir_ids:
                 self._emit_statement(ir_id)
         writer.line("return None")

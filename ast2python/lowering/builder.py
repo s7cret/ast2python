@@ -194,6 +194,8 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         }
         if call is not None:
             attributes["call"] = thaw_json(call.raw)
+        if node.node_id == bundle.ast.root_node_id and bundle.semantic_facts.lexical_binding_ids:
+            attributes["lexical_binding_ids"] = True
         ir_id = ir_id_by_source[node.node_id]
         child_ids = tuple(ir_id_by_source[child] for child in node.child_node_ids)
         nodes[ir_id] = IRNode(
@@ -217,7 +219,7 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
                 reason=None,
             )
         )
-    return LoweringPlan.create(
+    plan = LoweringPlan.create(
         bundle_hash=bundle.content_hash,
         source_hash=str(bundle.source["source_hash"]),
         pine_version=bundle.version_context.pine_version,
@@ -231,3 +233,6 @@ def build_lowering_plan(session: CompilationSession, target: TargetManifest) -> 
         required_operations=frozenset(required_operations),
         required_capabilities=frozenset(required_capabilities),
     )
+    from ast2python.lowering.history_plan import expand_history_reservations
+
+    return expand_history_reservations(plan, target)
