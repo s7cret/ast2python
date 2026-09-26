@@ -32,3 +32,21 @@ def test_v6_consumer_v5_library_two_written_calls_are_independent() -> None:
     assert "//@version=5" in linked.receipt()["sources"]["user/Lib/1"]["raw_text"]
     runtime, cls = runtime_for(compiled)
     assert advance(runtime, cls, [1, 2, 3]) == [1, 10, 2, 20, 3, 30]
+
+
+def test_v6_consumer_v5_library_reuses_one_written_call_in_loop() -> None:
+    # One written call executed three times per bar, not three new callsites.
+    # v5 source identity is retained across a v6 consumer's projection.
+    libs = {
+        "user/Lib/1": library(
+            "export count()=>\n    var int n=0\n    n+=1\n    n",
+            version=5,
+        )
+    }
+    compiled, linked = compile_linked(
+        script("a=0\nfor i=1 to 3\n    a:=lib.count()\nplot(a)", version=6),
+        libs,
+    )
+    assert linked.receipt()["sources"]["user/Lib/1"]["pine_version"] == 5
+    runtime, cls = runtime_for(compiled)
+    assert advance(runtime, cls, [1, 2, 3]) == [3, 6, 9]
