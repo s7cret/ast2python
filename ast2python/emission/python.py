@@ -198,15 +198,19 @@ class _DirectEmitter(
             return self.plan.pine_version < 6
         return version < 6
 
-    def _condition_stamp_version(self, ir_id: str) -> int | None:
+    def _stamp_version(self, ir_id: str, prefixes: tuple[str, ...]) -> int | None:
+        """Read one origin version from the producer's admitted semantic rule IDs."""
         for item in self._node(ir_id).semantic_rule_ids:
-            for prefix in ("control.condition.v", "series.history.missing_bool.v"):
+            for prefix in prefixes:
                 if not item.startswith(prefix):
                     continue
                 suffix = item.removeprefix(prefix)
                 if suffix.isdigit():
                     return int(suffix)
         return None
+
+    def _condition_stamp_version(self, ir_id: str) -> int | None:
+        return self._stamp_version(ir_id, ("control.condition.v", "series.history.missing_bool.v"))
 
     def _history_origin_differs(self, ir_id: str) -> bool:
         version = self._condition_stamp_version(ir_id)
@@ -215,13 +219,7 @@ class _DirectEmitter(
         return (version < 6) != (self.plan.pine_version < 6)
 
     def _call_signature_version(self, ir_id: str) -> int | None:
-        for item in self._node(ir_id).semantic_rule_ids:
-            if not item.startswith("call.signature.v"):
-                continue
-            suffix = item.removeprefix("call.signature.v")
-            if suffix.isdigit():
-                return int(suffix)
-        return None
+        return self._stamp_version(ir_id, ("call.signature.v",))
 
     def _origin_builtin_differs(self, ir_id: str, call: Mapping[str, Any], callee: str) -> bool:
         if str(call.get("callee")) != callee:
@@ -230,14 +228,7 @@ class _DirectEmitter(
         return version is not None and (version < 6) != (self.plan.pine_version < 6)
 
     def _logical_origin_version(self, ir_id: str) -> int | None:
-        for item in self._node(ir_id).semantic_rule_ids:
-            for prefix in ("operator.logical_and.v", "operator.logical_or.v"):
-                if not item.startswith(prefix):
-                    continue
-                suffix = item.removeprefix(prefix)
-                if suffix.isdigit():
-                    return int(suffix)
-        return None
+        return self._stamp_version(ir_id, ("operator.logical_and.v", "operator.logical_or.v"))
 
     def _logical_origin_differs(self, ir_id: str) -> bool:
         version = self._logical_origin_version(ir_id)
