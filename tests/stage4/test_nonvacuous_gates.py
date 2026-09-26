@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -44,10 +46,43 @@ def test_enforced_hardening_tool_runs_real_vectors(tmp_path: Path) -> None:
         fuzz_cases=90,
         performance_samples=2,
     )
-    assert report["ok"] is True, report
+    # The property and fuzz vectors are exercised in-process so they contribute
+    # to branch coverage. Coverage tracing distorts the 2-sample latency gate,
+    # especially on CPython 3.12; measure the SAME complete gate in an ordinary
+    # child interpreter rather than relaxing its ceilings or trusting a mock.
+    assert report["property"]["ok"] is True, report["property"]
+    assert report["fuzz"]["ok"] is True, report["fuzz"]
     assert report["fuzz"]["requested_cases"] == 90
     assert report["fuzz"]["executed_cases"] == 90
     assert report["fuzz"]["shape_counts"]
     assert report["property"]["checked_bundles"] == 22
     assert report["performance"]["samples"] == 2
     assert json.loads(output.read_text(encoding="utf-8")) == report
+
+    standalone = tmp_path / "hardening-standalone.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools" / "run_hardening_gates.py"),
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(standalone),
+            "--fuzz-cases",
+            "90",
+            "--performance-samples",
+            "2",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+    measured = json.loads(standalone.read_text(encoding="utf-8"))
+    assert measured["ok"] is True, measured
+    assert measured["property"]["checked_bundles"] == 22
+    assert measured["fuzz"]["executed_cases"] == 90
+    assert measured["performance"]["ok"] is True, measured["performance"]
+    assert measured["performance"]["samples"] == 2
+    assert measured["performance"]["node_count"] > 0
