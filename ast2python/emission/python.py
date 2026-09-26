@@ -223,7 +223,7 @@ class _DirectEmitter(
                 return int(suffix)
         return None
 
-    def _na_origin_differs(self, ir_id: str, call: dict) -> bool:
+    def _na_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
         if str(call.get("callee")) != "na":
             return False
         version = self._call_signature_version(ir_id)
@@ -231,7 +231,7 @@ class _DirectEmitter(
             return False
         return (version < 6) != (self.plan.pine_version < 6)
 
-    def _nz_origin_differs(self, ir_id: str, call: dict) -> bool:
+    def _nz_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
         if str(call.get("callee")) != "nz":
             return False
         version = self._call_signature_version(ir_id)
@@ -239,7 +239,7 @@ class _DirectEmitter(
             return False
         return (version < 6) != (self.plan.pine_version < 6)
 
-    def _bool_cast_origin_differs(self, ir_id: str, call: dict) -> bool:
+    def _bool_cast_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
         if str(call.get("callee")) != "bool":
             return False
         version = self._call_signature_version(ir_id)
@@ -993,16 +993,19 @@ class _DirectEmitter(
                     details={"parameters": sorted(unsupported)},
                 )
             if self._na_origin_differs(ir_id, call):
-                value = rendered_by_parameter.get("x") or rendered_by_parameter.get("source")
-                if value is None and len(rendered_by_parameter) == 1:
-                    value = next(iter(rendered_by_parameter.values()))
-                if value is None:
+                origin_value = rendered_by_parameter.get("x") or rendered_by_parameter.get("source")
+                if origin_value is None and len(rendered_by_parameter) == 1:
+                    origin_value = next(iter(rendered_by_parameter.values()))
+                if origin_value is None:
                     raise BundleInvariantError(
                         "A2P_NA_ORIGIN",
                         "origin na() call has no bound argument",
                     )
                 allow = self._call_signature_version(ir_id)
-                return f"self.runtime.na_policy_v1({value}, allow_bool={allow is not None and allow < 6})"
+                return (
+                    f"self.runtime.na_policy_v1({origin_value}, "
+                    f"allow_bool={allow is not None and allow < 6})"
+                )
             if self._nz_origin_differs(ir_id, call):
                 allow = self._call_signature_version(ir_id)
                 bound = [
@@ -1016,16 +1019,16 @@ class _DirectEmitter(
                 )
             if self._bool_cast_origin_differs(ir_id, call):
                 allow = self._call_signature_version(ir_id)
-                value = rendered_by_parameter.get("value") or rendered_by_parameter.get("x")
-                if value is None and len(rendered_by_parameter) == 1:
-                    value = next(iter(rendered_by_parameter.values()))
-                if value is None:
+                origin_value = rendered_by_parameter.get("value") or rendered_by_parameter.get("x")
+                if origin_value is None and len(rendered_by_parameter) == 1:
+                    origin_value = next(iter(rendered_by_parameter.values()))
+                if origin_value is None:
                     raise BundleInvariantError(
                         "A2P_BOOL_ORIGIN",
                         "origin bool() call has no bound argument",
                     )
                 return (
-                    f"self.runtime.bool_policy_v1({value}, "
+                    f"self.runtime.bool_policy_v1({origin_value}, "
                     f"preserve_na={allow is not None and allow < 6})"
                 )
             return f"{alias}({', '.join(variadic_arguments + keyword_arguments)})"
