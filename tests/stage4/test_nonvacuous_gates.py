@@ -44,7 +44,7 @@ def test_enforced_hardening_tool_runs_real_vectors(tmp_path: Path) -> None:
         fuzz_cases=90,
         performance_samples=2,
     )
-    assert report["ok"] is True
+    assert report["ok"] is True, report
     assert report["fuzz"]["requested_cases"] == 90
     assert report["fuzz"]["executed_cases"] == 90
     assert report["fuzz"]["shape_counts"]
