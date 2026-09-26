@@ -1164,10 +1164,13 @@ class _DirectEmitter(
                     f"{self._origin_condition_call(ir_id, 'c')} else b)("
                     f"{self._expr(condition[0])}, {self._expr(when_true[0])}, {self._expr(when_false[0])})"
                 )
+            condition_expr = (
+                self._origin_condition_call(ir_id, self._expr(condition[0]))
+                if self.exact_pinelib
+                else self._condition(condition[0])
+            )
             return (
-                f"({self._expr(when_true[0])} if "
-                f"{self._origin_condition_call(ir_id, self._expr(condition[0]))} "
-                f"else {self._expr(when_false[0])})"
+                f"({self._expr(when_true[0])} if {condition_expr} else {self._expr(when_false[0])})"
             )
         if kind == "HistoryRefExpr":
             base = self._role(ir_id, "base")
