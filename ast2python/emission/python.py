@@ -223,29 +223,11 @@ class _DirectEmitter(
                 return int(suffix)
         return None
 
-    def _na_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
-        if str(call.get("callee")) != "na":
+    def _origin_builtin_differs(self, ir_id: str, call: Mapping[str, Any], callee: str) -> bool:
+        if str(call.get("callee")) != callee:
             return False
         version = self._call_signature_version(ir_id)
-        if version is None:
-            return False
-        return (version < 6) != (self.plan.pine_version < 6)
-
-    def _nz_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
-        if str(call.get("callee")) != "nz":
-            return False
-        version = self._call_signature_version(ir_id)
-        if version is None:
-            return False
-        return (version < 6) != (self.plan.pine_version < 6)
-
-    def _bool_cast_origin_differs(self, ir_id: str, call: Mapping[str, Any]) -> bool:
-        if str(call.get("callee")) != "bool":
-            return False
-        version = self._call_signature_version(ir_id)
-        if version is None:
-            return False
-        return (version < 6) != (self.plan.pine_version < 6)
+        return version is not None and (version < 6) != (self.plan.pine_version < 6)
 
     def _logical_origin_version(self, ir_id: str) -> int | None:
         for item in self._node(ir_id).semantic_rule_ids:
@@ -992,7 +974,7 @@ class _DirectEmitter(
                     "source arguments are not bound to the PineLib ABI",
                     details={"parameters": sorted(unsupported)},
                 )
-            if self._na_origin_differs(ir_id, call):
+            if self._origin_builtin_differs(ir_id, call, "na"):
                 origin_value = rendered_by_parameter.get("x") or rendered_by_parameter.get("source")
                 if origin_value is None and len(rendered_by_parameter) == 1:
                     origin_value = next(iter(rendered_by_parameter.values()))
@@ -1006,7 +988,7 @@ class _DirectEmitter(
                     f"self.runtime.na_policy_v1({origin_value}, "
                     f"allow_bool={allow is not None and allow < 6})"
                 )
-            if self._nz_origin_differs(ir_id, call):
+            if self._origin_builtin_differs(ir_id, call, "nz"):
                 allow = self._call_signature_version(ir_id)
                 bound = [
                     item
@@ -1017,7 +999,7 @@ class _DirectEmitter(
                     f"self.runtime.nz_policy_v1({', '.join(bound)}, "
                     f"allow_bool={allow is not None and allow < 6})"
                 )
-            if self._bool_cast_origin_differs(ir_id, call):
+            if self._origin_builtin_differs(ir_id, call, "bool"):
                 allow = self._call_signature_version(ir_id)
                 origin_value = rendered_by_parameter.get("value") or rendered_by_parameter.get("x")
                 if origin_value is None and len(rendered_by_parameter) == 1:
