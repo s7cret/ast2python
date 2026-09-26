@@ -184,7 +184,10 @@ class LanguageEmissionMixin:
 
     def _condition(self: EmissionContext, key: str) -> str:
         value = self._expr(key)
-        return f"self.runtime.condition_v1({value})" if self.exact_pinelib else f"bool({value})"
+        if not self.exact_pinelib:
+            return f"bool({value})"
+        # if/while share this helper. Origin stamp, not the consumer session.
+        return self._origin_condition_call(key, value)
 
     def _default_block_value(self: EmissionContext, key: str) -> str:
         typ = self._node(key).result_type
