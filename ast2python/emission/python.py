@@ -184,6 +184,76 @@ class _DirectEmitter(
     def _role(self, ir_id: str, role: str) -> tuple[str, ...]:
         return self._roles(ir_id).get(role, ())
 
+    def _origin_allows_na_bool(self, ir_id: str) -> bool:
+        """Catalog bool_allows_na follows control.condition.vN on the origin span.
+
+        The producer stamps the If/While structure, not the condition child.
+        v1–v5 allow na bool in a condition; v6 does not. Missing stamps fall
+        back to the consumer version so same-script emission stays unchanged.
+        """
+        version = self._condition_stamp_version(ir_id)
+        if version is None:
+            version = self._owner_condition_stamp_version(ir_id)
+        if version is None:
+            return self.plan.pine_version < 6
+        return version < 6
+
+    def _stamp_version(self, ir_id: str, prefixes: tuple[str, ...]) -> int | None:
+        """Read one origin version from the producer's admitted semantic rule IDs."""
+        for item in self._node(ir_id).semantic_rule_ids:
+            for prefix in prefixes:
+                if not item.startswith(prefix):
+                    continue
+                suffix = item.removeprefix(prefix)
+                if suffix.isdigit():
+                    return int(suffix)
+        return None
+
+    def _condition_stamp_version(self, ir_id: str) -> int | None:
+        return self._stamp_version(ir_id, ("control.condition.v", "series.history.missing_bool.v"))
+
+    def _history_origin_differs(self, ir_id: str) -> bool:
+        version = self._condition_stamp_version(ir_id)
+        if version is None:
+            return False
+        return (version < 6) != (self.plan.pine_version < 6)
+
+    def _call_signature_version(self, ir_id: str) -> int | None:
+        return self._stamp_version(ir_id, ("call.signature.v",))
+
+    def _origin_builtin_differs(self, ir_id: str, call: Mapping[str, Any], callee: str) -> bool:
+        if str(call.get("callee")) != callee:
+            return False
+        version = self._call_signature_version(ir_id)
+        return version is not None and (version < 6) != (self.plan.pine_version < 6)
+
+    def _logical_origin_version(self, ir_id: str) -> int | None:
+        return self._stamp_version(ir_id, ("operator.logical_and.v", "operator.logical_or.v"))
+
+    def _logical_origin_differs(self, ir_id: str) -> bool:
+        version = self._logical_origin_version(ir_id)
+        if version is None:
+            return False
+        return (version < 6) != (self.plan.pine_version < 6)
+
+    def _owner_condition_stamp_version(self, ir_id: str) -> int | None:
+        for owner_id in self.plan.nodes:
+            if ir_id not in self._roles(owner_id).get("condition", ()):
+                continue
+            version = self._condition_stamp_version(owner_id)
+            if version is not None:
+                return version
+        return None
+
+    def _origin_condition_call(self, ir_id: str, value: str) -> str:
+        allow = self._origin_allows_na_bool(ir_id)
+        if allow == (self.plan.pine_version < 6):
+            return f"self.runtime.condition_v1({value})"
+        return (
+            f"self.runtime.condition_policy_v1({value}, allow_na_bool={allow}, "
+            f"allow_numeric={allow})"
+        )
+
     def _safe(self, value: str, prefix: str, identity: str) -> str:
         slug = _NON_IDENTIFIER.sub("_", value).strip("_") or prefix
         if slug[0].isdigit() or keyword.iskeyword(slug):
@@ -895,6 +965,45 @@ class _DirectEmitter(
                     "source arguments are not bound to the PineLib ABI",
                     details={"parameters": sorted(unsupported)},
                 )
+            if self._origin_builtin_differs(ir_id, call, "na"):
+                origin_value = rendered_by_parameter.get("x") or rendered_by_parameter.get("source")
+                if origin_value is None and len(rendered_by_parameter) == 1:
+                    origin_value = next(iter(rendered_by_parameter.values()))
+                if origin_value is None:
+                    raise BundleInvariantError(
+                        "A2P_NA_ORIGIN",
+                        "origin na() call has no bound argument",
+                    )
+                allow = self._call_signature_version(ir_id)
+                return (
+                    f"self.runtime.na_policy_v1({origin_value}, "
+                    f"allow_bool={allow is not None and allow < 6})"
+                )
+            if self._origin_builtin_differs(ir_id, call, "nz"):
+                allow = self._call_signature_version(ir_id)
+                bound = [
+                    item
+                    for item in variadic_arguments + keyword_arguments
+                    if not item.startswith("tx=")
+                ]
+                return (
+                    f"self.runtime.nz_policy_v1({', '.join(bound)}, "
+                    f"allow_bool={allow is not None and allow < 6})"
+                )
+            if self._origin_builtin_differs(ir_id, call, "bool"):
+                allow = self._call_signature_version(ir_id)
+                origin_value = rendered_by_parameter.get("value") or rendered_by_parameter.get("x")
+                if origin_value is None and len(rendered_by_parameter) == 1:
+                    origin_value = next(iter(rendered_by_parameter.values()))
+                if origin_value is None:
+                    raise BundleInvariantError(
+                        "A2P_BOOL_ORIGIN",
+                        "origin bool() call has no bound argument",
+                    )
+                return (
+                    f"self.runtime.bool_policy_v1({origin_value}, "
+                    f"preserve_na={allow is not None and allow < 6})"
+                )
             return f"{alias}({', '.join(variadic_arguments + keyword_arguments)})"
         return f"self.runtime.{binding.python_name}({', '.join(rendered)})"
 
@@ -982,6 +1091,18 @@ class _DirectEmitter(
                 right_expr = self._expr(right[0])
                 if self._node(ir_id).evaluation == "lazy":
                     right_expr = "lambda: " + right_expr
+                if self._logical_origin_differs(ir_id):
+                    allow = self._logical_origin_version(ir_id)
+                    method = (
+                        "logical_lazy_policy"
+                        if self._node(ir_id).evaluation == "lazy"
+                        else "logical_eager_policy"
+                    )
+                    legacy = allow is not None and allow < 6
+                    return (
+                        f"self.runtime.{method}({operator!r}, {self._expr(left[0])}, "
+                        f"{right_expr}, allow_na_bool={legacy}, allow_numeric={legacy})"
+                    )
                 return self._runtime_operation(
                     self._node(ir_id).opcode, repr(operator), self._expr(left[0]), right_expr
                 )
@@ -1012,10 +1133,18 @@ class _DirectEmitter(
                 )
             if self.exact_pinelib and self._node(ir_id).evaluation == "eager":
                 return (
-                    "(lambda c, a, b: a if self.runtime.condition_v1(c) else b)("
+                    "(lambda c, a, b: a if "
+                    f"{self._origin_condition_call(ir_id, 'c')} else b)("
                     f"{self._expr(condition[0])}, {self._expr(when_true[0])}, {self._expr(when_false[0])})"
                 )
-            return f"({self._expr(when_true[0])} if {self._condition(condition[0])} else {self._expr(when_false[0])})"
+            condition_expr = (
+                self._origin_condition_call(ir_id, self._expr(condition[0]))
+                if self.exact_pinelib
+                else self._condition(condition[0])
+            )
+            return (
+                f"({self._expr(when_true[0])} if {condition_expr} else {self._expr(when_false[0])})"
+            )
         if kind == "HistoryRefExpr":
             base = self._role(ir_id, "base")
             offset = self._role(ir_id, "offset")
@@ -1046,6 +1175,13 @@ class _DirectEmitter(
                 return (
                     f"self.runtime.history_value_v1({self._node(base[0]).source.node_id!r}, "
                     f"{base_expression}, {self._expr(offset[0])}, {self._runtime_type(typ.base)!r})"
+                )
+            if self.exact_pinelib and self._history_origin_differs(ir_id):
+                allow = self._origin_allows_na_bool(ir_id)
+                return (
+                    "self.runtime.op_series_history_policy("
+                    f"{base_expression}, {self._expr(offset[0])}, "
+                    f"missing_bool_is_false={not allow})"
                 )
             return self._runtime_operation(
                 self._node(ir_id).opcode,
