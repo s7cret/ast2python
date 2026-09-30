@@ -3,6 +3,8 @@ from __future__ import annotations
 import statistics
 import time
 import tracemalloc
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -50,46 +52,66 @@ def run_performance_gate(bundle_path: str | Path, *, samples: int = 20) -> Perfo
         raise BundleInvariantError(
             "A2P_PERFORMANCE_SAMPLES", "performance samples must be positive"
         )
+    if tracemalloc.is_tracing():
+        raise BundleInvariantError(
+            "A2P_PERFORMANCE_TRACING",
+            "latency samples require an interpreter without active memory tracing",
+        )
     target = load_reference_target_manifest()
     service = BundleAdmissionService()
     timings: dict[str, list[float]] = {
         name: [] for name in ("admission", "ir_build", "ir_validate", "emission", "artifact")
     }
-    peak = 0
+
+    @contextmanager
+    def measure(name: str, *, timed: bool) -> Iterator[None]:
+        if not timed:
+            yield
+            return
+        start = time.perf_counter_ns()
+        yield
+        timings[name].append((time.perf_counter_ns() - start) / 1_000_000)
+
+    def run_sample(*, timed: bool) -> int:
+        with measure("admission", timed=timed):
+            admitted = service.admit(Path(bundle_path))
+        session = CompilationSession(admitted)
+        with measure("ir_build", timed=timed):
+            plan = build_lowering_plan(session, target)
+        with measure("ir_validate", timed=timed):
+            validate_lowering_plan(plan, target)
+        with measure("emission", timed=timed):
+            emitted = emit_python_module(plan, target)
+        with measure("artifact", timed=timed):
+            build_generated_artifact_v3(
+                bundle_hash=admitted.content_hash,
+                source_hash=str(admitted.source["source_hash"]),
+                version_context=admitted.version_context.to_dict(),
+                plan=plan,
+                target=target,
+                emitted=emitted,
+                producer_commit="a" * 40,
+                ast_hash=str(admitted.artifacts["ast_hash"]),
+                semantic_facts_hash=str(admitted.artifacts["semantic_facts_hash"]),
+                node_index_hash=str(admitted.artifacts["node_index_hash"]),
+            )
+        return len(plan.nodes)
+
+    # Allocation tracing substantially distorts admission's recursive validation,
+    # copying and canonical hashing. Keep latency and peak-memory measurements
+    # separate, but execute the same complete pipeline for EVERY sample of both.
     node_count = 0
     for _ in range(samples):
+        node_count = run_sample(timed=True)
+    peak = 0
+    for _ in range(samples):
         tracemalloc.start()
-        start = time.perf_counter_ns()
-        admitted = service.admit(Path(bundle_path))
-        timings["admission"].append((time.perf_counter_ns() - start) / 1_000_000)
-        session = CompilationSession(admitted)
-        start = time.perf_counter_ns()
-        plan = build_lowering_plan(session, target)
-        timings["ir_build"].append((time.perf_counter_ns() - start) / 1_000_000)
-        start = time.perf_counter_ns()
-        validate_lowering_plan(plan, target)
-        timings["ir_validate"].append((time.perf_counter_ns() - start) / 1_000_000)
-        start = time.perf_counter_ns()
-        emitted = emit_python_module(plan, target)
-        timings["emission"].append((time.perf_counter_ns() - start) / 1_000_000)
-        start = time.perf_counter_ns()
-        build_generated_artifact_v3(
-            bundle_hash=admitted.content_hash,
-            source_hash=str(admitted.source["source_hash"]),
-            version_context=admitted.version_context.to_dict(),
-            plan=plan,
-            target=target,
-            emitted=emitted,
-            producer_commit="a" * 40,
-            ast_hash=str(admitted.artifacts["ast_hash"]),
-            semantic_facts_hash=str(admitted.artifacts["semantic_facts_hash"]),
-            node_index_hash=str(admitted.artifacts["node_index_hash"]),
-        )
-        timings["artifact"].append((time.perf_counter_ns() - start) / 1_000_000)
-        _, current_peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        peak = max(peak, current_peak)
-        node_count = len(plan.nodes)
+        try:
+            run_sample(timed=False)
+            _, current_peak = tracemalloc.get_traced_memory()
+            peak = max(peak, current_peak)
+        finally:
+            tracemalloc.stop()
     medians = {name: round(statistics.median(values), 6) for name, values in timings.items()}
     ceilings = {
         "admission": 10.0,
