@@ -19,6 +19,7 @@ from tests.test_locked_library_execution import (
 )
 
 _BODY = "export f()=>\n    a=false and (1/(close-close)>0)\n    a ? 1 : 0\n"
+_OR_BODY = "export f()=>\n    a=true or (1/(close-close)>0)\n    a ? 1 : 0\n"
 
 
 def test_v6_consumer_v5_library_and_is_eager() -> None:
@@ -39,6 +40,30 @@ def test_v6_same_version_library_and_is_lazy() -> None:
 
 def test_v5_same_version_library_and_is_eager() -> None:
     libs = {"user/Lib/1": library(_BODY, version=5)}
+    compiled, linked = compile_linked(script("plot(lib.f())", version=5), libs)
+    runtime, cls = runtime_for(compiled)
+    with pytest.raises(PineRuntimeError, match="division by zero"):
+        advance(runtime, cls, [1])
+
+
+def test_v6_consumer_v5_library_or_is_eager() -> None:
+    libs = {"user/Lib/1": library(_OR_BODY, version=5)}
+    compiled, linked = compile_linked(script("plot(lib.f())", version=6), libs)
+    assert linked.receipt()["sources"]["user/Lib/1"]["pine_version"] == 5
+    runtime, cls = runtime_for(compiled)
+    with pytest.raises(PineRuntimeError, match="division by zero"):
+        advance(runtime, cls, [1])
+
+
+def test_v6_same_version_library_or_is_lazy() -> None:
+    libs = {"user/Lib/1": library(_OR_BODY, version=6)}
+    compiled, linked = compile_linked(script("plot(lib.f())", version=6), libs)
+    runtime, cls = runtime_for(compiled)
+    assert advance(runtime, cls, [1]) == [1]
+
+
+def test_v5_same_version_library_or_is_eager() -> None:
+    libs = {"user/Lib/1": library(_OR_BODY, version=5)}
     compiled, linked = compile_linked(script("plot(lib.f())", version=5), libs)
     runtime, cls = runtime_for(compiled)
     with pytest.raises(PineRuntimeError, match="division by zero"):

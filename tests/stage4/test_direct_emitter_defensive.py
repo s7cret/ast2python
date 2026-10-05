@@ -79,6 +79,41 @@ def test_member_access_without_exact_value_binding_fails_closed() -> None:
 
 
 @pytest.mark.parametrize(
+    ("rules", "prefixes", "expected"),
+    [
+        (("unrelated.v6", "call.signature.v5"), ("call.signature.v",), 5),
+        (("call.signature.vbroken",), ("call.signature.v",), None),
+        (
+            ("control.condition.vbroken", "series.history.missing_bool.v5"),
+            ("control.condition.v", "series.history.missing_bool.v"),
+            5,
+        ),
+        (("operator.logical_or.v5",), ("operator.logical_and.v", "operator.logical_or.v"), 5),
+    ],
+)
+def test_origin_stamp_ignores_unrelated_or_malformed_rule_ids(
+    rules: tuple[str, ...], prefixes: tuple[str, ...], expected: int | None
+) -> None:
+    """Only an exact numeric producer stamp may choose a library policy."""
+    emitter, ir_id = _mutated_emitter(kind="Literal")
+    node = emitter.plan.nodes[ir_id]
+    nodes = dict(emitter.plan.nodes)
+    nodes[ir_id] = replace(node, semantic_rule_ids=rules)
+    emitter.plan = replace(emitter.plan, nodes=MappingProxyType(nodes))
+    assert emitter._stamp_version(ir_id, prefixes) == expected
+
+
+def test_absent_origin_stamps_do_not_select_library_policy() -> None:
+    """A v6 bundle with no origin proof stays on its native execution path."""
+    emitter, ir_id = _mutated_emitter(kind="Literal")
+    assert emitter.plan.pine_version == 6
+    assert not emitter.plan.nodes[ir_id].semantic_rule_ids
+    assert emitter._logical_origin_differs(ir_id) is False
+    assert emitter._history_origin_differs(ir_id) is False
+    assert emitter._origin_builtin_differs(ir_id, {"callee": "nz"}, "nz") is False
+
+
+@pytest.mark.parametrize(
     ("kind", "code"),
     [
         ("VarDeclaration", "A2P_EMIT_VAR"),
