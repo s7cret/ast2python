@@ -77,7 +77,7 @@ def build_generated_artifact_v3(
     resolved_stack_hash = stack_manifest_hash or build_manifest_hash
     body: dict[str, Any] = {
         "schema_id": "openpine.generated_artifact.v3",
-        "schema_version": "3.0.0",
+        "schema_version": "INT05-negative",
         "producer": {
             "name": "ast2python",
             "version": __version__,
