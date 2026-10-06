@@ -5,14 +5,14 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, TypeAlias
+from typing import Any
 
 from ast2python.admission.limits import AdmissionLimits
 from ast2python.errors import BundleLimitError, BundleSourceError
 
-JSONScalar: TypeAlias = None | bool | int | float | str
-JSONValue: TypeAlias = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
-BundleInput: TypeAlias = Mapping[str, Any] | bytes | bytearray | memoryview | Path
+type JSONScalar = None | bool | int | float | str
+type JSONValue = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
+type BundleInput = Mapping[str, Any] | bytes | bytearray | memoryview | Path
 
 
 def _reject_constant(value: str) -> None:

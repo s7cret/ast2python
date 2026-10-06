@@ -1,5 +1,7 @@
 # Ast2Python 5.0.0rc6 — Stage 4
 
+The supported interpreter is ordinary CPython 3.13 (`>=3.13,<3.14`) with the GIL enabled. Free-threaded builds (`3.13t`), other Python minors, and other Python implementations are outside the supported runtime policy. This interpreter policy does not narrow functional requirements or acceptance gates.
+
 Ast2Python is the strict lowering and deterministic Python-emission backend of OpenPine.
 It does **not** parse Pine source or repeat Pine2AST binding/type semantics.
 
@@ -59,7 +61,7 @@ Target Manifest. The bundled target is a **reference ABI only** and is explicitl
 - Compiler-owned admission, IR, emission, source-map and artifact gates: implemented.
 - Exact PineLib RC6 Target Manifest: not available; release acceptance remains blocked.
 - Python 3.13 local gates: available.
-- Python 3.11/3.12 and hosted Ruff/Black/MyPy gates: required externally.
+- Hosted ordinary CPython 3.13 with the GIL enabled and Ruff/Black/MyPy gates: required externally.
 - Merge, tag, publication and deployment: not authorized.
 
 See `docs/` for architecture, contracts, security, limitations and the RC5→RC6 migration.
@@ -75,8 +77,8 @@ overall_release_ready   — local pass plus hosted Python/tooling, exact RC5 dif
                           and exact PineLib RC6 target acceptance
 ```
 
-A syntax check performed by Python 3.13 with `feature_version=(3, 11)` is reported as
-syntax evidence only. It is never reported as a Python 3.11 runtime test. Likewise,
+A syntax check performed by Python 3.13 with `feature_version=(3, 13)` is reported as
+syntax evidence only. It is never reported as a Python 3.13 runtime test. Likewise,
 missing Ruff, Black, MyPy, hosted CI, RC5 wheel bytes or PineLib target evidence remain
 explicit blockers rather than synthetic passes.
 

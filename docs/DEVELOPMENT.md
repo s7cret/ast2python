@@ -11,6 +11,6 @@ python -m ast2python.distribution manifest --root .
 python -m ast2python.release --root .
 ```
 
-Release infrastructure must additionally run Ruff, Black, MyPy and Python 3.11–3.13,
+Release infrastructure must additionally run Ruff, Black, MyPy and ordinary CPython 3.13 with the GIL enabled,
 build clean wheel/sdist artifacts twice, verify RECORD/safe paths, install only exact
 wheels, run exact Pine2AST and PineLib acceptance and generate SBOM/provenance evidence.

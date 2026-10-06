@@ -9,7 +9,7 @@ Current external blockers:
    `parameter_index`/binding facts are incomplete, so strict Ast2Python admission rejects
    it instead of re-binding locally;
 3. exact RC5 compiler artifacts were unavailable for a byte-level old/new differential;
-4. Python 3.11/3.12 and Ruff/Black/MyPy require hosted/external gates in this environment.
+4. Hosted ordinary CPython 3.13 with the GIL enabled and Ruff/Black/MyPy require exact-candidate external evidence.
 
 The six corrected version vectors and 22-case normative lowering corpus are accepted.
 Merge and release remain unauthorized until all external blockers are closed.

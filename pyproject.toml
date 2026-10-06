@@ -7,7 +7,11 @@ name = "ast2python"
 version = "5.0.0rc6"
 description = "Strict version-exact Pine lowering, deterministic Python emission, source maps, and generated artifacts for OpenPine"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13,<3.14"
+classifiers = [
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
 license = "MIT"
 authors = [{name = "Interpipe Solutions"}]
 dependencies = [
@@ -38,7 +42,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -46,10 +50,10 @@ ignore = ["E501"]
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+target-version = ["py313"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 packages = ["ast2python"]
 strict = true
 warn_unused_ignores = true

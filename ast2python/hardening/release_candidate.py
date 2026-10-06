@@ -265,7 +265,7 @@ def inspect_git_state(root: str | Path) -> dict[str, Any]:
 def run_syntax_compatibility_matrix(
     root: str | Path,
     *,
-    versions: Iterable[int] = (11, 12, 13),
+    versions: Iterable[int] = (13,),
 ) -> dict[str, Any]:
     root_path = Path(root).resolve()
     paths = tuple(sorted((root_path / "ast2python").rglob("*.py")))
@@ -300,7 +300,7 @@ def run_syntax_compatibility_matrix(
         "rows": rows,
         "claim_boundary": (
             "feature_version parsing proves syntax compatibility only; it does not replace an actual "
-            "Python 3.11/3.12 runtime test run"
+            "ordinary CPython 3.13 runtime test run with the GIL enabled"
         ),
     }
 
@@ -525,7 +525,7 @@ def build_final_gate(
         and syntax_matrix.get("ok") is True
         and isinstance(syntax_rows, list)
         and [row.get("python_version") for row in syntax_rows if isinstance(row, Mapping)]
-        == ["3.11", "3.12", "3.13"]
+        == ["3.13"]
         and all(
             isinstance(row, Mapping)
             and row.get("status") == "PASS"
@@ -647,7 +647,9 @@ def build_final_gate(
     hosted_python_ok = bool(
         hosted_common_ok
         and hosted_ci is not None
-        and hosted_ci.get("python_versions") == ["3.11", "3.12", "3.13"]
+        and hosted_ci.get("python_versions") == ["3.13"]
+        and hosted_ci.get("python_implementation") == "CPython"
+        and hosted_ci.get("gil_enabled") is True
     )
     hosted_quality_ok = bool(
         hosted_common_ok and hosted_ci is not None and hosted_ci.get("quality_ok") is True
@@ -666,7 +668,7 @@ def build_final_gate(
     external_gates = {
         "rc5_differential": rc5_ok,
         "exact_pinelib_target": exact_target_ok,
-        "hosted_python_3_11_3_12_3_13": hosted_python_ok,
+        "hosted_cpython_3_13_gil": hosted_python_ok,
         "hosted_ruff_black_mypy": hosted_quality_ok,
     }
     missing_tools = [row["name"] for row in tooling.get("tools", []) if not row.get("available")]

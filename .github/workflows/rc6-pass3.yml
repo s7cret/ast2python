@@ -38,11 +38,11 @@ env:
 jobs:
   quality:
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
     steps:
       - name: Checkout exact candidate commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -54,6 +54,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Verify supported CPython and GIL
+        run: |
+          python - <<'PY'
+          import platform
+          import sys
+          import sysconfig
+          assert sys.version_info[:2] == (3, 13), sys.version
+          assert platform.python_implementation() == "CPython"
+          assert not sysconfig.get_config_var("Py_GIL_DISABLED"), "free-threaded builds are unsupported"
+          assert sys._is_gil_enabled(), "GIL must be enabled"
+          PY
       - name: Fetch and verify exact Pine2AST wheel
         env:
           WHEEL_URL: ${{ inputs.pine2ast_wheel_url }}
@@ -108,7 +119,7 @@ jobs:
 
   rc5-differential:
     name: Exact RC5 to RC6 differential
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact candidate commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -119,6 +130,17 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.13"
+      - name: Verify supported CPython and GIL
+        run: |
+          python - <<'PY'
+          import platform
+          import sys
+          import sysconfig
+          assert sys.version_info[:2] == (3, 13), sys.version
+          assert platform.python_implementation() == "CPython"
+          assert not sysconfig.get_config_var("Py_GIL_DISABLED"), "free-threaded builds are unsupported"
+          assert sys._is_gil_enabled(), "GIL must be enabled"
+          PY
       - name: Fetch and verify exact RC5 wheel
         env:
           WHEEL_URL: ${{ inputs.rc5_wheel_url }}

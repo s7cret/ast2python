@@ -11,7 +11,7 @@ This pass closes release engineering owned by Ast2Python:
 5. clean wheel-only installation;
 6. action pinning by full commit SHA;
 7. local Python 3.13 test and coverage run;
-8. honest syntax-only checks for Python 3.11 and 3.12;
+8. honest syntax-only checks for the supported CPython 3.13;
 9. a fail-closed exact RC5 differential boundary;
 10. two independent audits of the final packet.
 
@@ -36,10 +36,16 @@ release when exact external evidence is absent.
 
 `overall_release_ready` additionally requires:
 
-- actual Python 3.11, 3.12 and 3.13 hosted jobs;
+- actual ordinary CPython 3.13 hosted jobs with the GIL enabled;
 - hosted Ruff, Black and strict MyPy;
 - an executable exact RC5 → RC6 differential with `REGRESSION=0`;
 - exact PineLib 5.0.0rc6 target acceptance.
 
 No gate authorizes merge, release or deployment. Authorization is a separate human
 operation.
+
+The active hosted Python receipt requires `python_versions: ["3.13"]`,
+`python_implementation: "CPython"`, and `gil_enabled: true`. Historical receipts
+for the former multi-version policy remain historical evidence; they are not
+converted into a current-policy pass. Functional, coverage, differential, fault,
+and exact-source requirements remain in force.

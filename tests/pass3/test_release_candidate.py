@@ -73,7 +73,7 @@ def test_python_syntax_matrix(tmp_path: Path) -> None:
     (package / "ok.py").write_text("value: int = 1\n", encoding="utf-8")
     report = run_syntax_compatibility_matrix(tmp_path)
     assert report["ok"] is True
-    assert [row["python_version"] for row in report["rows"]] == ["3.11", "3.12", "3.13"]
+    assert [row["python_version"] for row in report["rows"]] == ["3.13"]
     assert all(row["files_checked"] == 1 for row in report["rows"])
 
 
@@ -295,7 +295,7 @@ def _base_gate_inputs() -> dict[str, Any]:
             "ok": True,
             "rows": [
                 {"python_version": version, "status": "PASS", "files_checked": 1}
-                for version in ("3.11", "3.12", "3.13")
+                for version in ("3.13",)
             ],
         },
         "workflow_pins": {
@@ -364,7 +364,9 @@ def _base_gate_inputs() -> dict[str, Any]:
             "source_root_hash": source_root_hash,
             "source_commit": source_commit,
             "ok": True,
-            "python_versions": ["3.11", "3.12", "3.13"],
+            "python_versions": ["3.13"],
+            "python_implementation": "CPython",
+            "gil_enabled": True,
             "quality_ok": True,
             "job_count": 3,
             "target_manifest_hash": target_manifest_hash,
@@ -468,5 +470,29 @@ def test_final_gate_requires_exact_hashes_and_hosted_source_identity() -> None:
     assert result["overall_release_ready"] is False
     assert result["external_gates"]["rc5_differential"] is True
     assert result["external_gates"]["exact_pinelib_target"] is False
-    assert result["external_gates"]["hosted_python_3_11_3_12_3_13"] is False
+    assert result["external_gates"]["hosted_cpython_3_13_gil"] is False
     assert result["external_gates"]["hosted_ruff_black_mypy"] is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("python_versions", ["3.11", "3.12", "3.13"]),
+        ("python_versions", ["3.12"]),
+        ("python_versions", ["3.13t"]),
+        ("python_versions", ["3.14"]),
+        ("python_implementation", "PyPy"),
+        ("gil_enabled", False),
+        ("gil_enabled", None),
+    ],
+)
+def test_final_gate_rejects_unsupported_hosted_python(field: str, value: Any) -> None:
+    values = _base_gate_inputs()
+    values["hosted_ci"][field] = value
+
+    result = build_final_gate(**values)
+
+    assert result["local_candidate_ready"] is True
+    assert result["overall_release_ready"] is False
+    assert result["external_gates"]["hosted_cpython_3_13_gil"] is False
+    assert result["external_gates"]["hosted_ruff_black_mypy"] is True

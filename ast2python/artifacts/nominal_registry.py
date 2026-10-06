@@ -29,12 +29,12 @@ class NominalRegistryAdmission(Protocol[_RegistryT]):
     ) -> _RegistryT: ...
 
 
-def admitted_nominal_registry(
+def admitted_nominal_registry[RegistryT](
     namespace: Mapping[str, Any],
     envelope: Mapping[str, Any],
     *,
-    admit_registry: NominalRegistryAdmission[_RegistryT],
-) -> _RegistryT | None:
+    admit_registry: NominalRegistryAdmission[RegistryT],
+) -> RegistryT | None:
     """Return the immutable runtime owner, or explicit legacy nonnominal absence.
 
     Pine v5/v6 registry literals require the exact registry capability. Earlier

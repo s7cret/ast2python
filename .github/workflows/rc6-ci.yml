@@ -22,11 +22,11 @@ env:
 jobs:
   quality:
     name: RC6 quality (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -37,18 +37,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Verify supported CPython and GIL
+        run: |
+          python - <<'PY'
+          import platform
+          import sys
+          import sysconfig
+          assert sys.version_info[:2] == (3, 13), sys.version
+          assert platform.python_implementation() == "CPython"
+          assert not sysconfig.get_config_var("Py_GIL_DISABLED"), "free-threaded builds are unsupported"
+          assert sys._is_gil_enabled(), "GIL must be enabled"
+          PY
       - name: Check out pinned Pine2AST RC6 dependency
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pine2ast
-          ref: 1bc8ddb72ae6a30b209b5491622dd386b3ade7f5
+          ref: 87eb7f6880ec51ba19bf614e1e060c4195d6ada9
           path: pine2ast
           persist-credentials: false
       - name: Check out pinned PineLib runtime for execution tests
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: s7cret/pinelib
-          ref: 840d70ee87c35101fab64c8c4a32d00ebed78d1b
+          ref: f66c67f90a7f3428fe68267d41de9ae31202f775
           path: pinelib
           persist-credentials: false
       - name: Install declared package and development dependencies
